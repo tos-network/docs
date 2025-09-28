@@ -1,8 +1,7 @@
 const nextra = require('nextra').default
 
 const withNextra = nextra({
-  theme: 'nextra-theme-docs',
-  themeConfig: './theme.config.jsx'
+
 })
 
 module.exports = withNextra({
@@ -11,11 +10,5 @@ module.exports = withNextra({
   assetPrefix: "/docs/",
   images: {
     unoptimized: true
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  }
 })
