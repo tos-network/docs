@@ -29,223 +29,81 @@ Block 1 → Block 2b ←─┘   ↗
 
 ### Key Benefits
 
-- 🚀 **Higher Throughput**: Process 2,500+ transactions per second
-- ⚡ **Faster Confirmations**: Reduced confirmation times through parallel validation
-- 🔄 **Reduced Orphans**: Side blocks still contribute to network security
-- 🛡️ **Enhanced Security**: Multiple validation paths increase attack resistance
-- 📈 **Better Scalability**: Network capacity grows with participation
+- **Parallel Processing**: Multiple blocks can be mined simultaneously
+- **Higher Throughput**: Dramatically increased transaction capacity
+- **Reduced Confirmation Time**: Faster transaction finality
+- **Network Efficiency**: Better resource utilization
+- **Scalability**: Linear scaling with network growth
 
-## Topological Ordering
+## BlockDAG Structure
 
-TOS BlockDAG uses **topological ordering** to establish a consistent sequence of blocks within the DAG structure:
+### Block References
 
-### Topoheight System
-
-Every block receives a **topoheight** - a deterministic position in the topological order:
+Each block in the TOS BlockDAG contains:
 
 ```rust
-pub struct Block {
-    pub height: u64,        // Traditional block height
-    pub topoheight: u64,    // Position in topological order
-    pub cumulative_difficulty: u128,
-    pub tips: Vec<Hash>,    // References to previous blocks (up to 3)
+pub struct BlockDAGBlock {
+    pub header: BlockHeader,
+    pub transactions: Vec<Transaction>,
+    pub tips: Vec<BlockHash>,  // References to parent blocks
+    pub cumulative_difficulty: U256,
+    pub stable_height: u64,
 }
 ```
 
-### Dynamic Ordering
+### TIPS (Top Blocks)
 
-The topological order can change until blocks reach **stable height**:
+TIPS are the "topmost" blocks in the DAG that don't have children yet:
 
-```
-Example Reorganization:
-Initial Order:  [Block A: topo=100] → [Block B: topo=101]
-After Reorg:    [Block B: topo=100] → [Block A: topo=101]
-
-Reason: Block B achieved higher cumulative difficulty
-```
+- **Genesis Block**: The first block (always a TIP initially)
+- **Active TIPS**: Current blocks being referenced
+- **Maximum TIPS**: Network maintains optimal number of TIPS
+- **TIP Selection**: Algorithm for choosing which TIPS to reference
 
 ### Deterministic Selection
 
 When multiple blocks compete for the same position:
 
-1. **Cumulative Difficulty**: Higher difficulty wins
-2. **TIPS Quality**: Better connected blocks preferred
-3. **Timestamp**: Earlier blocks favored in ties
-4. **Hash Value**: Deterministic tie-breaker
+- **Cumulative Difficulty**: Higher difficulty wins
+- **TIPS Quality**: Better connected blocks preferred
+- **Timestamp**: Earlier blocks favored in ties
+- **Hash Value**: Deterministic tie-breaker
 
 ## Stable Height Mechanism
 
-To prevent deep reorganizations and maintain network stability:
+### Confirmation Process
 
-### Stability Rules
+TOS uses a sophisticated confirmation mechanism:
 
 ```rust
-pub const STABLE_LIMIT: u64 = 8;
+pub fn calculate_stable_height(
+    dag: &BlockDAG,
+    current_tips: &[BlockHash]
+) -> u64 {
+    let min_confirmations = 6;
+    let network_depth = dag.calculate_network_depth();
 
-impl BlockDAG {
-    pub fn calculate_stable_height(&self, current_top: u64) -> u64 {
-        // Stable height is always 8 blocks behind the top
-        current_top.saturating_sub(STABLE_LIMIT)
-    }
+    // Find blocks with sufficient confirmations
+    let stable_blocks: Vec<_> = dag.blocks
+        .iter()
+        .filter(|block| {
+            dag.count_confirmations(block.hash) >= min_confirmations
+        })
+        .collect();
 
-    pub fn is_block_stable(&self, block_topoheight: u64) -> bool {
-        block_topoheight <= self.get_stable_height()
-    }
+    stable_blocks.iter()
+        .map(|block| block.height)
+        .max()
+        .unwrap_or(0)
 }
 ```
 
-### Stability Guarantees
+### Finality Guarantees
 
-- ✅ **Irreversible**: Blocks below stable height cannot be reorganized
-- ✅ **Predictable**: Applications can rely on stable transactions
-- ✅ **Secure**: Deep reorganization attacks are prevented
-- ✅ **Final Settlement**: Financial applications have clear finality
-
-## Block Types in TOS BlockDAG
-
-### 1. Normal Blocks
-
-Standard blocks that win the competition for their height:
-
-```rust
-pub struct NormalBlock {
-    pub reward: TokenAmount,    // 100% of expected reward
-    pub status: BlockStatus::Normal,
-    pub transactions_executed: bool, // true
-}
-```
-
-**Characteristics:**
-- Full block rewards (100%)
-- All transactions executed
-- Contributes to main chain progression
-- Standard consensus participation
-
-### 2. Side Blocks
-
-Blocks that lose the height competition but remain valid:
-
-```rust
-pub struct SideBlock {
-    pub reward: TokenAmount,    // 30% of expected reward
-    pub status: BlockStatus::Side,
-    pub transactions_executed: bool, // true (if not duplicate)
-}
-```
-
-**Characteristics:**
-- Reduced rewards (30% of normal)
-- Transactions executed if not already processed
-- Still contributes to network security
-- Prevents work from being completely wasted
-
-### 3. Sync Blocks
-
-Special blocks that provide stability guarantees:
-
-```rust
-pub struct SyncBlock {
-    pub height: u64,
-    pub is_only_block_at_height: bool, // true
-    pub cumulative_difficulty: u128,   // highest among recent blocks
-    pub status: BlockStatus::Sync,
-}
-```
-
-**Requirements:**
-- Must be the only block at its height
-- Must be in stable height range
-- Must have highest cumulative difficulty
-- Provides strong finality guarantees
-
-### 4. Orphaned Blocks
-
-Blocks that fail to meet consensus requirements:
-
-```rust
-pub struct OrphanedBlock {
-    pub reward: TokenAmount,    // 0 (no reward)
-    pub status: BlockStatus::Orphaned,
-    pub transactions_executed: bool, // false
-}
-```
-
-**Reasons for Orphaning:**
-- Insufficient proof of work
-- Deviation from main chain rules
-- Failed validation checks
-- Consensus rule violations
-
-## Consensus Rules and TIPS Selection
-
-### TIPS Selection Algorithm
-
-Miners select up to **3 TIPS** (heaviest chain endpoints) as previous blocks:
-
-```rust
-impl TIPSSelector {
-    pub fn select_tips(&self, available_tips: &[BlockHash]) -> Vec<BlockHash> {
-        let mut selected = Vec::new();
-
-        // Sort by cumulative difficulty
-        let mut sorted_tips = available_tips.clone();
-        sorted_tips.sort_by(|a, b| {
-            self.get_cumulative_difficulty(b)
-                .cmp(&self.get_cumulative_difficulty(a))
-        });
-
-        // Select up to 3 TIPS with difficulty constraints
-        for tip in sorted_tips {
-            if selected.len() >= 3 { break; }
-
-            if self.validate_difficulty_difference(&selected, &tip) {
-                selected.push(tip);
-            }
-        }
-
-        selected
-    }
-
-    fn validate_difficulty_difference(&self, existing: &[BlockHash], new_tip: &BlockHash) -> bool {
-        // Maximum 9% difficulty difference between selected TIPS
-        for existing_tip in existing {
-            let diff_ratio = self.calculate_difficulty_ratio(existing_tip, new_tip);
-            if diff_ratio > 0.09 { return false; }
-        }
-        true
-    }
-}
-```
-
-### Transaction Handling
-
-The same transaction can appear in multiple blocks:
-
-```rust
-pub struct TransactionExecutor {
-    executed_transactions: HashSet<TransactionHash>,
-}
-
-impl TransactionExecutor {
-    pub fn execute_block_transactions(&mut self, block: &Block) -> ExecutionResult {
-        let mut results = Vec::new();
-
-        for tx in &block.transactions {
-            if !self.executed_transactions.contains(&tx.hash) {
-                // Execute transaction for the first time
-                let result = self.execute_transaction(tx)?;
-                self.executed_transactions.insert(tx.hash.clone());
-                results.push(result);
-            } else {
-                // Transaction already executed in another block
-                results.push(ExecutionResult::AlreadyExecuted(tx.hash.clone()));
-            }
-        }
-
-        Ok(results)
-    }
-}
-```
+- **Stable Height**: Blocks below this height are considered final
+- **Confirmation Depth**: Number of confirmations required
+- **Network Consensus**: Agreement across all nodes
+- **Reorg Protection**: Prevention of deep reorganizations
 
 ## Performance Characteristics
 
@@ -253,255 +111,220 @@ impl TransactionExecutor {
 
 | Metric | Traditional Blockchain | TOS BlockDAG | Improvement |
 |--------|------------------------|--------------|-------------|
-| **Blocks per minute** | 4 (15s target) | 8-12 | 2-3x higher |
-| **TPS capacity** | ~15 | 2,500+ | 165x improvement |
-| **Confirmation time** | 15-60s | 15-30s | Up to 4x faster |
-| **Wasted work** | ~50% orphaned | ~10% orphaned | 5x efficiency |
+| **TPS (Transactions Per Second)** | 7-15 | 1000+ | 70x faster |
+| **Block Time** | 10+ minutes | 15 seconds | 40x faster |
+| **Confirmation Time** | 60+ minutes | 2-5 minutes | 15x faster |
+| **Network Capacity** | Fixed | Elastic | Scalable |
 
-### Network Efficiency
+### Scalability Analysis
 
-```rust
-// Network utilization improvements
-pub struct NetworkMetrics {
-    pub parallel_block_processing: f64,    // 85% vs 50% traditional
-    pub orphan_rate: f64,                  // 10% vs 50% traditional
-    pub validator_participation: f64,      // 95% vs 70% traditional
-    pub confirmation_latency: Duration,    // 20s vs 45s traditional
-}
+```
+Network Load vs Performance:
+
+Low Load (< 100 TPS):
+├── Block Time: 15 seconds
+├── Confirmation: 2 minutes
+└── Network Efficiency: 95%+
+
+Medium Load (100-500 TPS):
+├── Block Time: 15 seconds
+├── Confirmation: 3 minutes
+└── Network Efficiency: 90%+
+
+High Load (500+ TPS):
+├── Block Time: 15 seconds
+├── Confirmation: 5 minutes
+└── Network Efficiency: 85%+
 ```
 
-## Security Model
+## Security Properties
+
+### Cryptographic Verification
+
+Every block maintains the same security guarantees:
+
+```rust
+pub fn verify_block_dag_integrity(
+    block: &BlockDAGBlock,
+    parent_blocks: &[BlockDAGBlock]
+) -> Result<(), ValidationError> {
+    // Verify block hash
+    verify_block_hash(block)?;
+
+    // Verify parent references
+    verify_parent_references(block, parent_blocks)?;
+
+    // Verify cumulative difficulty
+    verify_cumulative_difficulty(block, parent_blocks)?;
+
+    // Verify transaction validity
+    verify_transactions(&block.transactions)?;
+
+    Ok(())
+}
+```
 
 ### Attack Resistance
 
-BlockDAG provides enhanced security through multiple validation paths:
+- **Double Spend Protection**: Multiple confirmation paths
+- **51% Attack Resistance**: Distributed consensus mechanism
+- **Finality Assurance**: Stable height mechanism
+- **Network Partition Recovery**: Automatic healing capabilities
 
-#### 1. 51% Attack Mitigation
+## Mining in BlockDAG
 
-```rust
-impl SecurityAnalysis {
-    pub fn calculate_attack_cost(&self, attack_duration: Duration) -> AttackCost {
-        // Attacker needs to control multiple parallel chains
-        let parallel_chains = self.active_tips_count();
-        let required_hashrate = 0.51 * self.network_hashrate() * parallel_chains;
+### Parallel Mining
 
-        AttackCost {
-            hashrate_requirement: required_hashrate,
-            estimated_cost: required_hashrate * self.mining_cost_per_hash(),
-            success_probability: self.calculate_success_probability(required_hashrate),
-        }
-    }
-}
+Miners can work on multiple branches simultaneously:
+
+```python
+class BlockDAGMiner:
+    def mine_block(self):
+        # Select optimal TIPS to reference
+        tips = self.select_optimal_tips()
+
+        # Create new block
+        block = self.create_block(tips)
+
+        # Mine block (find valid nonce)
+        while not self.is_valid_proof(block):
+            block.nonce += 1
+
+        return block
+
+    def select_optimal_tips(self):
+        # Algorithm for TIP selection
+        candidates = self.get_current_tips()
+        return self.optimize_tip_selection(candidates)
 ```
 
-#### 2. Selfish Mining Prevention
+### Reward Distribution
 
-Multiple TIPS make selfish mining strategies less effective:
+Mining rewards are distributed based on:
 
-- **Parallel Discovery**: Multiple miners can build simultaneously
-- **Reduced Advantage**: Selfish miners can't monopolize single chain
-- **Fair Competition**: Side blocks still receive rewards
+- **Block Contribution**: Reward for valid block creation
+- **Network Stability**: Bonus for maintaining network health
+- **TIP Quality**: Extra rewards for good TIP selection
+- **Difficulty Contribution**: Proportional to computational work
 
-#### 3. Long-Range Attack Protection
+## Technical Implementation
 
-```rust
-pub fn validate_long_range_attack(&self, fork_point: u64) -> bool {
-    let stable_height = self.get_stable_height();
-
-    // Reject forks that start before stable height
-    if fork_point < stable_height {
-        return false;
-    }
-
-    // Additional validation for cumulative difficulty
-    self.validate_cumulative_difficulty_from(fork_point)
-}
-```
-
-## Implementation Details
-
-### Block Validation Process
+### Data Structure
 
 ```rust
-pub struct BlockValidator {
-    dag: Arc<BlockDAG>,
+pub struct BlockDAG {
+    pub blocks: HashMap<BlockHash, Block>,
+    pub tips: HashSet<BlockHash>,
+    pub stable_height: u64,
+    pub difficulty_adjustment: DifficultyAdjustment,
 }
 
-impl BlockValidator {
-    pub async fn validate_block(&self, block: &Block) -> ValidationResult {
-        // 1. Basic structural validation
-        self.validate_structure(block)?;
-
-        // 2. Proof of work validation
-        self.validate_proof_of_work(block)?;
-
-        // 3. TIPS validation
-        self.validate_tips_selection(block)?;
-
-        // 4. Transaction validation
-        self.validate_transactions(block)?;
-
-        // 5. DAG consistency check
-        self.validate_dag_consistency(block)?;
-
-        Ok(ValidationResult::Valid)
-    }
-
-    fn validate_tips_selection(&self, block: &Block) -> Result<(), ValidationError> {
-        // Verify TIPS selection follows consensus rules
-        if block.tips.len() > 3 {
-            return Err(ValidationError::TooManyTips);
-        }
-
-        // Check difficulty differences
-        for i in 0..block.tips.len() {
-            for j in (i+1)..block.tips.len() {
-                let diff_ratio = self.calculate_difficulty_ratio(&block.tips[i], &block.tips[j]);
-                if diff_ratio > 0.09 {
-                    return Err(ValidationError::TipsDifficultyTooHigh);
-                }
-            }
-        }
-
-        Ok(())
-    }
-}
-```
-
-### State Management
-
-```rust
-pub struct DAGState {
-    blocks: BTreeMap<u64, Vec<Block>>,  // height -> blocks
-    topoheight_to_block: BTreeMap<u64, BlockHash>, // topoheight -> block
-    tips: HashSet<BlockHash>,
-    stable_height: u64,
-}
-
-impl DAGState {
-    pub fn add_block(&mut self, block: Block) -> Result<(), StateError> {
-        // Update blocks at height
-        self.blocks.entry(block.height).or_default().push(block.clone());
-
-        // Recalculate topological order
-        self.recalculate_topological_order()?;
+impl BlockDAG {
+    pub fn add_block(&mut self, block: Block) -> Result<(), Error> {
+        // Validate block
+        self.validate_block(&block)?;
 
         // Update TIPS
         self.update_tips(&block);
 
-        // Update stable height
+        // Recalculate stable height
         self.update_stable_height();
 
-        Ok(())
-    }
-
-    fn recalculate_topological_order(&mut self) -> Result<(), StateError> {
-        // Implement topological sort with cumulative difficulty tiebreaker
-        let sorted_blocks = self.topological_sort_with_difficulty()?;
-
-        self.topoheight_to_block.clear();
-        for (topo_height, block_hash) in sorted_blocks.iter().enumerate() {
-            self.topoheight_to_block.insert(topo_height as u64, *block_hash);
-        }
+        // Store block
+        self.blocks.insert(block.hash(), block);
 
         Ok(())
     }
 }
+```
+
+### Network Protocol
+
+```
+BlockDAG Network Messages:
+
+BLOCK_ANNOUNCEMENT:
+├── Block Hash
+├── Parent Hashes
+├── Difficulty
+└── Timestamp
+
+TIP_REQUEST:
+├── Current TIPS
+└── Requested Count
+
+TIP_RESPONSE:
+├── Available TIPS
+├── Cumulative Difficulties
+└── Network Health
 ```
 
 ## Real-World Benefits
 
 ### For Users
 
-- **Faster Transactions**: Reduced confirmation times
-- **Lower Fees**: Better network efficiency reduces costs
-- **Higher Reliability**: Multiple validation paths increase uptime
-- **Better UX**: More responsive applications
-
-### For Miners
-
-- **Reduced Waste**: Side blocks still earn rewards
-- **Fair Competition**: Multiple opportunities to earn
-- **Stable Income**: More predictable reward distribution
-- **Network Participation**: All honest work contributes
+- **Faster Transactions**: Near-instant confirmations
+- **Lower Fees**: Increased capacity reduces congestion
+- **Better Reliability**: Network remains stable under high load
+- **Enhanced Privacy**: Parallel processing supports privacy features
 
 ### For Developers
 
-- **Scalable Applications**: Build for thousands of users
-- **Predictable Performance**: Stable confirmation times
-- **Flexible Architecture**: Adapt to varying network loads
-- **Future-Proof**: Scales with network growth
+- **Predictable Performance**: Consistent transaction throughput
+- **Scalable Applications**: Build apps that grow with network
+- **Advanced Features**: Leverage parallel processing capabilities
+- **Future-Proof**: Architecture designed for long-term growth
 
-## Comparison with Other Solutions
+### For Miners
 
-| Solution | TPS | Confirmation | Decentralization | Complexity |
-|----------|-----|--------------|------------------|------------|
-| **Bitcoin** | 7 | 10-60 min | High | Low |
-| **Ethereum** | 15 | 1-5 min | High | Medium |
-| **TOS BlockDAG** | 2,500+ | 15-30s | High | Medium |
-| **Solana** | 3,000+ | <1s | Medium | High |
-| **IOTA Tangle** | Variable | <1s | Low | High |
+- **Increased Opportunities**: More blocks to mine
+- **Fair Distribution**: Rewards based on contribution
+- **Network Stability**: Consistent mining environment
+- **Energy Efficiency**: Better resource utilization
 
 ## Future Enhancements
 
-### Phase 1: Optimization (Q1 2025)
-- **Adaptive TIPS Selection**: Dynamic adjustment based on network conditions
-- **Parallel Validation**: Multi-threaded block processing
-- **Memory Pool Improvements**: Better transaction propagation
+### Phase One: Optimization
 
-### Phase 2: Advanced Features (Q2 2025)
-- **Sharding Integration**: Combine BlockDAG with horizontal scaling
-- **Cross-Chain TIPS**: Inter-blockchain DAG connections
-- **AI-Optimized Ordering**: Machine learning for optimal block ordering
+- Advanced TIP selection algorithms
+- Dynamic difficulty adjustment per branch
+- Enhanced network synchronization
+- Performance monitoring tools
 
-### Phase 3: Next Generation (Q3 2025)
-- **Quantum-Resistant DAG**: Post-quantum cryptography integration
-- **Dynamic Block Size**: Adaptive block sizes based on network demand
-- **Zero-Knowledge DAG**: Private transaction ordering
+### Phase Two: Advanced Features
 
-## Developer Integration
+- Cross-shard communication
+- Layer-2 integration
+- Smart contract optimization
+- Enhanced privacy features
 
-### Working with BlockDAG
+### Phase Three: Ecosystem Integration
 
-```javascript
-// Example: Building applications on TOS BlockDAG
-const tos = require('@tos-network/sdk');
+- Inter-blockchain communication
+- Decentralized application frameworks
+- Advanced consensus mechanisms
+- Global scalability solutions
 
-// Subscribe to new blocks (any height)
-tos.blockdag.onNewBlock((block) => {
-    console.log(`New block at height ${block.height}, topo ${block.topoheight}`);
-    console.log(`Block type: ${block.type}`); // Normal, Side, Sync, or Orphaned
-});
+## Comparison with Other Solutions
 
-// Wait for stable confirmation
-async function waitForStableConfirmation(txHash) {
-    const tx = await tos.getTransaction(txHash);
-    const block = await tos.getBlock(tx.blockHash);
-
-    // Wait until block is in stable height
-    while (block.topoheight > tos.getStableHeight()) {
-        await tos.utils.delay(1000);
-    }
-
-    return true; // Transaction is now stable
-}
-
-// Get DAG statistics
-const stats = await tos.blockdag.getStatistics();
-console.log(`Current TIPS: ${stats.activeTips}`);
-console.log(`Orphan rate: ${stats.orphanRate}%`);
-console.log(`Average confirmation time: ${stats.avgConfirmationTime}s`);
-```
+| Feature | TOS BlockDAG | Bitcoin | Ethereum | IOTA Tangle |
+|---------|--------------|---------|----------|-------------|
+| **Structure** | DAG with TIPS | Linear Chain | Linear Chain | Pure DAG |
+| **Throughput** | 1000+ TPS | 7 TPS | 15 TPS | 1000+ TPS |
+| **Finality** | 2-5 minutes | 60+ minutes | 13+ minutes | Probabilistic |
+| **Energy Efficiency** | High | Low | Medium | High |
+| **Decentralization** | High | High | Medium | Medium |
 
 ## Conclusion
 
-TOS Network's BlockDAG architecture represents a fundamental advancement in blockchain technology, solving the scalability trilemma while maintaining decentralization and security. By enabling parallel block creation and intelligent topological ordering, TOS achieves **2,500+ TPS** throughput while preserving the trustless verification principles that make blockchain technology revolutionary.
+TOS Network's BlockDAG architecture represents the future of blockchain scalability, providing:
 
-The BlockDAG structure embodies TOS's core philosophy: **"Don't Trust, Verify it"** - every block is cryptographically verified through multiple paths, creating a more robust and scalable foundation for the future of decentralized finance and applications.
+- **Massive Throughput**: Handle thousands of transactions per second
+- **Fast Finality**: Confirm transactions in minutes, not hours
+- **Network Efficiency**: Optimal resource utilization
+- **Security Preservation**: Maintain cryptographic guarantees
+- **Future Scalability**: Architecture designed for growth
 
-## Learn More
+By embracing **"Don't Trust, Verify it"**, every aspect of the BlockDAG is mathematically verifiable and cryptographically secure, ensuring that scalability enhancements never compromise the fundamental security properties that make blockchain technology trustworthy.
 
-- [Client Protocol](/features/scalability/client-protocol) - How transactions are handled across multiple blocks
-- [Mining Guide](/getting-started/ai-mining) - Participate in BlockDAG consensus
-- [Network Configuration](/getting-started/network-config) - Set up nodes for BlockDAG
-- [Performance Benchmarks](/guides/blockdag-performance) - Detailed performance analysis
+Experience the future of blockchain scalability with TOS Network's revolutionary BlockDAG architecture!

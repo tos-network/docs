@@ -74,398 +74,78 @@ pub fn calculate_next_difficulty(
 }
 ```
 
-## Adjustment Parameters
-
-### Core Parameters
+## Core Parameters
 
 | Parameter | Value | Description |
-|-----------|-------|-------------|
+|-----------|--------|-------------|
 | Target Block Time | 15 seconds | Optimal time between blocks |
-| Adjustment Window | 144 blocks | ~36 minutes of blocks for calculation |
+| Adjustment Window | 144 blocks | Approximately 36 minutes of blocks for calculation |
 | Maximum Adjustment | 4.0x | Prevents extreme difficulty spikes |
 | Minimum Adjustment | 0.25x | Prevents difficulty collapse |
 | Smoothing Factor | 0.1 | Reduces adjustment volatility |
 
-### AI-Mining Specific Parameters
+## AI-Mining Parameters
 
 | Parameter | Value | Description |
-|-----------|-------|-------------|
+|-----------|--------|-------------|
 | AI Complexity Bonus | +10% | Additional difficulty for AI-mined blocks |
 | Energy Efficiency Factor | 0.8-1.2x | Based on energy consumption |
-| Hash Rate Threshold | 1 TH/s | Minimum for AI-mining activation |
+| Hash Rate Threshold | 1000 GH/s | Minimum for AI-mining activation |
 | GPU Acceleration Factor | 1.5x | Bonus for GPU-assisted AI mining |
-
-## Difficulty Adjustment Phases
-
-### Phase 1: Network Bootstrap (Blocks 0-1000)
-
-During network initialization:
-
-```
-difficulty = max(1, previous_difficulty * 0.5)
-```
-
-- Rapid difficulty reduction allowed
-- Faster network adoption
-- Simplified calculation for stability
-
-### Phase 2: Stabilization (Blocks 1001-10000)
-
-Transitional period with moderate adjustments:
-
-```
-adjustment_limit = 2.0  // Max 2x change
-window_size = 72       // ~18 minutes
-```
-
-### Phase 3: Mature Network (Blocks 10001+)
-
-Full algorithm implementation:
-
-```
-adjustment_limit = 1.5  // Max 1.5x change
-window_size = 144      // ~36 minutes
-ai_factor_enabled = true
-```
-
-## AI-Mining Integration
-
-### Dual-Track Mining Support
-
-TOS Network supports both traditional and AI-mining algorithms:
-
-```json
-{
-  "traditional_mining": {
-    "algorithm": "TOS-Hash",
-    "difficulty_base": 1000000,
-    "adjustment_factor": 1.0
-  },
-  "ai_mining": {
-    "algorithm": "TOS-AI",
-    "difficulty_base": 1200000,
-    "adjustment_factor": 1.1,
-    "complexity_bonus": 0.1
-  }
-}
-```
-
-### AI Difficulty Calculation
-
-```python
-def calculate_ai_difficulty(base_difficulty, ai_metrics):
-    """Calculate difficulty for AI-mining blocks"""
-
-    # AI complexity factors
-    model_complexity = ai_metrics.get('model_complexity', 1.0)
-    training_iterations = ai_metrics.get('training_iterations', 100)
-    accuracy_score = ai_metrics.get('accuracy', 0.5)
-
-    # Complexity scaling
-    complexity_factor = min(2.0, model_complexity * 0.1 + 1.0)
-
-    # Accuracy bonus (better AI models get slight difficulty reduction)
-    accuracy_bonus = max(0.9, 1.0 - (accuracy_score - 0.5) * 0.2)
-
-    # Final AI difficulty
-    ai_difficulty = base_difficulty * complexity_factor * accuracy_bonus
-
-    return int(ai_difficulty)
-```
-
-## Network Hash Rate Analysis
-
-### Hash Rate Tracking
-
-The network continuously monitors hash rate distribution:
-
-```javascript
-// Hash rate metrics collection
-const hashRateMetrics = {
-  totalNetworkHashRate: '125.5 TH/s',
-  traditionalMining: '75.3 TH/s (60%)',
-  aiMining: '50.2 TH/s (40%)',
-  distributionIndex: 0.85, // Higher = more distributed
-  stabilityScore: 0.92     // Higher = more stable
-};
-
-// Difficulty adjustment based on hash rate
-function adjustForHashRate(currentDifficulty, metrics) {
-  const hashRateChange = metrics.currentHashRate / metrics.previousHashRate;
-  const stabilityFactor = metrics.stabilityScore;
-
-  // Smooth adjustment based on hash rate change
-  const hashRateAdjustment = Math.pow(hashRateChange, 0.25); // Fourth root for smoothing
-  const stabilityAdjustment = 0.9 + (stabilityFactor * 0.2); // 0.9 to 1.1 range
-
-  return currentDifficulty * hashRateAdjustment * stabilityAdjustment;
-}
-```
-
-## Performance Metrics
-
-### Target Metrics
-
-| Metric | Target | Tolerance |
-|--------|--------|-----------|
-| Average Block Time | 15.0 seconds | ±2.0 seconds |
-| Block Time Variance | <10% | Standard deviation |
-| Difficulty Adjustment Frequency | Every 144 blocks | ~36 minutes |
-| Hash Rate Stability | >90% | Week-over-week |
-| Mining Centralization Index | <0.5 | Gini coefficient |
-
-### Real-time Monitoring
-
-```sql
--- Network difficulty metrics query
-SELECT
-    block_height,
-    difficulty,
-    block_time,
-    hash_rate,
-    ai_mining_ratio,
-    adjustment_factor,
-    timestamp
-FROM difficulty_history
-WHERE timestamp >= NOW() - INTERVAL '24 hours'
-ORDER BY block_height DESC
-LIMIT 100;
-```
-
-## Emergency Difficulty Adjustment
-
-### Fork Protection
-
-In case of sudden hash rate changes (>90% drop):
-
-```
-emergency_difficulty = current_difficulty * 0.1
-emergency_trigger = (current_hash_rate / average_hash_rate) < 0.1
-```
-
-### Recovery Mechanism
-
-```python
-def emergency_adjustment(current_difficulty, hash_rate_drop_percentage):
-    """Emergency difficulty adjustment for network protection"""
-
-    if hash_rate_drop_percentage > 90:
-        # Severe drop - immediate 90% reduction
-        return current_difficulty * 0.1
-    elif hash_rate_drop_percentage > 75:
-        # Major drop - 75% reduction
-        return current_difficulty * 0.25
-    elif hash_rate_drop_percentage > 50:
-        # Significant drop - 50% reduction
-        return current_difficulty * 0.5
-    else:
-        # Normal adjustment
-        return current_difficulty
-```
-
-## Implementation Examples
-
-### Mining Pool Integration
-
-```javascript
-// Mining pool difficulty tracking
-class TOSMiningPool {
-  constructor() {
-    this.currentDifficulty = 0;
-    this.targetBlockTime = 15000; // 15 seconds in ms
-    this.adjustmentWindow = 144;
-  }
-
-  async updateDifficulty() {
-    const latestBlocks = await this.getLatestBlocks(this.adjustmentWindow);
-    const averageBlockTime = this.calculateAverageBlockTime(latestBlocks);
-    const aiMiningRatio = this.calculateAIMiningRatio(latestBlocks);
-
-    // Calculate new difficulty
-    const timeFactor = this.targetBlockTime / averageBlockTime;
-    const aiFactor = 1.0 + (aiMiningRatio * 0.1);
-    const adjustmentFactor = Math.min(4.0, Math.max(0.25, timeFactor * aiFactor));
-
-    this.currentDifficulty = Math.floor(this.currentDifficulty * adjustmentFactor);
-
-    // Broadcast to miners
-    this.broadcastDifficultyUpdate();
-  }
-
-  calculateAverageBlockTime(blocks) {
-    const times = blocks.map(block => block.timestamp - block.previousTimestamp);
-    return times.reduce((sum, time) => sum + time, 0) / times.length;
-  }
-
-  calculateAIMiningRatio(blocks) {
-    const aiBlocks = blocks.filter(block => block.isAIMined).length;
-    return aiBlocks / blocks.length;
-  }
-}
-```
-
-### Solo Mining Implementation
-
-```python
-import time
-import requests
-from typing import List, Dict
-
-class TOSSoloMiner:
-    def __init__(self, node_url: str):
-        self.node_url = node_url
-        self.current_difficulty = 1000000
-        self.target_block_time = 15
-
-    def get_network_difficulty(self) -> int:
-        """Fetch current network difficulty"""
-        response = requests.get(f"{self.node_url}/api/network/difficulty")
-        return response.json()['difficulty']
-
-    def calculate_mining_target(self, difficulty: int) -> str:
-        """Calculate mining target from difficulty"""
-        max_target = 2 ** 256 - 1
-        target = max_target // difficulty
-        return hex(target)
-
-    def adjust_local_difficulty(self, recent_blocks: List[Dict]) -> int:
-        """Adjust local mining difficulty based on recent performance"""
-        if len(recent_blocks) < 10:
-            return self.current_difficulty
-
-        # Calculate local average block time
-        total_time = sum(block['solve_time'] for block in recent_blocks)
-        avg_time = total_time / len(recent_blocks)
-
-        # Adjust local difficulty
-        time_ratio = self.target_block_time / avg_time
-        adjustment = min(2.0, max(0.5, time_ratio))
-
-        return int(self.current_difficulty * adjustment)
-
-    def mine_block(self, block_template: Dict) -> Dict:
-        """Mine a block with current difficulty"""
-        target = self.calculate_mining_target(self.current_difficulty)
-        start_time = time.time()
-
-        # Mining loop (simplified)
-        nonce = 0
-        while True:
-            block_hash = self.calculate_hash(block_template, nonce)
-            if int(block_hash, 16) < int(target, 16):
-                solve_time = time.time() - start_time
-                return {
-                    'block': block_template,
-                    'nonce': nonce,
-                    'hash': block_hash,
-                    'solve_time': solve_time,
-                    'difficulty': self.current_difficulty
-                }
-            nonce += 1
-```
-
-## Network Monitoring
-
-### Difficulty Dashboard
-
-Monitor network difficulty in real-time:
-
-```bash
-# CLI monitoring tool
-tos-daemon network-stats --difficulty
-
-# Output:
-# Current Difficulty: 1,250,000,000
-# Target Block Time: 15.0s
-# Actual Block Time: 14.8s (last 144 blocks)
-# Hash Rate: 125.5 TH/s
-# AI Mining Ratio: 42%
-# Next Adjustment: 12 blocks (~3 minutes)
-# Estimated Change: +2.1%
-```
-
-### API Endpoints
-
-```http
-GET /api/network/difficulty
-Content-Type: application/json
-
-{
-  "current_difficulty": 1250000000,
-  "target_block_time": 15,
-  "actual_block_time": 14.8,
-  "blocks_until_adjustment": 12,
-  "estimated_adjustment": 1.021,
-  "hash_rate": "125.5 TH/s",
-  "ai_mining_ratio": 0.42
-}
-```
 
 ## Best Practices
 
 ### For Miners
 
-1. **Monitor Difficulty Trends**
-   - Track difficulty adjustments
-   - Plan mining operations around changes
-   - Optimize for AI-mining when profitable
+- **Monitor Difficulty Trends**
+  - Track difficulty adjustments
+  - Plan mining operations around changes
+  - Optimize for AI-mining when profitable
 
-2. **Energy Efficiency**
-   - Utilize TOS Energy Model
-   - Balance traditional and AI mining
-   - Monitor profitability metrics
+- **Energy Efficiency**
+  - Utilize TOS Energy Model
+  - Balance hash rate with energy consumption
+  - Consider renewable energy sources
 
-3. **Pool Selection**
-   - Choose pools with good difficulty tracking
-   - Verify accurate difficulty calculations
-   - Monitor pool performance metrics
+- **Pool Selection**
+  - Choose pools with consistent payouts
+  - Monitor pool hash rate distribution
+  - Avoid centralization risks
 
 ### For Developers
 
-1. **Difficulty Integration**
-   - Always fetch latest difficulty
-   - Implement proper error handling
-   - Cache difficulty for performance
+- **Difficulty Integration**
+  - Use provided APIs for real-time difficulty data
+  - Implement proper retry mechanisms
+  - Cache difficulty values appropriately
 
-2. **Mining Application Development**
-   - Support both mining algorithms
-   - Implement adaptive difficulty
-   - Monitor network conditions
+- **Mining Application Development**
+  - Handle difficulty changes gracefully
+  - Implement dynamic work adjustment
+  - Monitor network health metrics
 
-3. **Testing and Validation**
-   - Test with various difficulty levels
-   - Validate calculations against network
-   - Implement comprehensive logging
+- **Testing and Validation**
+  - Test across different difficulty scenarios
+  - Validate against network consensus
+  - Monitor for edge cases
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Difficulty Sync Problems**
-   ```bash
-   # Force difficulty resync
-   tos-daemon --resync-difficulty
+- **Difficulty Sync Problems**
+  - Check network connectivity
+  - Verify node synchronization
+  - Update to latest client version
 
-   # Check difficulty calculation
-   tos-daemon --verify-difficulty
-   ```
+- **Mining Performance Issues**
+  - Monitor hash rate stability
+  - Check hardware temperature
+  - Optimize mining parameters
 
-2. **Mining Performance Issues**
-   ```bash
-   # Check mining configuration
-   tos-miner --test-difficulty
+- **Network Connectivity**
+  - Verify port forwarding
+  - Check firewall settings
+  - Test peer connections
 
-   # Verify AI-mining setup
-   tos-miner --ai-mining-test
-   ```
-
-3. **Network Connectivity**
-   ```bash
-   # Test network connection
-   tos-daemon --test-network
-
-   # Check peer difficulty sync
-   tos-daemon --peer-status
-   ```
-
-The TOS Network difficulty adjustment system ensures fair, stable, and efficient mining while supporting both traditional and AI-mining approaches. By maintaining the principle of "Don't Trust, Verify it," all difficulty calculations are transparent and verifiable by any network participant.
+Remember: **"Don't Trust, Verify it"** - Always validate difficulty calculations and network consensus!

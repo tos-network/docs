@@ -1,10 +1,10 @@
-const nextra = require('nextra').default
+import nextra from 'nextra'
 
 const withNextra = nextra({
 
 })
 
-module.exports = withNextra({
+export default withNextra({
   output: "export",
   images: {
     unoptimized: true
