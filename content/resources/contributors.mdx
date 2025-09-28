@@ -1,0 +1,695 @@
+---
+title: Contributors Guide
+description: How to contribute to TOS Network development, documentation, and community growth
+---
+
+# TOS Network Contributors Guide
+
+Join the TOS Network community and help build the future of AI-powered blockchain technology. This guide covers everything you need to know to start contributing.
+
+## 🌟 Ways to Contribute
+
+### 💻 **Code Contributions**
+- Core protocol development
+- AI-Mining algorithm improvements
+- Smart contract tooling
+- API and SDK enhancements
+- Bug fixes and optimizations
+
+### 📚 **Documentation**
+- Technical documentation
+- Tutorial creation
+- API reference improvements
+- Translation to other languages
+- Community guides
+
+### 🧪 **Testing & QA**
+- Manual testing of new features
+- Automated test development
+- Security auditing
+- Performance benchmarking
+- User experience testing
+
+### 🎨 **Design & UX**
+- Wallet interface design
+- Developer tool UX
+- Documentation design
+- Brand assets creation
+- Mobile app design
+
+### 🌍 **Community**
+- Community management
+- Educational content creation
+- Event organization
+- Developer support
+- Social media engagement
+
+## 🚀 Getting Started
+
+### 1. Set Up Development Environment
+
+**Prerequisites**:
+```bash
+# Install Rust (latest stable)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+# Install Node.js (v18+)
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install Python (3.9+)
+sudo apt-get install python3.9 python3.9-pip
+
+# Install Git
+sudo apt-get install git
+```
+
+**Clone the Repository**:
+```bash
+git clone https://github.com/tos-network/tos.git
+cd tos
+
+# Set up git hooks
+git config core.hooksPath .githooks
+chmod +x .githooks/*
+```
+
+**Build the Project**:
+```bash
+# Build core components
+cargo build --release
+
+# Build AI-Mining components
+cd ai-mining
+pip install -r requirements.txt
+python setup.py build
+
+# Build web components
+cd ../web-interface
+npm install
+npm run build
+```
+
+### 2. Understanding the Codebase
+
+**Repository Structure**:
+```
+tos/
+├── core/                 # Core blockchain protocol
+│   ├── consensus/        # Consensus mechanism
+│   ├── crypto/          # Cryptographic primitives
+│   ├── network/         # P2P networking
+│   └── storage/         # Blockchain storage
+├── ai-mining/           # AI-Mining implementation
+│   ├── algorithms/      # AI algorithms
+│   ├── quality/         # Quality scoring
+│   └── marketplace/     # Task marketplace
+├── smart-contracts/     # RVM and contract system
+│   ├── rvm/            # Rust Virtual Machine
+│   ├── stdlib/         # Standard library
+│   └── examples/       # Example contracts
+├── apis/               # REST and WebSocket APIs
+│   ├── daemon/         # Node API
+│   ├── wallet/         # Wallet API
+│   └── index/          # Blockchain indexing
+├── sdks/               # Software Development Kits
+│   ├── rust/           # Rust SDK
+│   ├── javascript/     # JavaScript SDK
+│   └── python/         # Python SDK
+├── tools/              # Development tools
+│   ├── cli/            # Command-line tools
+│   ├── testing/        # Testing frameworks
+│   └── deployment/     # Deployment scripts
+└── docs/               # Documentation
+    ├── content/        # Documentation content
+    └── examples/       # Code examples
+```
+
+### 3. Find Issues to Work On
+
+**Good First Issues**:
+- Look for issues labeled `good-first-issue`
+- Documentation improvements
+- Small bug fixes
+- Test coverage improvements
+
+**Example First Contributions**:
+```bash
+# Find beginner-friendly issues
+gh issue list --label "good-first-issue" --state open
+
+# Example issues you might tackle:
+# - Add unit tests for utility functions
+# - Fix typos in documentation
+# - Improve error messages
+# - Add code examples to API docs
+```
+
+## 🔧 Development Workflow
+
+### 1. Issue Assignment
+
+```bash
+# Comment on GitHub issue to request assignment
+# Wait for maintainer approval
+# Fork the repository
+git clone https://github.com/YOUR_USERNAME/tos.git
+cd tos
+
+# Add upstream remote
+git remote add upstream https://github.com/tos-network/tos.git
+```
+
+### 2. Create Feature Branch
+
+```bash
+# Create and switch to feature branch
+git checkout -b feature/issue-123-improve-mining-algo
+
+# Keep branch up to date with upstream
+git fetch upstream
+git rebase upstream/main
+```
+
+### 3. Make Changes
+
+**Code Style Guidelines**:
+
+```rust
+// Rust code style example
+#![deny(missing_docs)]
+#![deny(clippy::all)]
+
+/// Calculate mining difficulty adjustment
+///
+/// # Arguments
+///
+/// * `current_difficulty` - Current network difficulty
+/// * `target_time` - Target block time in seconds
+/// * `actual_time` - Actual average block time
+///
+/// # Returns
+///
+/// New difficulty value
+pub fn calculate_difficulty_adjustment(
+    current_difficulty: u64,
+    target_time: u64,
+    actual_time: u64,
+) -> Result<u64, DifficultyError> {
+    if actual_time == 0 {
+        return Err(DifficultyError::InvalidTime);
+    }
+
+    let adjustment_factor = target_time as f64 / actual_time as f64;
+    let clamped_factor = adjustment_factor.clamp(0.25, 4.0);
+
+    Ok((current_difficulty as f64 * clamped_factor) as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_difficulty_adjustment_increase() {
+        let result = calculate_difficulty_adjustment(1000, 60, 30).unwrap();
+        assert_eq!(result, 2000);
+    }
+
+    #[test]
+    fn test_difficulty_adjustment_decrease() {
+        let result = calculate_difficulty_adjustment(1000, 60, 120).unwrap();
+        assert_eq!(result, 500);
+    }
+}
+```
+
+**JavaScript/TypeScript Style**:
+
+```typescript
+// TypeScript code style example
+interface MiningStatistics {
+  hashRate: number;
+  difficulty: number;
+  blockTime: number;
+  efficiency: number;
+}
+
+/**
+ * Calculate mining efficiency metrics
+ * @param hashRate - Current hash rate in H/s
+ * @param powerConsumption - Power consumption in watts
+ * @returns Efficiency in H/W
+ */
+export function calculateMiningEfficiency(
+  hashRate: number,
+  powerConsumption: number
+): number {
+  if (powerConsumption <= 0) {
+    throw new Error('Power consumption must be positive');
+  }
+
+  return hashRate / powerConsumption;
+}
+
+// Comprehensive tests required
+describe('Mining Efficiency', () => {
+  test('calculates efficiency correctly', () => {
+    const efficiency = calculateMiningEfficiency(1000000, 500);
+    expect(efficiency).toBe(2000);
+  });
+
+  test('throws error for invalid power consumption', () => {
+    expect(() => calculateMiningEfficiency(1000, 0)).toThrow();
+  });
+});
+```
+
+### 4. Testing Requirements
+
+**Run All Tests**:
+```bash
+# Rust tests
+cargo test --all
+
+# Python tests
+cd ai-mining
+python -m pytest tests/
+
+# JavaScript tests
+cd web-interface
+npm test
+
+# Integration tests
+./scripts/run-integration-tests.sh
+```
+
+**Coverage Requirements**:
+- New code: 100% test coverage
+- Modified code: Maintain existing coverage
+- Critical paths: Performance benchmarks required
+
+### 5. Documentation Updates
+
+**Required Documentation**:
+```markdown
+<!-- For new features -->
+## New Feature: AI-Mining Quality Scoring v2
+
+### Overview
+Brief description of the feature...
+
+### Usage Example
+```rust
+let scorer = QualityScorer::new(ScorerConfig::default());
+let score = scorer.calculate_score(&task_result)?;
+```
+
+### API Reference
+- `QualityScorer::new(config)` - Creates new scorer
+- `calculate_score(result)` - Calculates quality score
+
+### Migration Guide
+Steps to migrate from v1 to v2...
+```
+
+### 6. Commit Messages
+
+**Commit Message Format**:
+```
+type(scope): brief description
+
+Longer description explaining the what and why,
+not the how. Include any breaking changes.
+
+Fixes #123
+```
+
+**Types**:
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `test`: Test improvements
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `chore`: Maintenance tasks
+
+**Examples**:
+```bash
+git commit -m "feat(ai-mining): implement quality scoring v2
+
+Add new quality scoring algorithm that considers:
+- Solution accuracy
+- Computational efficiency
+- Network contribution
+- Time factors
+
+This improves scoring fairness and incentivizes
+better AI-Mining participation.
+
+Fixes #456"
+```
+
+### 7. Pull Request Process
+
+**PR Template**:
+```markdown
+## Description
+Brief description of changes...
+
+## Type of Change
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
+- [ ] Documentation update
+
+## Testing
+- [ ] Unit tests pass
+- [ ] Integration tests pass
+- [ ] Manual testing completed
+
+## Checklist
+- [ ] Code follows style guidelines
+- [ ] Self-review completed
+- [ ] Documentation updated
+- [ ] Breaking changes documented
+```
+
+**PR Review Process**:
+1. **Automated Checks**: CI/CD pipeline runs
+2. **Code Review**: 2+ approvals required
+3. **Testing**: QA team verification
+4. **Final Review**: Maintainer approval
+5. **Merge**: Squash and merge to main
+
+## 🏆 Recognition System
+
+### Contributor Levels
+
+**🌱 Newcomer** (0-5 contributions)
+- Welcome package
+- Mentorship assignment
+- Good first issues guidance
+
+**🌿 Regular Contributor** (6-25 contributions)
+- Contributor badge
+- Direct issue assignment
+- Technical discussion access
+
+**🌳 Core Contributor** (26-100 contributions)
+- Core contributor status
+- Review privileges
+- Architecture decision input
+
+**🏛️ Maintainer** (100+ contributions + expertise)
+- Maintainer privileges
+- Release management
+- Roadmap planning authority
+
+### Recognition Programs
+
+**Monthly Contributor Awards**:
+- Most Valuable Contributor
+- Best First-Time Contributor
+- Outstanding Documentation
+- Bug Hunter of the Month
+
+**Annual Recognition**:
+- TOS Network Community Champion
+- Technical Excellence Award
+- Innovation Award
+- Lifetime Achievement
+
+### Rewards and Benefits
+
+**All Contributors**:
+- Public recognition on website
+- Contributor certificate
+- Exclusive Discord channels
+- Early access to new features
+
+**Core Contributors**:
+- TOS Network swag package
+- Conference speaking opportunities
+- Direct line to development team
+- Influence on technical decisions
+
+**Maintainers**:
+- Compensation opportunities
+- Technical advisory roles
+- Conference sponsorship
+- Co-authorship on research papers
+
+## 📋 Contribution Guidelines
+
+### Code Quality Standards
+
+**Code Review Checklist**:
+- [ ] Code is clean and readable
+- [ ] Follows established patterns
+- [ ] Includes comprehensive tests
+- [ ] Documentation is complete
+- [ ] No security vulnerabilities
+- [ ] Performance is optimized
+- [ ] Error handling is robust
+
+**Security Considerations**:
+```rust
+// Example: Secure input validation
+pub fn validate_transaction_amount(amount: u64) -> Result<(), ValidationError> {
+    // Check for overflow
+    if amount > MAX_TRANSACTION_AMOUNT {
+        return Err(ValidationError::AmountTooLarge);
+    }
+
+    // Check for minimum amount
+    if amount < MIN_TRANSACTION_AMOUNT {
+        return Err(ValidationError::AmountTooSmall);
+    }
+
+    Ok(())
+}
+```
+
+### Communication Guidelines
+
+**Be Respectful and Inclusive**:
+- Use welcoming language
+- Respect different perspectives
+- Help newcomers learn
+- Credit others' contributions
+
+**Technical Discussions**:
+- Be specific and factual
+- Provide examples and evidence
+- Consider alternative approaches
+- Document decisions and rationale
+
+**Code Review Comments**:
+```markdown
+<!-- Good feedback examples -->
+"This could be more efficient using a HashMap instead of Vec"
+"Consider adding error handling for the network timeout case"
+"Great implementation! Could you add a comment explaining the algorithm?"
+
+<!-- Avoid -->
+"This is wrong" (not helpful)
+"You should know this" (not inclusive)
+```
+
+## 🛠️ Tools and Resources
+
+### Development Tools
+
+**Required Tools**:
+```bash
+# Code formatting
+cargo install rustfmt
+npm install -g prettier
+
+# Linting
+cargo install clippy
+npm install -g eslint
+
+# Testing
+cargo install cargo-tarpaulin  # Coverage
+npm install -g jest
+
+# Documentation
+cargo install mdbook
+npm install -g typedoc
+```
+
+**IDE Setup**:
+
+**VS Code Extensions**:
+- Rust Analyzer
+- Python
+- Prettier
+- GitLens
+- Docker
+
+**Configuration**:
+```json
+// .vscode/settings.json
+{
+  "rust-analyzer.cargo.allFeatures": true,
+  "editor.formatOnSave": true,
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "typescript.preferences.importModuleSpecifier": "relative"
+}
+```
+
+### Learning Resources
+
+**Technical Documentation**:
+- [Rust Book](https://doc.rust-lang.org/book/)
+- [Blockchain Fundamentals](https://docs.tos.network/features/)
+- [AI-Mining Guide](https://docs.tos.network/tutorials/ai-mining-optimization)
+
+**Video Tutorials**:
+- TOS Network Architecture Overview
+- Contributing to Open Source Projects
+- Rust for Blockchain Development
+- AI-Mining Algorithm Development
+
+**Community Workshops**:
+- Monthly contributor onboarding
+- Technical deep-dive sessions
+- Code review workshops
+- Documentation writing workshops
+
+## 🎯 Specialized Contribution Areas
+
+### Core Protocol Development
+
+**Skills Needed**:
+- Strong Rust programming
+- Cryptography knowledge
+- Distributed systems experience
+- Blockchain protocol understanding
+
+**Current Needs**:
+- Quantum-resistant cryptography implementation
+- Consensus mechanism optimizations
+- Cross-chain bridge improvements
+- Performance optimizations
+
+### AI-Mining Development
+
+**Skills Needed**:
+- Python/PyTorch/TensorFlow
+- Machine learning expertise
+- Distributed computing
+- Algorithm optimization
+
+**Current Needs**:
+- New AI task types
+- Quality scoring improvements
+- Distributed training protocols
+- Energy efficiency optimizations
+
+### Infrastructure & DevOps
+
+**Skills Needed**:
+- Docker/Kubernetes
+- CI/CD pipelines
+- Cloud platforms (AWS/GCP/Azure)
+- Monitoring and logging
+
+**Current Needs**:
+- Automated testing improvements
+- Deployment pipeline enhancements
+- Performance monitoring
+- Security auditing tools
+
+### Documentation & Community
+
+**Skills Needed**:
+- Technical writing
+- Community management
+- Educational content creation
+- Multi-language skills
+
+**Current Needs**:
+- Tutorial creation
+- API documentation improvements
+- Community guides
+- Translation to other languages
+
+## 🌍 Global Community
+
+### Regional Communities
+
+**Americas**:
+- **Lead**: @americas-lead
+- **Time Zone**: UTC-8 to UTC-3
+- **Languages**: English, Spanish, Portuguese
+- **Focus**: DeFi integrations, enterprise adoption
+
+**Europe**:
+- **Lead**: @europe-lead
+- **Time Zone**: UTC+0 to UTC+3
+- **Languages**: English, German, French, Italian
+- **Focus**: Privacy features, regulatory compliance
+
+**Asia-Pacific**:
+- **Lead**: @apac-lead
+- **Time Zone**: UTC+5 to UTC+12
+- **Languages**: English, Chinese, Japanese, Korean
+- **Focus**: AI-Mining, mobile applications
+
+### Community Events
+
+**Regular Events**:
+- Weekly dev calls (rotating time zones)
+- Monthly community meetups
+- Quarterly hackathons
+- Annual TOS Network conference
+
+**Upcoming Events**:
+- **TOSHack 2024**: December 1-3, Virtual
+- **TOS Network Conference**: March 2025, San Francisco
+- **AI-Mining Summit**: June 2025, Singapore
+
+## 📞 Getting Help
+
+### Support Channels
+
+**Discord Community**:
+- `#contributors-welcome` - New contributor onboarding
+- `#dev-help` - Technical development questions
+- `#documentation` - Documentation discussions
+- `#mentorship` - Mentorship requests
+
+**GitHub Discussions**:
+- Technical design discussions
+- Feature requests and proposals
+- Community feedback
+
+**Office Hours**:
+- **Core Development**: Tuesdays, 2 PM UTC
+- **AI-Mining**: Thursdays, 10 AM UTC
+- **Community Support**: Fridays, 6 PM UTC
+
+### Mentorship Program
+
+**Available for**:
+- First-time contributors
+- New open-source contributors
+- Specific technical areas
+- Career guidance
+
+**Mentor Matching**:
+1. Fill out mentorship request form
+2. Automated matching based on interests/skills
+3. Introduction and goal setting
+4. Regular check-ins and guidance
+5. Success celebration
+
+---
+
+**Ready to contribute?** Start by joining our [Discord community](https://discord.gg/tos-network) and saying hello in `#contributors-welcome`!
+
+**"Don't Trust, Verify it"** - All contributions are transparently tracked and every contributor is publicly recognized for their valuable work!
