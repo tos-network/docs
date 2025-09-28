@@ -1,0 +1,1277 @@
+---
+title: DeFi Integration Tutorial
+description: Complete guide to integrating your application with TOS Network DeFi protocols and TOSSwap DEX
+---
+
+# DeFi Integration Tutorial
+
+Learn how to integrate your application with TOS Network's decentralized finance ecosystem, including TOSSwap DEX, liquidity provision, and yield farming protocols.
+
+## 🎯 Learning Objectives
+
+By the end of this tutorial, you will:
+- Understand TOS Network DeFi architecture
+- Integrate with TOSSwap decentralized exchange
+- Implement liquidity provision features
+- Add yield farming capabilities
+- Handle slippage and MEV protection
+
+## ⏱️ Estimated Time
+**3 hours** (including testing and deployment)
+
+## 🛠️ Prerequisites
+
+### Required Knowledge
+- Basic JavaScript/TypeScript
+- Understanding of DeFi concepts (AMM, liquidity pools, yield farming)
+- Completed [Smart Contract Tutorial](/tutorials/smart-contract-tutorial)
+
+### Development Environment
+- Node.js v18.0+
+- TOS Wallet with testnet tokens
+- Code editor (VS Code recommended)
+
+### Required Packages
+```bash
+npm install @tos-network/defi-sdk @tos-network/web3 ethers
+```
+
+## 📝 Tutorial Overview
+
+### What We'll Build
+A complete DeFi integration featuring:
+- Token swapping interface
+- Liquidity pool management
+- Yield farming dashboard
+- Real-time price feeds
+- Slippage protection
+
+## Step 1: Project Setup
+
+### Initialize DeFi Project
+
+```bash
+mkdir tos-defi-app
+cd tos-defi-app
+npm init -y
+npm install @tos-network/defi-sdk @tos-network/web3 @tos-network/contracts
+```
+
+### Basic Configuration
+
+```javascript
+// config/defi.js
+export const DEFI_CONFIG = {
+  network: 'testnet',
+  rpcUrl: 'https://testnet-rpc.tos.network',
+
+  // TOSSwap Contracts
+  contracts: {
+    router: 'tos1router_contract_address',
+    factory: 'tos1factory_contract_address',
+    wtos: 'tos1wtos_contract_address',
+    masterChef: 'tos1masterchef_contract_address'
+  },
+
+  // Slippage settings
+  defaultSlippage: 0.5, // 0.5%
+  maxSlippage: 10.0,     // 10%
+
+  // Gas settings
+  gasLimit: {
+    swap: 150000,
+    addLiquidity: 200000,
+    removeLiquidity: 180000,
+    stake: 120000
+  }
+};
+```
+
+## Step 2: TOSSwap Integration
+
+### Initialize DeFi SDK
+
+```javascript
+// src/defi/client.js
+import { TOSDeFiClient } from '@tos-network/defi-sdk';
+import { DEFI_CONFIG } from '../config/defi.js';
+
+class DeFiManager {
+  constructor(wallet) {
+    this.client = new TOSDeFiClient({
+      provider: DEFI_CONFIG.rpcUrl,
+      wallet: wallet,
+      contracts: DEFI_CONFIG.contracts
+    });
+  }
+
+  async initialize() {
+    await this.client.connect();
+    console.log('DeFi client connected successfully');
+  }
+
+  // Get supported tokens
+  async getSupportedTokens() {
+    try {
+      const tokens = await this.client.tokens.getAll();
+      return tokens.map(token => ({
+        address: token.address,
+        symbol: token.symbol,
+        name: token.name,
+        decimals: token.decimals,
+        logoURI: token.logoURI
+      }));
+    } catch (error) {
+      console.error('Error fetching tokens:', error);
+      throw error;
+    }
+  }
+
+  // Get token balance
+  async getTokenBalance(tokenAddress, userAddress) {
+    try {
+      if (tokenAddress === 'native') {
+        return await this.client.wallet.getBalance(userAddress);
+      }
+
+      return await this.client.tokens.getBalance(tokenAddress, userAddress);
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+      return '0';
+    }
+  }
+}
+
+export default DeFiManager;
+```
+
+### Token Swapping Implementation
+
+```javascript
+// src/defi/swap.js
+export class SwapManager {
+  constructor(defiClient) {
+    this.client = defiClient;
+  }
+
+  // Get swap quote
+  async getSwapQuote(tokenIn, tokenOut, amountIn, slippage = 0.5) {
+    try {
+      const quote = await this.client.swap.getQuote({
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
+        amountIn: this.parseAmount(amountIn, tokenIn.decimals),
+        slippageTolerance: slippage / 100
+      });
+
+      return {
+        amountOut: this.formatAmount(quote.amountOut, tokenOut.decimals),
+        amountOutMin: this.formatAmount(quote.amountOutMin, tokenOut.decimals),
+        priceImpact: quote.priceImpact,
+        fee: this.formatAmount(quote.fee, tokenIn.decimals),
+        route: quote.route,
+        gasEstimate: quote.gasEstimate
+      };
+    } catch (error) {
+      console.error('Error getting swap quote:', error);
+      throw error;
+    }
+  }
+
+  // Execute token swap
+  async executeSwap(tokenIn, tokenOut, amountIn, amountOutMin, userAddress) {
+    try {
+      // Approve token if needed
+      if (tokenIn.address !== 'native') {
+        await this.approveToken(tokenIn.address, amountIn, userAddress);
+      }
+
+      const swapParams = {
+        tokenIn: tokenIn.address,
+        tokenOut: tokenOut.address,
+        amountIn: this.parseAmount(amountIn, tokenIn.decimals),
+        amountOutMin: this.parseAmount(amountOutMin, tokenOut.decimals),
+        to: userAddress,
+        deadline: Math.floor(Date.now() / 1000) + 1200 // 20 minutes
+      };
+
+      const txHash = await this.client.swap.swapExactTokensForTokens(swapParams);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error executing swap:', error);
+      throw error;
+    }
+  }
+
+  // Token approval helper
+  async approveToken(tokenAddress, amount, userAddress) {
+    const allowance = await this.client.tokens.getAllowance(
+      tokenAddress,
+      userAddress,
+      this.client.contracts.router
+    );
+
+    const requiredAmount = this.parseAmount(amount, 18);
+
+    if (allowance < requiredAmount) {
+      const approveTx = await this.client.tokens.approve(
+        tokenAddress,
+        this.client.contracts.router,
+        requiredAmount
+      );
+
+      // Wait for approval confirmation
+      await this.client.waitForTransaction(approveTx);
+    }
+  }
+
+  // Utility functions
+  parseAmount(amount, decimals) {
+    return (parseFloat(amount) * Math.pow(10, decimals)).toString();
+  }
+
+  formatAmount(amount, decimals) {
+    return (parseInt(amount) / Math.pow(10, decimals)).toFixed(6);
+  }
+}
+```
+
+## Step 3: Liquidity Pool Management
+
+### Liquidity Provider Implementation
+
+```javascript
+// src/defi/liquidity.js
+export class LiquidityManager {
+  constructor(defiClient) {
+    this.client = defiClient;
+  }
+
+  // Get pair information
+  async getPairInfo(tokenA, tokenB) {
+    try {
+      const pair = await this.client.liquidity.getPair(tokenA.address, tokenB.address);
+
+      if (!pair.exists) {
+        return {
+          exists: false,
+          canCreate: true,
+          tokenA,
+          tokenB
+        };
+      }
+
+      const reserves = await this.client.liquidity.getReserves(pair.address);
+      const totalSupply = await this.client.liquidity.getTotalSupply(pair.address);
+
+      return {
+        exists: true,
+        address: pair.address,
+        tokenA,
+        tokenB,
+        reserveA: this.formatAmount(reserves.reserveA, tokenA.decimals),
+        reserveB: this.formatAmount(reserves.reserveB, tokenB.decimals),
+        totalSupply: this.formatAmount(totalSupply, 18),
+        price: {
+          aPerB: reserves.reserveA / reserves.reserveB,
+          bPerA: reserves.reserveB / reserves.reserveA
+        }
+      };
+    } catch (error) {
+      console.error('Error getting pair info:', error);
+      throw error;
+    }
+  }
+
+  // Add liquidity
+  async addLiquidity(tokenA, tokenB, amountA, amountB, userAddress, slippage = 0.5) {
+    try {
+      // Approve both tokens
+      await this.approveTokens(tokenA, tokenB, amountA, amountB, userAddress);
+
+      const slippageMultiplier = (100 - slippage) / 100;
+      const minAmountA = (parseFloat(amountA) * slippageMultiplier).toFixed(6);
+      const minAmountB = (parseFloat(amountB) * slippageMultiplier).toFixed(6);
+
+      const liquidityParams = {
+        tokenA: tokenA.address,
+        tokenB: tokenB.address,
+        amountADesired: this.parseAmount(amountA, tokenA.decimals),
+        amountBDesired: this.parseAmount(amountB, tokenB.decimals),
+        amountAMin: this.parseAmount(minAmountA, tokenA.decimals),
+        amountBMin: this.parseAmount(minAmountB, tokenB.decimals),
+        to: userAddress,
+        deadline: Math.floor(Date.now() / 1000) + 1200
+      };
+
+      const txHash = await this.client.liquidity.addLiquidity(liquidityParams);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error adding liquidity:', error);
+      throw error;
+    }
+  }
+
+  // Remove liquidity
+  async removeLiquidity(tokenA, tokenB, liquidityAmount, userAddress, slippage = 0.5) {
+    try {
+      const pairInfo = await this.getPairInfo(tokenA, tokenB);
+
+      if (!pairInfo.exists) {
+        throw new Error('Liquidity pair does not exist');
+      }
+
+      // Calculate minimum amounts based on current reserves
+      const sharePercentage = parseFloat(liquidityAmount) / parseFloat(pairInfo.totalSupply);
+      const slippageMultiplier = (100 - slippage) / 100;
+
+      const minAmountA = (parseFloat(pairInfo.reserveA) * sharePercentage * slippageMultiplier).toFixed(6);
+      const minAmountB = (parseFloat(pairInfo.reserveB) * sharePercentage * slippageMultiplier).toFixed(6);
+
+      const removeParams = {
+        tokenA: tokenA.address,
+        tokenB: tokenB.address,
+        liquidity: this.parseAmount(liquidityAmount, 18),
+        amountAMin: this.parseAmount(minAmountA, tokenA.decimals),
+        amountBMin: this.parseAmount(minAmountB, tokenB.decimals),
+        to: userAddress,
+        deadline: Math.floor(Date.now() / 1000) + 1200
+      };
+
+      const txHash = await this.client.liquidity.removeLiquidity(removeParams);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error removing liquidity:', error);
+      throw error;
+    }
+  }
+
+  // Get user's liquidity positions
+  async getUserLiquidityPositions(userAddress) {
+    try {
+      const positions = await this.client.liquidity.getUserPositions(userAddress);
+
+      return await Promise.all(positions.map(async (position) => {
+        const pairInfo = await this.getPairInfo(position.tokenA, position.tokenB);
+        const sharePercentage = parseFloat(position.balance) / parseFloat(pairInfo.totalSupply);
+
+        return {
+          pairAddress: position.pairAddress,
+          tokenA: position.tokenA,
+          tokenB: position.tokenB,
+          balance: this.formatAmount(position.balance, 18),
+          sharePercentage: (sharePercentage * 100).toFixed(4),
+          valueA: (parseFloat(pairInfo.reserveA) * sharePercentage).toFixed(6),
+          valueB: (parseFloat(pairInfo.reserveB) * sharePercentage).toFixed(6)
+        };
+      }));
+    } catch (error) {
+      console.error('Error getting user positions:', error);
+      throw error;
+    }
+  }
+
+  // Helper methods
+  async approveTokens(tokenA, tokenB, amountA, amountB, userAddress) {
+    const promises = [];
+
+    if (tokenA.address !== 'native') {
+      promises.push(this.approveToken(tokenA.address, amountA, tokenA.decimals, userAddress));
+    }
+
+    if (tokenB.address !== 'native') {
+      promises.push(this.approveToken(tokenB.address, amountB, tokenB.decimals, userAddress));
+    }
+
+    await Promise.all(promises);
+  }
+
+  async approveToken(tokenAddress, amount, decimals, userAddress) {
+    const allowance = await this.client.tokens.getAllowance(
+      tokenAddress,
+      userAddress,
+      this.client.contracts.router
+    );
+
+    const requiredAmount = this.parseAmount(amount, decimals);
+
+    if (allowance < requiredAmount) {
+      const approveTx = await this.client.tokens.approve(
+        tokenAddress,
+        this.client.contracts.router,
+        requiredAmount
+      );
+
+      await this.client.waitForTransaction(approveTx);
+    }
+  }
+
+  parseAmount(amount, decimals) {
+    return (parseFloat(amount) * Math.pow(10, decimals)).toString();
+  }
+
+  formatAmount(amount, decimals) {
+    return (parseInt(amount) / Math.pow(10, decimals)).toFixed(6);
+  }
+}
+```
+
+## Step 4: Yield Farming Integration
+
+### Staking and Rewards Management
+
+```javascript
+// src/defi/farming.js
+export class FarmingManager {
+  constructor(defiClient) {
+    this.client = defiClient;
+  }
+
+  // Get available farms
+  async getAvailableFarms() {
+    try {
+      const farms = await this.client.farming.getAllPools();
+
+      return await Promise.all(farms.map(async (farm, index) => {
+        const poolInfo = await this.client.farming.getPoolInfo(index);
+        const totalStaked = await this.client.farming.getTotalStaked(index);
+
+        return {
+          pid: index,
+          lpToken: farm.lpToken,
+          allocPoint: farm.allocPoint,
+          totalStaked: this.formatAmount(totalStaked, 18),
+          apy: await this.calculateAPY(index, totalStaked),
+          tokenA: poolInfo.tokenA,
+          tokenB: poolInfo.tokenB,
+          rewardToken: 'TOS',
+          isActive: farm.allocPoint > 0
+        };
+      }));
+    } catch (error) {
+      console.error('Error getting farms:', error);
+      throw error;
+    }
+  }
+
+  // Get user's farming positions
+  async getUserFarmingPositions(userAddress) {
+    try {
+      const positions = [];
+      const farms = await this.getAvailableFarms();
+
+      for (const farm of farms) {
+        const userInfo = await this.client.farming.getUserInfo(farm.pid, userAddress);
+
+        if (parseFloat(userInfo.amount) > 0) {
+          const pendingRewards = await this.client.farming.getPendingRewards(farm.pid, userAddress);
+
+          positions.push({
+            pid: farm.pid,
+            tokenA: farm.tokenA,
+            tokenB: farm.tokenB,
+            stakedAmount: this.formatAmount(userInfo.amount, 18),
+            pendingRewards: this.formatAmount(pendingRewards, 18),
+            apy: farm.apy,
+            lastRewardBlock: userInfo.rewardDebt
+          });
+        }
+      }
+
+      return positions;
+    } catch (error) {
+      console.error('Error getting user farming positions:', error);
+      throw error;
+    }
+  }
+
+  // Stake LP tokens
+  async stakeLPTokens(pid, amount, userAddress) {
+    try {
+      // Get pool info to get LP token address
+      const poolInfo = await this.client.farming.getPoolInfo(pid);
+
+      // Approve LP tokens
+      await this.approveLPToken(poolInfo.lpToken, amount, userAddress);
+
+      const stakeParams = {
+        pid: pid,
+        amount: this.parseAmount(amount, 18)
+      };
+
+      const txHash = await this.client.farming.deposit(stakeParams);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error staking LP tokens:', error);
+      throw error;
+    }
+  }
+
+  // Unstake LP tokens
+  async unstakeLPTokens(pid, amount, userAddress) {
+    try {
+      const unstakeParams = {
+        pid: pid,
+        amount: this.parseAmount(amount, 18)
+      };
+
+      const txHash = await this.client.farming.withdraw(unstakeParams);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error unstaking LP tokens:', error);
+      throw error;
+    }
+  }
+
+  // Claim farming rewards
+  async claimRewards(pid) {
+    try {
+      const txHash = await this.client.farming.deposit({
+        pid: pid,
+        amount: 0 // Deposit 0 to claim rewards
+      });
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error claiming rewards:', error);
+      throw error;
+    }
+  }
+
+  // Emergency withdraw (forfeit rewards)
+  async emergencyWithdraw(pid) {
+    try {
+      const txHash = await this.client.farming.emergencyWithdraw(pid);
+
+      return {
+        transactionHash: txHash,
+        status: 'pending'
+      };
+    } catch (error) {
+      console.error('Error emergency withdraw:', error);
+      throw error;
+    }
+  }
+
+  // Calculate APY for a farm
+  async calculateAPY(pid, totalStaked) {
+    try {
+      const poolInfo = await this.client.farming.getPoolInfo(pid);
+      const tosPerBlock = await this.client.farming.getTOSPerBlock();
+      const totalAllocPoint = await this.client.farming.getTotalAllocPoint();
+
+      // Blocks per year (assuming 15 second block time)
+      const blocksPerYear = (365 * 24 * 60 * 60) / 15;
+
+      // TOS rewards per year for this pool
+      const tosPerYear = (tosPerBlock * poolInfo.allocPoint / totalAllocPoint) * blocksPerYear;
+
+      // Get TOS price (this would come from a price oracle)
+      const tosPrice = await this.getTOSPrice();
+
+      // Calculate APY
+      const totalStakedValue = parseFloat(totalStaked) * tosPrice; // Assuming LP token value equals TOS
+      const apy = totalStakedValue > 0 ? (tosPerYear * tosPrice / totalStakedValue) * 100 : 0;
+
+      return apy.toFixed(2);
+    } catch (error) {
+      console.error('Error calculating APY:', error);
+      return '0.00';
+    }
+  }
+
+  // Helper methods
+  async approveLPToken(lpTokenAddress, amount, userAddress) {
+    const allowance = await this.client.tokens.getAllowance(
+      lpTokenAddress,
+      userAddress,
+      this.client.contracts.masterChef
+    );
+
+    const requiredAmount = this.parseAmount(amount, 18);
+
+    if (allowance < requiredAmount) {
+      const approveTx = await this.client.tokens.approve(
+        lpTokenAddress,
+        this.client.contracts.masterChef,
+        requiredAmount
+      );
+
+      await this.client.waitForTransaction(approveTx);
+    }
+  }
+
+  async getTOSPrice() {
+    // This would typically come from a price oracle or DEX
+    // For this example, we'll use a mock price
+    return 0.50; // $0.50 per TOS
+  }
+
+  parseAmount(amount, decimals) {
+    return (parseFloat(amount) * Math.pow(10, decimals)).toString();
+  }
+
+  formatAmount(amount, decimals) {
+    return (parseInt(amount) / Math.pow(10, decimals)).toFixed(6);
+  }
+}
+```
+
+## Step 5: Frontend Implementation
+
+### React Components for DeFi Interface
+
+```jsx
+// src/components/SwapInterface.jsx
+import React, { useState, useEffect } from 'react';
+import { SwapManager } from '../defi/swap.js';
+
+export const SwapInterface = ({ defiManager, userAddress }) => {
+  const [tokenIn, setTokenIn] = useState(null);
+  const [tokenOut, setTokenOut] = useState(null);
+  const [amountIn, setAmountIn] = useState('');
+  const [amountOut, setAmountOut] = useState('');
+  const [slippage, setSlippage] = useState(0.5);
+  const [quote, setQuote] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [tokens, setTokens] = useState([]);
+
+  const swapManager = new SwapManager(defiManager.client);
+
+  useEffect(() => {
+    loadTokens();
+  }, []);
+
+  const loadTokens = async () => {
+    try {
+      const supportedTokens = await defiManager.getSupportedTokens();
+      setTokens(supportedTokens);
+    } catch (error) {
+      console.error('Error loading tokens:', error);
+    }
+  };
+
+  const getQuote = async () => {
+    if (!tokenIn || !tokenOut || !amountIn || parseFloat(amountIn) <= 0) return;
+
+    setLoading(true);
+    try {
+      const quoteResult = await swapManager.getSwapQuote(
+        tokenIn,
+        tokenOut,
+        amountIn,
+        slippage
+      );
+      setQuote(quoteResult);
+      setAmountOut(quoteResult.amountOut);
+    } catch (error) {
+      console.error('Error getting quote:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const executeSwap = async () => {
+    if (!quote) return;
+
+    setLoading(true);
+    try {
+      const result = await swapManager.executeSwap(
+        tokenIn,
+        tokenOut,
+        amountIn,
+        quote.amountOutMin,
+        userAddress
+      );
+
+      alert(`Swap submitted! Transaction: ${result.transactionHash}`);
+
+      // Reset form
+      setAmountIn('');
+      setAmountOut('');
+      setQuote(null);
+    } catch (error) {
+      console.error('Error executing swap:', error);
+      alert('Swap failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tokenIn && tokenOut && amountIn) {
+      const timer = setTimeout(getQuote, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [tokenIn, tokenOut, amountIn, slippage]);
+
+  return (
+    <div className="swap-interface">
+      <h2>Token Swap</h2>
+
+      <div className="swap-form">
+        <div className="token-input">
+          <label>From</label>
+          <select
+            value={tokenIn?.address || ''}
+            onChange={(e) => setTokenIn(tokens.find(t => t.address === e.target.value))}
+          >
+            <option value="">Select token</option>
+            {tokens.map(token => (
+              <option key={token.address} value={token.address}>
+                {token.symbol} - {token.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            placeholder="0.0"
+            value={amountIn}
+            onChange={(e) => setAmountIn(e.target.value)}
+          />
+        </div>
+
+        <div className="swap-arrow">
+          <button onClick={() => {
+            setTokenIn(tokenOut);
+            setTokenOut(tokenIn);
+            setAmountIn(amountOut);
+            setAmountOut(amountIn);
+          }}>
+            ↕️
+          </button>
+        </div>
+
+        <div className="token-input">
+          <label>To</label>
+          <select
+            value={tokenOut?.address || ''}
+            onChange={(e) => setTokenOut(tokens.find(t => t.address === e.target.value))}
+          >
+            <option value="">Select token</option>
+            {tokens.map(token => (
+              <option key={token.address} value={token.address}>
+                {token.symbol} - {token.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            placeholder="0.0"
+            value={amountOut}
+            readOnly
+          />
+        </div>
+
+        <div className="slippage-settings">
+          <label>Slippage Tolerance: {slippage}%</label>
+          <input
+            type="range"
+            min="0.1"
+            max="5.0"
+            step="0.1"
+            value={slippage}
+            onChange={(e) => setSlippage(parseFloat(e.target.value))}
+          />
+        </div>
+
+        {quote && (
+          <div className="quote-info">
+            <p>Price Impact: {quote.priceImpact}%</p>
+            <p>Fee: {quote.fee} {tokenIn?.symbol}</p>
+            <p>Minimum Received: {quote.amountOutMin} {tokenOut?.symbol}</p>
+          </div>
+        )}
+
+        <button
+          onClick={executeSwap}
+          disabled={!quote || loading}
+          className="swap-button"
+        >
+          {loading ? 'Processing...' : 'Swap Tokens'}
+        </button>
+      </div>
+    </div>
+  );
+};
+```
+
+## Step 6: Price Feeds and Analytics
+
+### Real-time Price Integration
+
+```javascript
+// src/defi/priceFeeds.js
+export class PriceFeedManager {
+  constructor(defiClient) {
+    this.client = defiClient;
+    this.priceCache = new Map();
+    this.subscribers = new Map();
+  }
+
+  // Subscribe to price updates
+  subscribeToPriceUpdates(tokenPair, callback) {
+    const key = `${tokenPair.tokenA}-${tokenPair.tokenB}`;
+
+    if (!this.subscribers.has(key)) {
+      this.subscribers.set(key, []);
+    }
+
+    this.subscribers.get(key).push(callback);
+
+    // Start price monitoring if this is the first subscriber
+    if (this.subscribers.get(key).length === 1) {
+      this.startPriceMonitoring(tokenPair);
+    }
+
+    // Return unsubscribe function
+    return () => {
+      const callbacks = this.subscribers.get(key);
+      const index = callbacks.indexOf(callback);
+      if (index > -1) {
+        callbacks.splice(index, 1);
+      }
+
+      // Stop monitoring if no more subscribers
+      if (callbacks.length === 0) {
+        this.stopPriceMonitoring(tokenPair);
+      }
+    };
+  }
+
+  // Start monitoring price for a token pair
+  async startPriceMonitoring(tokenPair) {
+    const key = `${tokenPair.tokenA}-${tokenPair.tokenB}`;
+
+    const updatePrice = async () => {
+      try {
+        const price = await this.getCurrentPrice(tokenPair);
+        const oldPrice = this.priceCache.get(key);
+
+        if (!oldPrice || Math.abs(price.price - oldPrice.price) / oldPrice.price > 0.001) {
+          this.priceCache.set(key, price);
+
+          // Notify all subscribers
+          const callbacks = this.subscribers.get(key) || [];
+          callbacks.forEach(callback => callback(price));
+        }
+      } catch (error) {
+        console.error('Error updating price:', error);
+      }
+    };
+
+    // Initial price fetch
+    await updatePrice();
+
+    // Set up recurring updates
+    this.priceIntervals = this.priceIntervals || new Map();
+    this.priceIntervals.set(key, setInterval(updatePrice, 5000)); // Update every 5 seconds
+  }
+
+  // Stop price monitoring
+  stopPriceMonitoring(tokenPair) {
+    const key = `${tokenPair.tokenA}-${tokenPair.tokenB}`;
+
+    if (this.priceIntervals && this.priceIntervals.has(key)) {
+      clearInterval(this.priceIntervals.get(key));
+      this.priceIntervals.delete(key);
+    }
+  }
+
+  // Get current price from DEX
+  async getCurrentPrice(tokenPair) {
+    try {
+      const pairAddress = await this.client.liquidity.getPairAddress(
+        tokenPair.tokenA,
+        tokenPair.tokenB
+      );
+
+      const reserves = await this.client.liquidity.getReserves(pairAddress);
+      const price = reserves.reserveB / reserves.reserveA;
+
+      return {
+        pair: `${tokenPair.tokenA}/${tokenPair.tokenB}`,
+        price: price,
+        timestamp: Date.now(),
+        reserves: {
+          tokenA: reserves.reserveA,
+          tokenB: reserves.reserveB
+        }
+      };
+    } catch (error) {
+      console.error('Error getting current price:', error);
+      throw error;
+    }
+  }
+
+  // Get historical prices
+  async getHistoricalPrices(tokenPair, timeframe = '1h', limit = 100) {
+    try {
+      // This would typically come from a price history service
+      // For this example, we'll simulate historical data
+      const prices = [];
+      const now = Date.now();
+      const interval = timeframe === '1h' ? 3600000 : timeframe === '1d' ? 86400000 : 3600000;
+
+      for (let i = limit; i > 0; i--) {
+        const timestamp = now - (i * interval);
+        const basePrice = 1.0 + Math.sin(i / 10) * 0.1; // Simulated price movement
+        const noise = (Math.random() - 0.5) * 0.02; // Random noise
+
+        prices.push({
+          timestamp,
+          price: basePrice + noise,
+          volume: Math.random() * 1000000
+        });
+      }
+
+      return prices;
+    } catch (error) {
+      console.error('Error getting historical prices:', error);
+      throw error;
+    }
+  }
+}
+```
+
+## Step 7: Advanced Features
+
+### MEV Protection Implementation
+
+```javascript
+// src/defi/mevProtection.js
+export class MEVProtectionManager {
+  constructor(defiClient) {
+    this.client = defiClient;
+  }
+
+  // Analyze transaction for MEV risks
+  async analyzeMEVRisk(transaction) {
+    try {
+      const analysis = {
+        riskLevel: 'low',
+        risks: [],
+        recommendations: []
+      };
+
+      // Check for large trades that might cause significant price impact
+      if (transaction.type === 'swap' && parseFloat(transaction.amount) > 1000) {
+        analysis.riskLevel = 'medium';
+        analysis.risks.push('Large trade size may attract MEV bots');
+        analysis.recommendations.push('Consider splitting into smaller trades');
+      }
+
+      // Check current mempool for similar transactions
+      const mempoolTxs = await this.getMempoolTransactions();
+      const similarTxs = mempoolTxs.filter(tx =>
+        tx.type === transaction.type &&
+        tx.tokenIn === transaction.tokenIn &&
+        tx.tokenOut === transaction.tokenOut
+      );
+
+      if (similarTxs.length > 3) {
+        analysis.riskLevel = 'high';
+        analysis.risks.push('High competition in mempool');
+        analysis.recommendations.push('Increase gas price or use MEV protection');
+      }
+
+      return analysis;
+    } catch (error) {
+      console.error('Error analyzing MEV risk:', error);
+      return { riskLevel: 'unknown', risks: [], recommendations: [] };
+    }
+  }
+
+  // Submit transaction with MEV protection
+  async submitProtectedTransaction(transaction, protection = 'flashbots') {
+    try {
+      switch (protection) {
+        case 'flashbots':
+          return await this.submitToFlashbots(transaction);
+        case 'private_mempool':
+          return await this.submitToPrivateMempool(transaction);
+        case 'commit_reveal':
+          return await this.submitWithCommitReveal(transaction);
+        default:
+          throw new Error('Unknown MEV protection method');
+      }
+    } catch (error) {
+      console.error('Error submitting protected transaction:', error);
+      throw error;
+    }
+  }
+
+  // Flashbots-style MEV protection
+  async submitToFlashbots(transaction) {
+    // Simulate Flashbots submission
+    const bundle = {
+      transactions: [transaction],
+      blockNumber: await this.client.getBlockNumber() + 1,
+      minTimestamp: Math.floor(Date.now() / 1000),
+      maxTimestamp: Math.floor(Date.now() / 1000) + 120
+    };
+
+    // In a real implementation, this would submit to Flashbots relay
+    console.log('Submitting bundle to Flashbots:', bundle);
+
+    return {
+      bundleId: 'bundle_' + Math.random().toString(36).substr(2, 9),
+      status: 'submitted'
+    };
+  }
+
+  // Get current mempool transactions (simulated)
+  async getMempoolTransactions() {
+    // This would typically come from a mempool monitoring service
+    return [
+      { type: 'swap', tokenIn: 'TOS', tokenOut: 'USDT', gasPrice: '20' },
+      { type: 'liquidity', tokenA: 'TOS', tokenB: 'ETH', gasPrice: '25' }
+    ];
+  }
+}
+```
+
+## Step 8: Testing and Deployment
+
+### Comprehensive Test Suite
+
+```javascript
+// test/defi.test.js
+import { describe, it, expect, beforeEach } from 'vitest';
+import { DeFiManager } from '../src/defi/client.js';
+import { SwapManager } from '../src/defi/swap.js';
+import { LiquidityManager } from '../src/defi/liquidity.js';
+
+describe('DeFi Integration Tests', () => {
+  let defiManager;
+  let swapManager;
+  let liquidityManager;
+
+  const mockWallet = {
+    address: 'tos1test_address',
+    privateKey: 'test_private_key'
+  };
+
+  beforeEach(async () => {
+    defiManager = new DeFiManager(mockWallet);
+    await defiManager.initialize();
+
+    swapManager = new SwapManager(defiManager.client);
+    liquidityManager = new LiquidityManager(defiManager.client);
+  });
+
+  describe('Token Swapping', () => {
+    it('should get swap quote successfully', async () => {
+      const tokenIn = { address: 'tos1token_a', decimals: 18, symbol: 'TKA' };
+      const tokenOut = { address: 'tos1token_b', decimals: 18, symbol: 'TKB' };
+
+      const quote = await swapManager.getSwapQuote(tokenIn, tokenOut, '10', 0.5);
+
+      expect(quote).toHaveProperty('amountOut');
+      expect(quote).toHaveProperty('amountOutMin');
+      expect(quote).toHaveProperty('priceImpact');
+      expect(parseFloat(quote.amountOut)).toBeGreaterThan(0);
+    });
+
+    it('should handle insufficient liquidity', async () => {
+      const tokenIn = { address: 'tos1rare_token', decimals: 18, symbol: 'RARE' };
+      const tokenOut = { address: 'tos1token_b', decimals: 18, symbol: 'TKB' };
+
+      await expect(swapManager.getSwapQuote(tokenIn, tokenOut, '1000000', 0.5))
+        .rejects.toThrow('Insufficient liquidity');
+    });
+  });
+
+  describe('Liquidity Management', () => {
+    it('should get pair information', async () => {
+      const tokenA = { address: 'tos1token_a', decimals: 18, symbol: 'TKA' };
+      const tokenB = { address: 'tos1token_b', decimals: 18, symbol: 'TKB' };
+
+      const pairInfo = await liquidityManager.getPairInfo(tokenA, tokenB);
+
+      expect(pairInfo).toHaveProperty('exists');
+      if (pairInfo.exists) {
+        expect(pairInfo).toHaveProperty('reserveA');
+        expect(pairInfo).toHaveProperty('reserveB');
+        expect(pairInfo).toHaveProperty('totalSupply');
+      }
+    });
+
+    it('should calculate correct share percentage', async () => {
+      const positions = await liquidityManager.getUserLiquidityPositions(mockWallet.address);
+
+      positions.forEach(position => {
+        expect(parseFloat(position.sharePercentage)).toBeGreaterThanOrEqual(0);
+        expect(parseFloat(position.sharePercentage)).toBeLessThanOrEqual(100);
+      });
+    });
+  });
+});
+
+// Run tests
+// npm test
+```
+
+### Deployment Script
+
+```javascript
+// scripts/deploy.js
+import { DeFiManager } from '../src/defi/client.js';
+import { DEFI_CONFIG } from '../config/defi.js';
+
+async function deployDeFiIntegration() {
+  console.log('🚀 Deploying DeFi Integration...');
+
+  // Test connection to TOS Network
+  try {
+    const testWallet = {
+      address: process.env.TEST_WALLET_ADDRESS,
+      privateKey: process.env.TEST_WALLET_PRIVATE_KEY
+    };
+
+    const defiManager = new DeFiManager(testWallet);
+    await defiManager.initialize();
+
+    console.log('✅ Successfully connected to TOS Network');
+
+    // Test basic functionality
+    const tokens = await defiManager.getSupportedTokens();
+    console.log(`✅ Found ${tokens.length} supported tokens`);
+
+    const balance = await defiManager.getTokenBalance('native', testWallet.address);
+    console.log(`✅ Test wallet balance: ${balance} TOS`);
+
+    console.log('🎉 DeFi Integration deployed successfully!');
+
+  } catch (error) {
+    console.error('❌ Deployment failed:', error);
+    process.exit(1);
+  }
+}
+
+deployDeFiIntegration();
+```
+
+## 💡 Best Practices
+
+### Security Considerations
+
+1. **Private Key Management**
+   - Never store private keys in plain text
+   - Use environment variables or secure key management
+   - Implement key rotation policies
+
+2. **Transaction Validation**
+   - Always validate transaction parameters
+   - Check allowances before token operations
+   - Implement maximum slippage limits
+
+3. **Error Handling**
+   - Gracefully handle network failures
+   - Implement retry mechanisms with exponential backoff
+   - Provide clear error messages to users
+
+### Performance Optimization
+
+1. **Caching Strategy**
+   - Cache token balances and prices
+   - Implement smart cache invalidation
+   - Use local storage for user preferences
+
+2. **Batch Operations**
+   - Combine multiple token approvals
+   - Batch price feed updates
+   - Use multicall for reading data
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Problem**: "Insufficient allowance" error
+**Solution**: Ensure token approval before swap/liquidity operations
+
+**Problem**: High slippage warnings
+**Solution**: Check liquidity depth and adjust trade size
+
+**Problem**: Transaction fails with "Price impact too high"
+**Solution**: Split large trades or increase slippage tolerance
+
+### Debug Tools
+
+```javascript
+// Debug helper
+export const DeFiDebugger = {
+  async diagnoseSwapIssue(tokenIn, tokenOut, amount) {
+    console.log('🔍 Diagnosing swap issue...');
+
+    // Check token addresses
+    console.log('Token In:', tokenIn);
+    console.log('Token Out:', tokenOut);
+
+    // Check pair existence
+    const pairExists = await this.checkPairExists(tokenIn.address, tokenOut.address);
+    console.log('Pair exists:', pairExists);
+
+    // Check liquidity
+    if (pairExists) {
+      const reserves = await this.getReserves(tokenIn.address, tokenOut.address);
+      console.log('Reserves:', reserves);
+    }
+
+    return {
+      tokenIn,
+      tokenOut,
+      pairExists,
+      timestamp: new Date().toISOString()
+    };
+  }
+};
+```
+
+## 🚀 Next Steps
+
+After completing this tutorial, you can:
+
+1. **Explore Advanced Features**:
+   - Implement limit orders
+   - Add flash loan capabilities
+   - Integrate with lending protocols
+
+2. **Enhance User Experience**:
+   - Add price charts and analytics
+   - Implement portfolio tracking
+   - Create mobile responsive design
+
+3. **Scale Your Application**:
+   - Implement multi-chain support
+   - Add institutional features
+   - Integrate with external price feeds
+
+---
+
+**Congratulations!** 🎉 You've successfully built a comprehensive DeFi integration with TOS Network. Your application now supports token swapping, liquidity provision, and yield farming with professional-grade security and MEV protection.
+
+**"Don't Trust, Verify it"** - All DeFi operations are transparently verifiable on the TOS Network blockchain!

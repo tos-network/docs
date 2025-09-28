@@ -1,0 +1,782 @@
+---
+title: Index API
+description: Advanced blockchain indexing and analytics API for TOS Network
+---
+
+# Index API
+
+The TOS Index API provides advanced blockchain analytics, historical data, and complex queries for developers building sophisticated applications on TOS Network.
+
+## Overview
+
+### Features
+
+- **Full Blockchain History**: Complete transaction and block data
+- **Advanced Analytics**: Network statistics and trends
+- **Real-time Indexing**: Sub-second data updates
+- **Complex Queries**: Multi-parameter filtering and aggregation
+- **High Performance**: Optimized for large-scale applications
+
+### Use Cases
+
+- **Block Explorers**: Comprehensive blockchain browsing
+- **Analytics Platforms**: Network statistics and insights
+- **Portfolio Trackers**: Multi-address monitoring
+- **Research Tools**: Academic and market research
+- **Enterprise Solutions**: Business intelligence and reporting
+
+## Base Configuration
+
+### API Endpoints
+
+```
+Production:  https://index-api.tos.network/v1
+Testnet:     https://index-api-testnet.tos.network/v1
+```
+
+### Authentication
+
+```http
+Authorization: Bearer YOUR_INDEX_API_KEY
+Content-Type: application/json
+```
+
+### Rate Limits
+
+| Plan | Queries/Hour | Complex Queries/Hour | Data Export |
+|------|--------------|---------------------|-------------|
+| **Free** | 1,000 | 50 | 1 MB/day |
+| **Professional** | 10,000 | 500 | 100 MB/day |
+| **Enterprise** | Unlimited | Unlimited | Unlimited |
+
+## Block and Transaction Indexing
+
+### Advanced Block Query
+
+```http
+GET /blocks/search
+```
+
+**Parameters:**
+- `height_min` (int): Minimum block height
+- `height_max` (int): Maximum block height
+- `timestamp_from` (string): Start timestamp (ISO 8601)
+- `timestamp_to` (string): End timestamp (ISO 8601)
+- `miner` (string): Specific miner address
+- `tx_count_min` (int): Minimum transaction count
+- `tx_count_max` (int): Maximum transaction count
+- `size_min` (int): Minimum block size in bytes
+- `size_max` (int): Maximum block size in bytes
+- `has_ai_mining` (bool): Filter for AI-mined blocks
+- `limit` (int): Results per page (max 1000)
+- `offset` (int): Pagination offset
+
+**Example Request:**
+```http
+GET /blocks/search?height_min=2800000&height_max=2900000&has_ai_mining=true&limit=100
+```
+
+**Response:**
+```json
+{
+  "blocks": [
+    {
+      "height": 2891540,
+      "hash": "block_hash_abc123...",
+      "timestamp": "2024-03-20T10:30:00Z",
+      "miner": "tos1miner123...",
+      "transaction_count": 45,
+      "size": 2048,
+      "difficulty": 18796541234567,
+      "reward": "50.000000",
+      "ai_mined": true,
+      "ai_task_count": 3,
+      "total_fees": "0.125000",
+      "tips_referenced": ["tip1_hash...", "tip2_hash..."]
+    }
+  ],
+  "total_count": 42150,
+  "has_more": true,
+  "query_time_ms": 45
+}
+```
+
+### Transaction Analytics
+
+```http
+POST /transactions/analytics
+```
+
+**Request:**
+```json
+{
+  "query": {
+    "time_range": {
+      "from": "2024-03-01T00:00:00Z",
+      "to": "2024-03-20T23:59:59Z"
+    },
+    "filters": {
+      "amount_min": "1.0",
+      "amount_max": "1000.0",
+      "transaction_types": ["transfer", "smart_contract"],
+      "addresses": ["tos1abc123...", "tos1def456..."],
+      "exclude_internal": true
+    },
+    "aggregations": [
+      {
+        "field": "amount",
+        "function": "sum",
+        "group_by": "day"
+      },
+      {
+        "field": "transaction_id",
+        "function": "count",
+        "group_by": "hour"
+      }
+    ]
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "results": {
+    "total_transactions": 156789,
+    "total_volume": "15678923.456789",
+    "average_amount": "100.234567",
+    "time_series": [
+      {
+        "timestamp": "2024-03-01T00:00:00Z",
+        "transaction_count": 1245,
+        "total_amount": "45678.901234"
+      }
+    ],
+    "distribution": {
+      "by_amount": {
+        "0-1": 15678,
+        "1-10": 89234,
+        "10-100": 45678,
+        "100+": 6199
+      },
+      "by_type": {
+        "transfer": 140567,
+        "smart_contract": 12345,
+        "ai_mining": 3877
+      }
+    }
+  },
+  "query_time_ms": 234,
+  "cached": false
+}
+```
+
+## Address Analytics
+
+### Address Portfolio
+
+```http
+GET /addresses/{address}/portfolio
+```
+
+**Response:**
+```json
+{
+  "address": "tos1abc123...",
+  "summary": {
+    "current_balance": "1050.500000",
+    "total_received": "2345.678901",
+    "total_sent": "1295.178901",
+    "transaction_count": 234,
+    "first_activity": "2024-01-15T08:30:00Z",
+    "last_activity": "2024-03-20T10:30:00Z"
+  },
+  "holdings": [
+    {
+      "asset": "TOS",
+      "balance": "1050.500000",
+      "value_usd": "5252.50",
+      "percentage": 100.0
+    }
+  ],
+  "activity_patterns": {
+    "most_active_day": "monday",
+    "most_active_hour": 14,
+    "average_tx_per_day": 3.2,
+    "largest_transaction": {
+      "amount": "500.000000",
+      "date": "2024-02-15T14:20:00Z",
+      "type": "received"
+    }
+  }
+}
+```
+
+### Address Interaction Graph
+
+```http
+GET /addresses/{address}/interactions
+```
+
+**Parameters:**
+- `depth` (int): Relationship depth (1-3)
+- `min_amount` (float): Minimum transaction amount
+- `time_range` (string): Time period (24h, 7d, 30d, 90d, 1y)
+
+**Response:**
+```json
+{
+  "center_address": "tos1abc123...",
+  "interactions": [
+    {
+      "address": "tos1def456...",
+      "relationship": "frequent_sender",
+      "transaction_count": 15,
+      "total_amount": "450.750000",
+      "first_interaction": "2024-01-20T10:00:00Z",
+      "last_interaction": "2024-03-18T15:30:00Z",
+      "interaction_frequency": 0.75
+    }
+  ],
+  "statistics": {
+    "unique_counterparts": 89,
+    "total_interactions": 234,
+    "network_centrality": 0.045
+  }
+}
+```
+
+## Mining Analytics
+
+### Mining Pool Statistics
+
+```http
+GET /mining/pools/analytics
+```
+
+**Response:**
+```json
+{
+  "pools": [
+    {
+      "pool_address": "tos1pool123...",
+      "name": "TOS Pool Official",
+      "hashrate": "35.2 PH/s",
+      "hashrate_percentage": 28.1,
+      "blocks_found_24h": 67,
+      "miners_count": 2400,
+      "average_payout": "2.345678",
+      "payout_frequency": "every_6_hours",
+      "fee_percentage": 1.0,
+      "geographical_distribution": {
+        "north_america": 35.0,
+        "europe": 28.0,
+        "asia": 25.0,
+        "other": 12.0
+      }
+    }
+  ],
+  "network_summary": {
+    "total_hashrate": "125.5 PH/s",
+    "pool_vs_solo": {
+      "pooled": 89.2,
+      "solo": 10.8
+    },
+    "decentralization_index": 0.76
+  }
+}
+```
+
+### AI-Mining Performance
+
+```http
+GET /ai-mining/performance
+```
+
+**Parameters:**
+- `time_range` (string): Analysis period
+- `task_type` (string): Specific AI task type
+- `quality_min` (float): Minimum quality score
+
+**Response:**
+```json
+{
+  "performance_metrics": {
+    "total_tasks_completed": 15678,
+    "average_quality_score": 8.7,
+    "average_completion_time": "2.3 hours",
+    "success_rate": 94.5,
+    "total_rewards_distributed": "45678.901234"
+  },
+  "task_categories": [
+    {
+      "category": "machine_learning",
+      "count": 8934,
+      "average_reward": "12.345678",
+      "average_quality": 9.1,
+      "top_performers": [
+        {
+          "address": "tos1ai_worker123...",
+          "tasks_completed": 145,
+          "average_quality": 9.8,
+          "total_earned": "1876.543210"
+        }
+      ]
+    }
+  ],
+  "trends": {
+    "quality_improvement": "+5.2% monthly",
+    "participation_growth": "+12.8% monthly",
+    "reward_efficiency": "+8.1% monthly"
+  }
+}
+```
+
+## Smart Contract Analytics
+
+### Contract Deployment Trends
+
+```http
+GET /smart-contracts/deployment-trends
+```
+
+**Response:**
+```json
+{
+  "deployment_statistics": {
+    "total_contracts": 12345,
+    "active_contracts": 8967,
+    "daily_deployments": 45,
+    "weekly_growth": "+12.3%"
+  },
+  "categories": [
+    {
+      "category": "defi",
+      "count": 3456,
+      "percentage": 28.0,
+      "total_value_locked": "15678923.456789",
+      "average_gas_usage": 85000
+    },
+    {
+      "category": "nft",
+      "count": 2134,
+      "percentage": 17.3,
+      "total_minted": 456789,
+      "average_gas_usage": 65000
+    },
+    {
+      "category": "gaming",
+      "count": 1876,
+      "percentage": 15.2,
+      "active_users": 12345,
+      "average_gas_usage": 75000
+    }
+  ],
+  "top_contracts": [
+    {
+      "address": "tos1contract123...",
+      "name": "TOSSwap",
+      "category": "defi",
+      "transaction_count_24h": 1234,
+      "volume_24h": "456789.123456",
+      "unique_users_24h": 567
+    }
+  ]
+}
+```
+
+### Contract Interaction Analysis
+
+```http
+POST /smart-contracts/{contract_address}/interactions
+```
+
+**Request:**
+```json
+{
+  "analysis_type": "user_behavior",
+  "time_range": "30d",
+  "include_internal_calls": true,
+  "group_by": "function"
+}
+```
+
+**Response:**
+```json
+{
+  "contract_address": "tos1contract123...",
+  "analysis_period": {
+    "from": "2024-02-20T00:00:00Z",
+    "to": "2024-03-20T23:59:59Z"
+  },
+  "function_calls": [
+    {
+      "function_name": "transfer",
+      "call_count": 15678,
+      "unique_callers": 2345,
+      "total_gas_used": 1345678900,
+      "average_gas_per_call": 85000,
+      "success_rate": 98.7
+    },
+    {
+      "function_name": "approve",
+      "call_count": 8934,
+      "unique_callers": 1567,
+      "total_gas_used": 578912340,
+      "average_gas_per_call": 65000,
+      "success_rate": 99.2
+    }
+  ],
+  "user_patterns": {
+    "new_users_rate": "15.2% weekly",
+    "retention_rate": "67.8% monthly",
+    "average_interactions_per_user": 6.7
+  },
+  "gas_efficiency": {
+    "optimization_score": 8.5,
+    "compared_to_similar": "+12% more efficient"
+  }
+}
+```
+
+## Network Health Monitoring
+
+### Network Metrics Dashboard
+
+```http
+GET /network/health/dashboard
+```
+
+**Response:**
+```json
+{
+  "current_status": "healthy",
+  "uptime_percentage": 99.97,
+  "metrics": {
+    "block_production": {
+      "average_time": 15.2,
+      "variance": 0.8,
+      "missed_blocks": 0,
+      "status": "optimal"
+    },
+    "transaction_processing": {
+      "pending_count": 234,
+      "average_confirmation_time": 22.5,
+      "throughput_tps": 67.8,
+      "status": "normal"
+    },
+    "network_consensus": {
+      "validator_participation": 98.9,
+      "fork_count_24h": 0,
+      "reorg_depth_max": 1,
+      "status": "stable"
+    },
+    "peer_connectivity": {
+      "total_nodes": 1245,
+      "active_connections": 8934,
+      "geographic_distribution": "well_distributed",
+      "status": "healthy"
+    }
+  },
+  "alerts": [],
+  "performance_score": 9.2
+}
+```
+
+### Historical Performance
+
+```http
+GET /network/performance/history
+```
+
+**Parameters:**
+- `metrics` (array): Specific metrics to include
+- `granularity` (string): Data granularity (1m, 5m, 1h, 1d)
+- `time_range` (string): Historical period
+
+**Response:**
+```json
+{
+  "time_series": [
+    {
+      "timestamp": "2024-03-20T10:00:00Z",
+      "block_time": 15.1,
+      "tps": 68.2,
+      "pending_transactions": 198,
+      "network_hashrate": "125.3 PH/s",
+      "active_addresses": 89156,
+      "gas_price_avg": "0.000021"
+    }
+  ],
+  "summary_statistics": {
+    "block_time": {
+      "average": 15.2,
+      "min": 12.1,
+      "max": 18.9,
+      "std_dev": 0.8
+    },
+    "tps": {
+      "average": 67.8,
+      "peak": 234.5,
+      "low": 12.3
+    }
+  },
+  "trend_analysis": {
+    "block_time_trend": "stable",
+    "tps_trend": "increasing",
+    "hashrate_trend": "growing"
+  }
+}
+```
+
+## Economic Analytics
+
+### Token Flow Analysis
+
+```http
+POST /economics/token-flow
+```
+
+**Request:**
+```json
+{
+  "analysis_type": "sankey_diagram",
+  "time_range": "7d",
+  "minimum_flow": "100.0",
+  "include_categories": ["mining", "defi", "transfers", "smart_contracts"]
+}
+```
+
+**Response:**
+```json
+{
+  "flows": [
+    {
+      "source": "mining_rewards",
+      "target": "individual_wallets",
+      "amount": "45678.901234",
+      "transaction_count": 8934,
+      "percentage_of_total": 28.5
+    },
+    {
+      "source": "individual_wallets",
+      "target": "defi_protocols",
+      "amount": "23456.789012",
+      "transaction_count": 4567,
+      "percentage_of_total": 14.6
+    }
+  ],
+  "categories": {
+    "mining": {
+      "inflow": "45678.901234",
+      "outflow": "43210.987654",
+      "net_flow": "2467.913580"
+    },
+    "defi": {
+      "inflow": "23456.789012",
+      "outflow": "21987.654321",
+      "net_flow": "1469.134691"
+    }
+  },
+  "velocity_metrics": {
+    "token_velocity": 2.8,
+    "circulation_rate": 0.67,
+    "economic_activity_index": 8.2
+  }
+}
+```
+
+### Market Impact Analysis
+
+```http
+GET /economics/market-impact
+```
+
+**Response:**
+```json
+{
+  "supply_metrics": {
+    "circulating_supply": "8945123.456789",
+    "staked_percentage": 23.5,
+    "locked_in_contracts": "456789.123456",
+    "daily_emission": "7200.000000",
+    "burn_rate_daily": "123.456789"
+  },
+  "demand_indicators": {
+    "active_addresses_growth": "+15.2% monthly",
+    "transaction_volume_growth": "+23.7% monthly",
+    "new_wallet_creation": "1245 daily",
+    "cross_chain_inflow": "12345.678901"
+  },
+  "economic_health": {
+    "gini_coefficient": 0.67,
+    "wealth_concentration": "moderate",
+    "network_value_to_txn": 45.6,
+    "metcalfe_ratio": 1.23
+  }
+}
+```
+
+## Data Export and Reporting
+
+### Bulk Data Export
+
+```http
+POST /export/bulk
+```
+
+**Request:**
+```json
+{
+  "export_type": "transactions",
+  "format": "csv",
+  "compression": "gzip",
+  "filters": {
+    "date_range": {
+      "from": "2024-01-01T00:00:00Z",
+      "to": "2024-03-20T23:59:59Z"
+    },
+    "address_list": ["tos1abc123...", "tos1def456..."],
+    "amount_min": "1.0"
+  },
+  "fields": ["timestamp", "from", "to", "amount", "fee", "block_height"],
+  "webhook_url": "https://your-app.com/export-ready"
+}
+```
+
+**Response:**
+```json
+{
+  "export_id": "export_789xyz123",
+  "status": "processing",
+  "estimated_completion": "2024-03-20T10:35:00Z",
+  "estimated_size": "25.6 MB",
+  "record_count": 156789
+}
+```
+
+### Custom Reports
+
+```http
+POST /reports/custom
+```
+
+**Request:**
+```json
+{
+  "report_name": "Monthly Mining Analysis",
+  "template": "mining_performance",
+  "parameters": {
+    "month": "2024-03",
+    "include_pools": true,
+    "include_solo_miners": true,
+    "granularity": "daily"
+  },
+  "delivery": {
+    "format": "pdf",
+    "email": "analyst@company.com",
+    "schedule": "monthly"
+  }
+}
+```
+
+## Real-time Subscriptions
+
+### WebSocket Streams
+
+```javascript
+const ws = new WebSocket('wss://index-api.tos.network/v1/stream');
+
+ws.onopen = function() {
+  // Subscribe to specific data streams
+  ws.send(JSON.stringify({
+    action: 'subscribe',
+    streams: [
+      'blocks.new',
+      'transactions.large_amount',
+      'mining.difficulty_change',
+      'ai_mining.task_complete'
+    ],
+    filters: {
+      'transactions.large_amount': { min_amount: '1000.0' }
+    }
+  }));
+};
+
+ws.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+  console.log('Stream update:', data);
+};
+```
+
+### Stream Data Format
+
+```json
+{
+  "stream": "blocks.new",
+  "timestamp": "2024-03-20T10:30:00Z",
+  "data": {
+    "height": 2891541,
+    "hash": "new_block_hash_def456...",
+    "miner": "tos1miner456...",
+    "transaction_count": 67,
+    "ai_mined": true,
+    "reward": "50.000000"
+  }
+}
+```
+
+## Performance and Optimization
+
+### Query Optimization
+
+```http
+POST /query/explain
+```
+
+**Request:**
+```json
+{
+  "query": {
+    "type": "transaction_search",
+    "filters": {
+      "amount_range": ["100", "1000"],
+      "time_range": ["2024-03-01", "2024-03-20"],
+      "addresses": ["tos1abc123..."]
+    }
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "execution_plan": {
+    "estimated_time_ms": 45,
+    "index_usage": ["address_index", "amount_index", "timestamp_index"],
+    "optimization_suggestions": [
+      "Consider adding address to filter first for better performance",
+      "Time range is optimal for this query type"
+    ]
+  },
+  "cost_analysis": {
+    "compute_units": 150,
+    "memory_usage": "45 MB",
+    "io_operations": 3
+  }
+}
+```
+
+### Caching Strategies
+
+| Data Type | Cache Duration | Invalidation |
+|-----------|----------------|--------------|
+| **Block Data** | 10 minutes | New block |
+| **Transaction History** | 5 minutes | New transaction |
+| **Network Stats** | 1 minute | Real-time updates |
+| **Address Balances** | 30 seconds | Balance change |
+| **Analytics Results** | 1 hour | Data dependency |
+
+---
+
+**"Don't Trust, Verify it"** - All Index API data includes cryptographic proofs and can be independently verified against the blockchain!

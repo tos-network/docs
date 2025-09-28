@@ -1,0 +1,528 @@
+---
+title: Precompiled Binaries
+description: Quick installation using precompiled TOS Network binaries for all major platforms
+---
+
+# Precompiled Binaries
+
+The fastest way to get started with TOS Network is to download our precompiled binaries. These are ready-to-run executables that don't require compilation or complex setup.
+
+## 📥 Download Options
+
+### Latest Release: v2.1.0
+
+| Platform | Architecture | Download | Size | SHA256 |
+|----------|-------------|----------|------|--------|
+| **Linux** | x86_64 | [tos-linux-x64.tar.gz](https://releases.tos.network/v2.1.0/tos-linux-x64.tar.gz) | 45MB | `a1b2c3d4...` |
+| **Linux** | ARM64 | [tos-linux-arm64.tar.gz](https://releases.tos.network/v2.1.0/tos-linux-arm64.tar.gz) | 42MB | `e5f6g7h8...` |
+| **macOS** | x86_64 | [tos-macos-x64.dmg](https://releases.tos.network/v2.1.0/tos-macos-x64.dmg) | 38MB | `i9j0k1l2...` |
+| **macOS** | ARM64 (M1/M2) | [tos-macos-arm64.dmg](https://releases.tos.network/v2.1.0/tos-macos-arm64.dmg) | 36MB | `m3n4o5p6...` |
+| **Windows** | x86_64 | [tos-windows-x64.zip](https://releases.tos.network/v2.1.0/tos-windows-x64.zip) | 41MB | `q7r8s9t0...` |
+
+### Beta Releases
+
+| Version | Release Date | Platform Support | Download |
+|---------|--------------|------------------|----------|
+| **v2.2.0-beta1** | 2024-04-10 | All platforms | [Beta Downloads](https://releases.tos.network/beta/) |
+| **v2.1.5-rc1** | 2024-03-28 | Linux, macOS | [RC Downloads](https://releases.tos.network/rc/) |
+
+## 🔐 Verification
+
+### GPG Verification
+
+Always verify downloads using our GPG signatures:
+
+```bash
+# Download our public key
+curl -O https://releases.tos.network/tos-release.asc
+gpg --import tos-release.asc
+
+# Verify the binary
+gpg --verify tos-linux-x64.tar.gz.sig tos-linux-x64.tar.gz
+```
+
+### SHA256 Verification
+
+```bash
+# Linux/macOS
+sha256sum tos-linux-x64.tar.gz
+echo "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6 tos-linux-x64.tar.gz" | sha256sum -c
+
+# Windows (PowerShell)
+Get-FileHash tos-windows-x64.zip -Algorithm SHA256
+```
+
+## 🐧 Linux Installation
+
+### Quick Install Script
+
+```bash
+# Download and run the installation script
+curl -sSL https://install.tos.network | bash
+
+# Or download manually
+wget https://releases.tos.network/v2.1.0/tos-linux-x64.tar.gz
+tar -xzf tos-linux-x64.tar.gz
+sudo mv tos-* /usr/local/bin/
+```
+
+### Manual Installation
+
+```bash
+# Extract the archive
+tar -xzf tos-linux-x64.tar.gz
+
+# Move binaries to system path
+sudo cp tos-daemon /usr/local/bin/
+sudo cp tos-wallet /usr/local/bin/
+sudo cp tos-miner /usr/local/bin/
+
+# Make executable
+sudo chmod +x /usr/local/bin/tos-*
+
+# Verify installation
+tos-daemon --version
+```
+
+### Package Managers
+
+#### Ubuntu/Debian (APT)
+
+```bash
+# Add TOS repository
+curl -fsSL https://packages.tos.network/gpg | sudo apt-key add -
+echo "deb https://packages.tos.network/apt stable main" | sudo tee /etc/apt/sources.list.d/tos.list
+
+# Install
+sudo apt update
+sudo apt install tos-network
+```
+
+#### CentOS/RHEL/Fedora (RPM)
+
+```bash
+# Add repository
+sudo rpm --import https://packages.tos.network/gpg
+sudo yum-config-manager --add-repo https://packages.tos.network/rpm/tos.repo
+
+# Install
+sudo yum install tos-network
+# or for newer systems:
+sudo dnf install tos-network
+```
+
+#### Arch Linux (AUR)
+
+```bash
+# Using yay
+yay -S tos-network
+
+# Using makepkg
+git clone https://aur.archlinux.org/tos-network.git
+cd tos-network
+makepkg -si
+```
+
+## 🍎 macOS Installation
+
+### Homebrew (Recommended)
+
+```bash
+# Add TOS tap
+brew tap tos-network/tos
+
+# Install
+brew install tos-network
+
+# Verify
+tos-daemon --version
+```
+
+### Manual Installation
+
+```bash
+# Download and mount DMG
+curl -O https://releases.tos.network/v2.1.0/tos-macos-x64.dmg
+hdiutil mount tos-macos-x64.dmg
+
+# Copy applications
+cp -R /Volumes/TOS\ Network/TOS\ Daemon.app /Applications/
+cp -R /Volumes/TOS\ Network/TOS\ Wallet.app /Applications/
+
+# Unmount
+hdiutil unmount /Volumes/TOS\ Network
+
+# Add CLI tools to PATH
+echo 'export PATH="/Applications/TOS Daemon.app/Contents/MacOS:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### macOS Security
+
+For macOS Gatekeeper, you may need to allow the application:
+
+```bash
+# If you see "unverified developer" warning
+sudo xattr -rd com.apple.quarantine /Applications/TOS\ Daemon.app
+sudo xattr -rd com.apple.quarantine /Applications/TOS\ Wallet.app
+```
+
+## 🪟 Windows Installation
+
+### Windows Installer (Recommended)
+
+1. **Download** the Windows installer: `tos-windows-x64-installer.exe`
+2. **Run** the installer as Administrator
+3. **Follow** the installation wizard
+4. **Launch** TOS Network from the Start Menu
+
+### Manual Installation
+
+```powershell
+# Download using PowerShell
+Invoke-WebRequest -Uri "https://releases.tos.network/v2.1.0/tos-windows-x64.zip" -OutFile "tos-windows-x64.zip"
+
+# Extract
+Expand-Archive -Path "tos-windows-x64.zip" -DestinationPath "C:\Program Files\TOS Network"
+
+# Add to PATH
+$env:PATH += ";C:\Program Files\TOS Network"
+[Environment]::SetEnvironmentVariable("PATH", $env:PATH, [EnvironmentVariableTarget]::Machine)
+```
+
+### Windows Package Manager (winget)
+
+```powershell
+# Install using winget
+winget install TOSNetwork.TOSNetwork
+
+# Verify installation
+tos-daemon --version
+```
+
+### Chocolatey
+
+```powershell
+# Install using Chocolatey
+choco install tos-network
+
+# Verify
+tos-daemon --version
+```
+
+## 📱 Mobile Applications
+
+### Android
+
+| Version | Min Android | Download | Size |
+|---------|-------------|----------|------|
+| **v1.5.0** | Android 8.0+ | [Google Play](https://play.google.com/store/apps/details?id=network.tos.wallet) | 35MB |
+| **v1.5.0** | Android 8.0+ | [APK Direct](https://releases.tos.network/mobile/tos-wallet-v1.5.0.apk) | 35MB |
+
+### iOS
+
+| Version | Min iOS | Download | Size |
+|---------|---------|----------|------|
+| **v1.5.0** | iOS 13.0+ | [App Store](https://apps.apple.com/app/tos-wallet/id1234567890) | 42MB |
+| **v1.5.0-beta** | iOS 13.0+ | [TestFlight](https://testflight.apple.com/join/ABC123DEF) | 42MB |
+
+## 🐳 Docker Images
+
+### Official Docker Images
+
+```bash
+# Pull the latest image
+docker pull tosnetwork/tos-daemon:latest
+
+# Run daemon
+docker run -d \
+  --name tos-daemon \
+  -p 2080:2080 \
+  -v tos-data:/data \
+  tosnetwork/tos-daemon:latest
+
+# Run wallet
+docker run -it \
+  --name tos-wallet \
+  -v tos-wallet-data:/wallet \
+  tosnetwork/tos-wallet:latest
+```
+
+### Available Tags
+
+| Tag | Description | Size |
+|-----|-------------|------|
+| `latest` | Latest stable release | 120MB |
+| `v2.1.0` | Specific version | 120MB |
+| `beta` | Latest beta release | 125MB |
+| `alpine` | Alpine-based (smaller) | 85MB |
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  tos-daemon:
+    image: tosnetwork/tos-daemon:latest
+    ports:
+      - "2080:2080"
+      - "2081:2081"
+    volumes:
+      - tos-data:/data
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_RPC_BIND=0.0.0.0:2081
+    restart: unless-stopped
+
+  tos-wallet:
+    image: tosnetwork/tos-wallet:latest
+    depends_on:
+      - tos-daemon
+    volumes:
+      - tos-wallet-data:/wallet
+    environment:
+      - TOS_DAEMON_HOST=tos-daemon
+      - TOS_DAEMON_PORT=2081
+    restart: unless-stopped
+
+volumes:
+  tos-data:
+  tos-wallet-data:
+```
+
+## ⚙️ First Run Configuration
+
+### Initial Setup
+
+After installation, run the initial setup:
+
+```bash
+# Create configuration directory
+mkdir -p ~/.tos
+
+# Generate default configuration
+tos-daemon --generate-config
+
+# Edit configuration (optional)
+nano ~/.tos/tos.conf
+```
+
+### Basic Configuration
+
+```toml
+# ~/.tos/tos.conf
+[network]
+# Network to connect to (mainnet, testnet)
+network = "mainnet"
+
+# P2P listening port
+p2p_port = 2080
+
+# RPC listening port
+rpc_port = 2081
+
+[rpc]
+# Enable RPC server
+enabled = true
+
+# RPC bind address
+bind_address = "127.0.0.1:2081"
+
+# RPC authentication (optional)
+username = "your_username"
+password = "your_secure_password"
+
+[mining]
+# Enable mining
+enabled = false
+
+# Mining threads (0 = auto-detect)
+threads = 0
+
+# Mining address
+address = "tos1your_mining_address_here"
+```
+
+## 🚀 Quick Start
+
+### Start the Daemon
+
+```bash
+# Start in foreground (for testing)
+tos-daemon
+
+# Start in background
+tos-daemon --daemon
+
+# Start with custom config
+tos-daemon --config /path/to/tos.conf
+```
+
+### Create a Wallet
+
+```bash
+# Create new wallet
+tos-wallet create --name "my-wallet"
+
+# List wallets
+tos-wallet list
+
+# Open existing wallet
+tos-wallet open --name "my-wallet"
+```
+
+### Check Status
+
+```bash
+# Get daemon status
+tos-daemon status
+
+# Get blockchain info
+tos-wallet info
+
+# Check balance
+tos-wallet balance
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### "Command not found"
+
+```bash
+# Check if binaries are in PATH
+which tos-daemon
+
+# If not found, add to PATH
+echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+#### Permission Denied
+
+```bash
+# Make binaries executable
+chmod +x /usr/local/bin/tos-*
+
+# Or run with sudo
+sudo tos-daemon
+```
+
+#### Port Already in Use
+
+```bash
+# Check what's using the port
+netstat -tulpn | grep 2080
+
+# Use different port
+tos-daemon --p2p-port 2082
+```
+
+### Platform-Specific Issues
+
+#### macOS Gatekeeper
+
+If you see security warnings:
+
+```bash
+# Allow the application
+sudo spctl --add /Applications/TOS\ Daemon.app
+sudo spctl --enable --label "TOS Network"
+```
+
+#### Windows Antivirus
+
+Some antivirus software may flag mining software. Add exclusions for:
+- `C:\Program Files\TOS Network\`
+- `%APPDATA%\TOS\`
+
+#### Linux Dependencies
+
+If you encounter library errors:
+
+```bash
+# Ubuntu/Debian
+sudo apt install libssl1.1 libcrypto++6
+
+# CentOS/RHEL
+sudo yum install openssl-libs cryptopp
+
+# Arch Linux
+sudo pacman -S openssl crypto++
+```
+
+## 📊 System Requirements
+
+### Minimum Requirements
+
+| Component | Specification |
+|-----------|---------------|
+| **CPU** | 2 cores, 2.0 GHz |
+| **RAM** | 4 GB |
+| **Storage** | 100 GB available space |
+| **Network** | 10 Mbps internet connection |
+| **OS** | Linux, macOS 10.15+, Windows 10+ |
+
+### Recommended Requirements
+
+| Component | Specification |
+|-----------|---------------|
+| **CPU** | 4+ cores, 3.0+ GHz |
+| **RAM** | 8+ GB |
+| **Storage** | 500+ GB SSD |
+| **Network** | 100+ Mbps internet connection |
+| **OS** | Latest stable version |
+
+## 🔄 Updating
+
+### Automatic Updates
+
+```bash
+# Check for updates
+tos-daemon --check-update
+
+# Enable automatic updates
+tos-daemon --auto-update
+```
+
+### Manual Updates
+
+```bash
+# Download new version
+curl -O https://releases.tos.network/latest/tos-linux-x64.tar.gz
+
+# Stop daemon
+tos-daemon stop
+
+# Replace binaries
+tar -xzf tos-linux-x64.tar.gz
+sudo cp tos-* /usr/local/bin/
+
+# Restart daemon
+tos-daemon start
+```
+
+### Package Manager Updates
+
+```bash
+# APT (Ubuntu/Debian)
+sudo apt update && sudo apt upgrade tos-network
+
+# Homebrew (macOS)
+brew upgrade tos-network
+
+# Chocolatey (Windows)
+choco upgrade tos-network
+```
+
+## 📞 Support
+
+If you encounter issues:
+
+1. **Check the logs**: `~/.tos/logs/tos.log`
+2. **Visit our documentation**: [docs.tos.network](https://docs.tos.network)
+3. **Join our Discord**: [discord.gg/tos-network](https://discord.gg/tos-network)
+4. **Report bugs**: [github.com/tos-network/tos/issues](https://github.com/tos-network/tos/issues)
+
+**"Don't Trust, Verify it"** - Always verify download integrity and only download from official sources!

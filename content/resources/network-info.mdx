@@ -1,0 +1,293 @@
+---
+title: Network Information
+description: Real-time TOS Network statistics, status, and infrastructure information
+---
+
+# TOS Network Information
+
+Comprehensive information about the TOS Network's current status, statistics, and infrastructure.
+
+## Network Status
+
+### Mainnet Information
+
+| Parameter | Value |
+|-----------|--------|
+| **Network Name** | TOS Mainnet |
+| **Chain ID** | 1 |
+| **Block Time** | 15 seconds |
+| **Current Block Height** | [Live Block Explorer](https://explorer.tos.network) |
+| **Network Hashrate** | [Live Statistics](https://stats.tos.network) |
+| **Active Nodes** | 500+ worldwide |
+
+### Network Health
+
+```
+🟢 Network Status: HEALTHY
+🟢 Block Production: NORMAL (15.2s avg)
+🟢 Transaction Processing: NORMAL
+🟢 AI-Mining: ACTIVE (42% of blocks)
+🟢 Consensus: STABLE
+```
+
+## Block Explorer
+
+### Official Explorer
+- **URL**: [https://explorer.tos.network](https://explorer.tos.network)
+- **Features**: Blocks, transactions, addresses, smart contracts
+- **API**: RESTful API available
+- **Real-time Updates**: WebSocket support
+
+### Explorer Features
+
+- **Block Information**: Height, timestamp, miner, transactions
+- **Transaction Details**: Inputs, outputs, fees, privacy status
+- **Address Analytics**: Balance, history, transaction patterns
+- **Smart Contract Viewer**: Bytecode, ABI, execution logs
+- **Mining Statistics**: Hashrate, difficulty, pool distribution
+- **AI-Mining Metrics**: Task quality, reward distribution
+
+## Network Statistics
+
+### Current Metrics (Live)
+
+```json
+{
+  "network": {
+    "block_height": 2891540,
+    "block_time_avg": "15.2s",
+    "hashrate": "125.5 PH/s",
+    "difficulty": 18796541234567,
+    "active_addresses": 89234,
+    "total_transactions": 15678923
+  },
+  "mining": {
+    "traditional_hashrate": "72.8 PH/s",
+    "ai_mining_hashrate": "52.7 PH/s",
+    "ai_mining_percentage": 42.0,
+    "active_miners": 12845
+  },
+  "economics": {
+    "circulating_supply": "8,945,123 TOS",
+    "total_burned": "15,678 TOS",
+    "energy_staked": "1,234,567 TOS",
+    "avg_transaction_fee": "0.001 TOS"
+  }
+}
+```
+
+### Historical Performance
+
+| Metric | 24h | 7d | 30d |
+|--------|-----|----|----|
+| **Average Block Time** | 15.1s | 15.3s | 15.0s |
+| **Transaction Volume** | 45,678 | 289,456 | 1,234,567 |
+| **Network Hashrate** | +2.3% | +15.7% | +45.2% |
+| **AI-Mining Adoption** | 42% | 38% | 35% |
+
+## Node Information
+
+### Seed Nodes
+
+```
+# Add these to your tos.conf file
+addnode=seed1.tos.network:2080
+addnode=seed2.tos.network:2080
+addnode=seed3.tos.network:2080
+addnode=seed4.tos.network:2080
+addnode=seed5.tos.network:2080
+```
+
+### Geographic Distribution
+
+```
+Node Distribution by Region:
+
+North America: ████████████░░░░░░░░ 35%
+Europe:       ████████████████░░░░ 28%
+Asia:         ██████████████░░░░░░ 25%
+South America: ████░░░░░░░░░░░░░░░░ 7%
+Africa:       ██░░░░░░░░░░░░░░░░░░ 3%
+Oceania:      ██░░░░░░░░░░░░░░░░░░ 2%
+```
+
+### Node Requirements
+
+**Minimum Requirements**:
+- **CPU**: 2 cores, 2.0 GHz
+- **RAM**: 4 GB
+- **Storage**: 100 GB SSD
+- **Network**: 10 Mbps upload/download
+- **OS**: Linux, macOS, Windows
+
+**Recommended Requirements**:
+- **CPU**: 4+ cores, 3.0+ GHz
+- **RAM**: 8+ GB
+- **Storage**: 500+ GB NVMe SSD
+- **Network**: 100+ Mbps fiber
+- **OS**: Linux (Ubuntu 20.04+)
+
+## Mining Pools
+
+### Official Pools
+
+| Pool Name | Location | Fee | Hashrate | Website |
+|-----------|----------|-----|----------|---------|
+| **TOS Pool Official** | Global | 1% | 35.2 PH/s | [pool.tos.network](https://pool.tos.network) |
+| **TOS Asia** | Singapore | 1.5% | 28.7 PH/s | [asia.tospool.io](https://asia.tospool.io) |
+| **TOS Europe** | Germany | 1% | 22.1 PH/s | [eu.tospool.io](https://eu.tospool.io) |
+| **TOS Americas** | USA | 1.2% | 18.9 PH/s | [us.tospool.io](https://us.tospool.io) |
+
+### AI-Mining Pools
+
+| Pool Name | Specialization | Quality Score | Reward Bonus |
+|-----------|----------------|---------------|--------------|
+| **AI-Pool Pro** | Machine Learning | 9.2/10 | +12% |
+| **Compute Collective** | Data Analysis | 8.8/10 | +8% |
+| **Neural Network** | Deep Learning | 9.5/10 | +15% |
+| **Smart Mining** | General AI | 8.5/10 | +6% |
+
+## API Endpoints
+
+### Public APIs
+
+**Mainnet RPC**:
+```
+HTTP:  https://mainnet-rpc.tos.network
+WSS:   wss://mainnet-ws.tos.network
+```
+
+**Testnet RPC**:
+```
+HTTP:  https://testnet-rpc.tos.network
+WSS:   wss://testnet-ws.tos.network
+```
+
+### Rate Limits
+
+| Endpoint Type | Rate Limit | Burst Limit |
+|---------------|------------|-------------|
+| **Public RPC** | 100 req/min | 200 req/min |
+| **WebSocket** | 1000 msg/min | 2000 msg/min |
+| **Block Explorer API** | 60 req/min | 120 req/min |
+
+### Example API Calls
+
+```bash
+# Get current block height
+curl -X POST https://mainnet-rpc.tos.network \
+  -H "Content-Type: application/json" \
+  -d '{"method":"get_height","params":{}}'
+
+# Get network statistics
+curl -X POST https://mainnet-rpc.tos.network \
+  -H "Content-Type: application/json" \
+  -d '{"method":"get_info","params":{}}'
+
+# Get block by height
+curl -X POST https://mainnet-rpc.tos.network \
+  -H "Content-Type: application/json" \
+  -d '{"method":"get_block","params":{"height":1000000}}'
+```
+
+## Network Upgrades
+
+### Recent Upgrades
+
+| Version | Date | Features |
+|---------|------|----------|
+| **v2.1.0** | 2024-03-15 | Enhanced AI-Mining algorithms |
+| **v2.0.5** | 2024-02-28 | Smart contract gas optimization |
+| **v2.0.0** | 2024-01-20 | BlockDAG stability improvements |
+
+### Upcoming Upgrades
+
+| Version | ETA | Features |
+|---------|-----|----------|
+| **v2.2.0** | Q2 2024 | Cross-chain bridge support |
+| **v2.3.0** | Q3 2024 | Advanced privacy features |
+| **v3.0.0** | Q4 2024 | Major consensus improvements |
+
+## Security Information
+
+### Network Security
+
+```
+Security Metrics:
+
+51% Attack Cost:     $15M+ annually
+Double Spend Risk:   < 0.001%
+Finality Time:       6 confirmations (~90 seconds)
+Reorg Depth:         < 3 blocks (99.9% of time)
+```
+
+### Bug Bounty Program
+
+- **Critical**: Up to $50,000 TOS
+- **High**: Up to $20,000 TOS
+- **Medium**: Up to $5,000 TOS
+- **Low**: Up to $1,000 TOS
+
+**Contact**: security@tos.network
+
+## Community Resources
+
+### Official Channels
+
+- **Discord**: [https://discord.gg/tos-network](https://discord.gg/tos-network)
+- **Telegram**: [https://t.me/tos_network](https://t.me/tos_network)
+- **Twitter**: [https://twitter.com/tos_network](https://twitter.com/tos_network)
+- **Reddit**: [https://reddit.com/r/TOSNetwork](https://reddit.com/r/TOSNetwork)
+
+### Developer Resources
+
+- **GitHub**: [https://github.com/tos-network](https://github.com/tos-network)
+- **Documentation**: [https://docs.tos.network](https://docs.tos.network)
+- **Developer Chat**: [https://discord.gg/tos-dev](https://discord.gg/tos-dev)
+
+## Monitoring and Alerts
+
+### Real-time Monitoring
+
+- **Network Status**: [https://status.tos.network](https://status.tos.network)
+- **Mining Statistics**: [https://mining.tos.network](https://mining.tos.network)
+- **API Health**: [https://api-status.tos.network](https://api-status.tos.network)
+
+### Notification Services
+
+```bash
+# Subscribe to network alerts
+curl -X POST https://alerts.tos.network/subscribe \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "your@email.com",
+    "alerts": ["network_issues", "upgrades", "security"]
+  }'
+```
+
+## FAQ
+
+### Common Questions
+
+**Q: How do I connect to the mainnet?**
+A: Use the seed nodes listed above or connect to `mainnet-rpc.tos.network`.
+
+**Q: What's the minimum stake for running a node?**
+A: There's no minimum stake required - TOS uses Proof of Work, not Proof of Stake.
+
+**Q: How often are network statistics updated?**
+A: Block explorer and statistics are updated in real-time with each new block (every ~15 seconds).
+
+**Q: Is there a testnet available?**
+A: Yes, connect to `testnet-rpc.tos.network` for testing and development.
+
+## Contact Information
+
+- **General Support**: support@tos.network
+- **Technical Issues**: tech@tos.network
+- **Security Reports**: security@tos.network
+- **Business Inquiries**: business@tos.network
+
+---
+
+**"Don't Trust, Verify it"** - All network data is cryptographically verifiable through the blockchain.

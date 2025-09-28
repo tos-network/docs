@@ -1,0 +1,297 @@
+---
+title: Tokenomics
+description: Complete overview of TOS Network's token economics, supply mechanics, and reward distribution
+---
+
+# TOS Tokenomics
+
+TOS Network's tokenomics are designed around the core principle of **"Don't Trust, Verify it"** - every aspect of our token economics is mathematically verifiable and transparent to all network participants.
+
+## Token Overview
+
+### Basic Information
+
+| Parameter | Value |
+|-----------|--------|
+| **Token Name** | TOS Network |
+| **Ticker** | TOS |
+| **Maximum Supply** | 21,000,000 TOS |
+| **Initial Supply** | 0 TOS (No premine) |
+| **Consensus** | Proof of Work + AI-Mining |
+| **Block Time** | 15 seconds |
+
+### Token Utility
+
+- **Transaction Fees**: Pay for network operations
+- **Mining Rewards**: Incentivize network security
+- **Energy Staking**: Enable gas-free transactions
+- **Smart Contract Gas**: Execute decentralized applications
+- **Governance**: Participate in network decisions
+
+## Supply Mechanics
+
+### Emission Schedule
+
+TOS follows a carefully designed emission curve to ensure long-term sustainability:
+
+```
+Total Supply: 21,000,000 TOS
+Initial Block Reward: 50 TOS
+Halving Interval: Every 210,000 blocks (~36.5 days)
+Mining Algorithm: TOS-Hash + AI-Mining
+```
+
+### Block Reward Structure
+
+```rust
+pub fn calculate_block_reward(block_height: u64) -> u64 {
+    const INITIAL_REWARD: u64 = 50_000_000_000; // 50 TOS in atomic units
+    const HALVING_INTERVAL: u64 = 210_000;
+
+    let halvings = block_height / HALVING_INTERVAL;
+
+    if halvings >= 64 {
+        return 0; // No more rewards after 64 halvings
+    }
+
+    INITIAL_REWARD >> halvings
+}
+```
+
+### Reward Distribution
+
+Each block reward is distributed as follows:
+
+- **80%** - Block Miner (Traditional or AI-Mining)
+- **15%** - Network Development Fund
+- **5%** - Community Treasury
+
+## AI-Mining Economics
+
+### Dual Reward System
+
+TOS Network supports both traditional mining and AI-Mining with balanced incentives:
+
+| Mining Type | Base Reward | Difficulty Modifier | Energy Efficiency |
+|-------------|-------------|-------------------|------------------|
+| **Traditional Mining** | 100% | 1.0x | Standard |
+| **AI-Mining** | 110% | 1.1x | Enhanced |
+
+### AI-Mining Bonus Structure
+
+```python
+def calculate_ai_mining_reward(base_reward, quality_score, innovation_score):
+    """
+    Calculate AI-Mining reward based on work quality
+
+    Args:
+        base_reward: Standard mining reward
+        quality_score: Work quality (0.0 to 1.0)
+        innovation_score: Innovation metric (0.0 to 1.0)
+
+    Returns:
+        Total reward including quality bonuses
+    """
+    quality_bonus = base_reward * (quality_score * 0.1)  # Up to 10% bonus
+    innovation_bonus = base_reward * (innovation_score * 0.05)  # Up to 5% bonus
+
+    return base_reward + quality_bonus + innovation_bonus
+```
+
+## Supply Distribution Forecast
+
+### Year-by-Year Projection
+
+| Year | Blocks Mined | TOS Minted | Circulating Supply | Inflation Rate |
+|------|--------------|------------|-------------------|----------------|
+| **2024** | 2,102,400 | 7,358,400 | 7,358,400 | - |
+| **2025** | 2,102,400 | 3,679,200 | 11,037,600 | 50.0% |
+| **2026** | 2,102,400 | 1,839,600 | 12,877,200 | 16.7% |
+| **2027** | 2,102,400 | 919,800 | 13,797,000 | 7.1% |
+| **2028** | 2,102,400 | 459,900 | 14,256,900 | 3.3% |
+
+### Long-term Supply Curve
+
+```
+TOS Supply Growth (Asymptotic to 21M):
+
+Year 1-2:   Rapid growth (bootstrap phase)
+Year 3-5:   Moderate growth (stability phase)
+Year 6-10:  Slow growth (maturity phase)
+Year 10+:   Minimal growth (deflationary phase)
+
+Final supply approaches but never exceeds 21,000,000 TOS
+```
+
+## Energy Model Integration
+
+### Staking Mechanics
+
+Users can stake TOS tokens to generate "Energy" for gas-free transactions:
+
+| Staking Amount | Energy Generation | Transaction Capacity |
+|----------------|------------------|---------------------|
+| **100 TOS** | 10 Energy/hour | ~50 transactions/day |
+| **1,000 TOS** | 120 Energy/hour | ~600 transactions/day |
+| **10,000 TOS** | 1,500 Energy/hour | ~7,500 transactions/day |
+
+### Energy Economics
+
+```rust
+pub struct EnergyStaking {
+    pub staked_amount: u64,      // TOS tokens staked
+    pub energy_rate: f64,        // Energy generation per hour
+    pub lock_period: u32,        // Days locked
+    pub bonus_multiplier: f64,   // Bonus for longer locks
+}
+
+impl EnergyStaking {
+    pub fn calculate_energy_generation(&self) -> u64 {
+        let base_energy = (self.staked_amount as f64 * self.energy_rate) as u64;
+        (base_energy as f64 * self.bonus_multiplier) as u64
+    }
+}
+```
+
+## Network Value Accrual
+
+### Revenue Streams
+
+TOS Network generates value through multiple mechanisms:
+
+- **Transaction Fees**: Direct network usage
+- **Smart Contract Execution**: DApp ecosystem growth
+- **AI-Mining Services**: Productive work marketplace
+- **Cross-chain Operations**: Interoperability features
+- **Privacy Services**: Confidential transaction premiums
+
+### Token Burn Mechanisms
+
+**Quarterly Burns** (Starting Year 2):
+- 25% of transaction fees burned
+- 10% of smart contract gas burned
+- 5% of AI-mining service fees burned
+
+```python
+def calculate_quarterly_burn(quarter_data):
+    """Calculate tokens to be burned each quarter"""
+    transaction_burn = quarter_data['transaction_fees'] * 0.25
+    smart_contract_burn = quarter_data['smart_contract_gas'] * 0.10
+    ai_mining_burn = quarter_data['ai_mining_fees'] * 0.05
+
+    total_burn = transaction_burn + smart_contract_burn + ai_mining_burn
+    return min(total_burn, quarter_data['max_burn_limit'])
+```
+
+## Economic Security Model
+
+### Network Security Budget
+
+```
+Annual Security Budget = Block Rewards + Transaction Fees
+Target Security Ratio = 2-3% of Market Cap
+Minimum Hashrate Requirement = 1 PH/s
+```
+
+### Attack Cost Analysis
+
+| Attack Vector | Required Resources | Economic Cost | Success Probability |
+|---------------|-------------------|---------------|-------------------|
+| **51% Attack** | >50% network hashrate | $10M+ annually | Low (BlockDAG resistant) |
+| **AI-Mining Manipulation** | Advanced AI systems | $5M+ setup | Very Low (quality verification) |
+| **Smart Contract Exploit** | Code vulnerabilities | Variable | Low (formal verification) |
+
+## Governance Token Features
+
+### Voting Power
+
+```rust
+pub fn calculate_voting_power(
+    staked_tokens: u64,
+    stake_duration: u32,  // days
+    participation_history: f64  // 0.0 to 1.0
+) -> u64 {
+    let base_power = staked_tokens;
+    let duration_multiplier = 1.0 + (stake_duration as f64 * 0.01); // 1% per day
+    let participation_bonus = 1.0 + (participation_history * 0.5); // Up to 50% bonus
+
+    (base_power as f64 * duration_multiplier * participation_bonus) as u64
+}
+```
+
+### Governance Proposals
+
+- **Network Upgrades**: Protocol improvements
+- **Parameter Changes**: Block size, fees, rewards
+- **Treasury Allocation**: Community funding
+- **Emergency Responses**: Security incidents
+
+## Comparison with Other Projects
+
+| Project | Max Supply | Consensus | Halving Period | Premine |
+|---------|------------|-----------|----------------|---------|
+| **TOS Network** | 21M | PoW + AI | ~36.5 days | 0% |
+| **Bitcoin** | 21M | PoW | ~4 years | 0% |
+| **Ethereum** | Unlimited | PoS | None | 72M |
+| **Monero** | ~18.4M + tail | PoW | Dynamic | 0% |
+
+## Economic Sustainability
+
+### Long-term Viability
+
+**Revenue Diversification**:
+- Block rewards (decreasing)
+- Transaction fees (increasing)
+- AI-mining marketplace (growing)
+- DeFi ecosystem fees (expanding)
+
+**Deflationary Pressure**:
+- Quarterly token burns
+- Energy staking (temporary supply lock)
+- Lost keys/wallets (permanent reduction)
+
+### Network Effects
+
+```
+Adoption Growth → Increased Transactions → Higher Fees →
+Better Security → More Confidence → Greater Adoption
+```
+
+## Risk Factors
+
+### Economic Risks
+
+- **Market Volatility**: Token price fluctuations
+- **Miner Exodus**: Reduced network security
+- **Regulatory Changes**: Compliance costs
+- **Technology Disruption**: Quantum computing threats
+
+### Mitigation Strategies
+
+- **Diversified Mining**: Traditional + AI-mining
+- **Adaptive Parameters**: Dynamic difficulty adjustment
+- **Treasury Reserves**: Emergency funding
+- **Quantum Resistance**: Post-quantum cryptography research
+
+## Future Enhancements
+
+### Phase 1: Optimization (2024-2025)
+- Enhanced energy model
+- Improved AI-mining rewards
+- Cross-chain token bridges
+
+### Phase 2: Expansion (2025-2026)
+- DeFi protocol integration
+- NFT marketplace fees
+- Institutional staking products
+
+### Phase 3: Maturity (2026+)
+- Full deflationary model
+- Governance automation
+- Ecosystem revenue sharing
+
+## Conclusion
+
+TOS Network's tokenomics are designed for long-term sustainability, combining the proven scarcity model of Bitcoin with innovative AI-mining rewards and energy-based transactions. Our transparent, mathematically verifiable approach ensures that **"Don't Trust, Verify it"** applies to every aspect of our economic model.
+
+The combination of deflationary mechanisms, productive work incentives, and governance features creates a robust economic foundation for the TOS ecosystem's growth and success.
