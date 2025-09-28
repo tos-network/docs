@@ -1,0 +1,933 @@
+---
+title: TOS Network Configuration Guide
+description: Complete guide to configuring and running TOS Network nodes, validators, and network infrastructure
+---
+
+# TOS Network Configuration Guide
+
+This comprehensive guide covers everything you need to know about configuring and running TOS Network infrastructure, from basic node setup to advanced validator configurations. Whether you're setting up a personal node or enterprise infrastructure, this guide will help you optimize your TOS Network deployment.
+
+## Network Overview
+
+### TOS Network Architecture
+
+TOS Network uses a hybrid architecture combining:
+
+- **BlockDAG Structure**: Parallel block processing for enhanced scalability
+- **Dual-Track Mining**: Traditional PoW + AI-Mining consensus
+- **Privacy Layer**: Homomorphic encryption and zero-knowledge proofs
+- **Energy System**: Staking-based gas-free transactions
+- **Smart Contracts**: Java 8 + Rust Virtual Machine (RVM)
+
+### Network Types
+
+```
+TOS Network Environments:
+├── Mainnet (Production)
+│   ├── Network ID: 1
+│   ├── Chain ID: tos-mainnet
+│   ├── Genesis: 0x000...001
+│   └── Explorer: https://explorer.tos.network
+├── Testnet (Development)
+│   ├── Network ID: 2
+│   ├── Chain ID: tos-testnet
+│   ├── Genesis: 0x000...002
+│   └── Explorer: https://testnet-explorer.tos.network
+└── Devnet (Local Development)
+    ├── Network ID: 3
+    ├── Chain ID: tos-devnet
+    ├── Genesis: Custom
+    └── Explorer: http://localhost:3000
+```
+
+## Node Types and Requirements
+
+### Full Node
+
+A full node stores the complete blockchain and validates all transactions:
+
+```
+Hardware Requirements:
+├── CPU: 4+ cores, 2.4GHz
+├── RAM: 8GB minimum, 16GB recommended
+├── Storage: 500GB SSD (grows ~10GB/month)
+├── Network: 100 Mbps with unlimited data
+└── OS: Linux (Ubuntu 20.04+), macOS, Windows
+
+Software Requirements:
+├── TOS Daemon v1.0+
+├── Go 1.19+ (if building from source)
+├── Git for updates
+└── SSL certificates for secure connections
+```
+
+### Validator Node
+
+Validators participate in consensus and earn staking rewards:
+
+```
+Hardware Requirements:
+├── CPU: 8+ cores, 3.0GHz
+├── RAM: 32GB minimum, 64GB recommended
+├── Storage: 1TB NVMe SSD
+├── Network: 1 Gbps dedicated connection
+└── Uptime: 99.9% availability required
+
+Security Requirements:
+├── Hardware Security Module (HSM) recommended
+├── Firewall configuration
+├── DDoS protection
+├── Backup power supply
+└── Geographic redundancy
+```
+
+### Archive Node
+
+Archive nodes store complete historical data:
+
+```
+Hardware Requirements:
+├── CPU: 16+ cores, 3.5GHz
+├── RAM: 64GB minimum, 128GB recommended
+├── Storage: 5TB+ enterprise SSD
+├── Network: 10 Gbps for data serving
+└── Backup: Regular snapshot backups
+
+Use Cases:
+├── Block explorers
+├── Analytics platforms
+├── Historical data queries
+└── Compliance and auditing
+```
+
+### Light Node
+
+Light nodes provide basic functionality with minimal resources:
+
+```
+Hardware Requirements:
+├── CPU: 2+ cores, 1.8GHz
+├── RAM: 2GB minimum, 4GB recommended
+├── Storage: 10GB SSD
+├── Network: 10 Mbps broadband
+└── OS: Any modern OS
+
+Use Cases:
+├── Mobile wallets
+├── IoT devices
+├── Resource-constrained environments
+└── Quick synchronization
+```
+
+## Installation and Setup
+
+### Installing TOS Daemon
+
+#### Option 1: Pre-built Binaries
+
+```bash
+# Download latest release
+curl -fsSL https://releases.tos.network/install.sh | bash
+
+# Verify installation
+tos-daemon --version
+# Expected: TOS Daemon v1.0.0
+
+# Check available commands
+tos-daemon --help
+```
+
+#### Option 2: Build from Source
+
+```bash
+# Install dependencies
+sudo apt update
+sudo apt install build-essential git golang-go
+
+# Clone repository
+git clone https://github.com/tos-network/tos-daemon.git
+cd tos-daemon
+
+# Build daemon
+make build
+
+# Install globally
+sudo make install
+
+# Verify installation
+tos-daemon --version
+```
+
+#### Option 3: Docker Installation
+
+```bash
+# Pull official Docker image
+docker pull tosnetwork/tos-daemon:latest
+
+# Run node in container
+docker run -d \
+  --name tos-node \
+  -p 2080:2080 \
+  -p 8080:8080 \
+  -v tos-data:/data \
+  tosnetwork/tos-daemon:latest
+
+# Check container status
+docker ps
+docker logs tos-node
+```
+
+### Initial Configuration
+
+#### Generate Configuration File
+
+```bash
+# Initialize node configuration
+tos-daemon init --home ~/.tos
+
+# Generated files:
+~/.tos/
+├── config/
+│   ├── config.toml      # Node configuration
+│   ├── genesis.json     # Network genesis
+│   └── node_key.json    # Node identity
+├── data/
+│   └── blockchain/      # Blockchain data
+└── logs/
+    └── tos.log         # Node logs
+```
+
+#### Basic Configuration
+
+```toml
+# ~/.tos/config/config.toml
+
+# Network configuration
+[network]
+network_id = "tos-mainnet"
+chain_id = "1"
+listen_addr = "0.0.0.0:2080"
+external_addr = "your-public-ip:2080"
+max_peers = 50
+persistent_peers = [
+  "node1@seed1.tos.network:2080",
+  "node2@seed2.tos.network:2080",
+  "node3@seed3.tos.network:2080"
+]
+
+# Node settings
+[node]
+mode = "full"                    # "full", "validator", "archive", "light"
+moniker = "my-tos-node"         # Your node name
+fast_sync = true                # Enable fast sync
+state_sync = false              # Enable state sync (alternative to fast sync)
+prune = "default"               # "default", "nothing", "everything"
+
+# RPC configuration
+[rpc]
+enabled = true
+listen_addr = "127.0.0.1:8080"
+cors_allowed_origins = ["*"]
+max_open_connections = 1000
+
+# Consensus configuration
+[consensus]
+timeout_propose = "3s"
+timeout_propose_delta = "500ms"
+timeout_prevote = "1s"
+timeout_prevote_delta = "500ms"
+timeout_precommit = "1s"
+timeout_precommit_delta = "500ms"
+timeout_commit = "15s"          # Block time target
+
+# P2P configuration
+[p2p]
+pex = true                      # Enable peer exchange
+addr_book_strict = true
+max_num_inbound_peers = 40
+max_num_outbound_peers = 10
+unconditional_peer_ids = []
+persistent_peers_max_dial_period = "0s"
+
+# Privacy configuration
+[privacy]
+homomorphic_encryption = true
+zero_knowledge_proofs = true
+encrypted_mempool = true
+
+# Mining configuration (if applicable)
+[mining]
+enabled = false                 # Enable mining
+mining_address = ""             # Mining reward address
+ai_mining = false              # Enable AI-Mining
+threads = 4                    # Mining threads
+
+# Energy system
+[energy]
+enabled = true
+staking_contract = "tos1energy-contract-address..."
+energy_generation_rate = 0.5
+
+# Logging
+[logging]
+level = "info"                 # "debug", "info", "warn", "error"
+format = "json"                # "json", "plain"
+output = "file"                # "file", "stdout", "syslog"
+```
+
+## Network-Specific Configurations
+
+### Mainnet Configuration
+
+```toml
+# Mainnet specific settings
+[network]
+network_id = "tos-mainnet"
+chain_id = "1"
+genesis_file = "genesis-mainnet.json"
+
+[consensus]
+timeout_commit = "15s"         # 15-second block times
+
+[p2p]
+persistent_peers = [
+  "node1@mainnet-seed1.tos.network:2080",
+  "node2@mainnet-seed2.tos.network:2080",
+  "node3@mainnet-seed3.tos.network:2080",
+  "node4@mainnet-seed4.tos.network:2080"
+]
+
+seeds = [
+  "seed1@mainnet-seed1.tos.network:2080",
+  "seed2@mainnet-seed2.tos.network:2080"
+]
+
+[security]
+enabled = true
+require_ssl = true
+whitelist_enabled = false      # Open network
+```
+
+### Testnet Configuration
+
+```toml
+# Testnet specific settings
+[network]
+network_id = "tos-testnet"
+chain_id = "2"
+genesis_file = "genesis-testnet.json"
+
+[consensus]
+timeout_commit = "10s"         # Faster blocks for testing
+
+[p2p]
+persistent_peers = [
+  "test-node1@testnet-seed1.tos.network:2080",
+  "test-node2@testnet-seed2.tos.network:2080"
+]
+
+[rpc]
+cors_allowed_origins = ["*"]   # Permissive for development
+
+[mining]
+enabled = true                 # Mining enabled on testnet
+difficulty_adjustment = "fast" # Quick difficulty adjustment
+```
+
+### Local Development (Devnet)
+
+```toml
+# Local development configuration
+[network]
+network_id = "tos-devnet"
+chain_id = "3"
+genesis_file = "genesis-devnet.json"
+
+[consensus]
+timeout_commit = "1s"          # Very fast blocks
+skip_timeout_commit = true
+
+[p2p]
+addr_book_strict = false       # Allow local peers
+allow_duplicate_ip = true      # Multiple nodes on same machine
+
+[rpc]
+enabled = true
+listen_addr = "127.0.0.1:8080"
+cors_allowed_origins = ["*"]
+
+[mining]
+enabled = true
+instant_finality = true       # Immediate finality for testing
+```
+
+## Validator Configuration
+
+### Validator Setup
+
+#### Generate Validator Keys
+
+```bash
+# Generate validator keys
+tos-daemon keys generate-validator \
+  --output-dir ~/.tos/validator \
+  --name my-validator
+
+# Generated files:
+~/.tos/validator/
+├── consensus_key.json         # Consensus signing key
+├── validator_key.json         # Validator identity key
+└── node_key.json             # P2P node key
+```
+
+#### Validator Configuration
+
+```toml
+# Additional validator-specific configuration
+[validator]
+enabled = true
+consensus_key_file = "validator/consensus_key.json"
+validator_key_file = "validator/validator_key.json"
+
+# Validator settings
+moniker = "my-validator"
+website = "https://my-validator.com"
+details = "Professional TOS Network validator"
+commission_rate = "0.05"       # 5% commission
+commission_max_rate = "0.20"   # Maximum 20% commission
+commission_max_change = "0.01" # Maximum 1% daily change
+
+# Security settings
+[validator.security]
+sentry_nodes = [               # Sentry node architecture
+  "sentry1@10.0.1.10:2080",
+  "sentry2@10.0.1.11:2080"
+]
+private_peer_ids = [           # Private peer connections
+  "validator-peer-1",
+  "validator-peer-2"
+]
+
+# Backup and redundancy
+[validator.backup]
+enabled = true
+backup_interval = "1h"
+backup_location = "/backup/validator"
+redundant_validators = [       # Backup validators
+  "backup-validator-1",
+  "backup-validator-2"
+]
+
+# Performance tuning
+[validator.performance]
+mempool_size = 10000
+max_txs_bytes = 1048576       # 1MB
+cache_size = 10000
+```
+
+#### Staking and Delegation
+
+```bash
+# Create validator transaction
+tos-daemon tx staking create-validator \
+  --amount 10000000000000 \    # 10,000 TOS (in nanoTOS)
+  --pubkey $(tos-daemon tendermint show-validator) \
+  --moniker "my-validator" \
+  --chain-id tos-mainnet \
+  --commission-rate 0.05 \
+  --commission-max-rate 0.20 \
+  --commission-max-change-rate 0.01 \
+  --min-self-delegation 1000000000000 \
+  --gas auto \
+  --from my-validator-key
+
+# Check validator status
+tos-daemon query staking validator $(tos-daemon keys show my-validator-key -a)
+```
+
+## Security Configuration
+
+### Firewall Setup
+
+```bash
+# Configure firewall for TOS node
+sudo ufw enable
+
+# Allow TOS P2P port
+sudo ufw allow 2080/tcp
+
+# Allow RPC port (be careful with public access)
+sudo ufw allow from 10.0.0.0/8 to any port 8080
+
+# Allow SSH
+sudo ufw allow ssh
+
+# Check firewall status
+sudo ufw status numbered
+```
+
+### SSL/TLS Configuration
+
+```toml
+# Enable SSL/TLS
+[rpc.tls]
+enabled = true
+cert_file = "/etc/tos/tls/server.crt"
+key_file = "/etc/tos/tls/server.key"
+ca_file = "/etc/tos/tls/ca.crt"
+
+[p2p.tls]
+enabled = true
+cert_file = "/etc/tos/tls/p2p.crt"
+key_file = "/etc/tos/tls/p2p.key"
+```
+
+### Key Management
+
+```bash
+# Secure key storage
+sudo mkdir -p /etc/tos/keys
+sudo chown tos:tos /etc/tos/keys
+sudo chmod 700 /etc/tos/keys
+
+# Hardware Security Module (HSM) integration
+[security.hsm]
+enabled = true
+provider = "pkcs11"
+library = "/usr/lib/softhsm2/libsofthsm2.so"
+slot_id = 0
+pin = "your-hsm-pin"
+```
+
+## Performance Optimization
+
+### Hardware Optimization
+
+#### CPU Configuration
+
+```bash
+# Set CPU performance mode
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Optimize CPU affinity for validator nodes
+taskset -c 0-7 tos-daemon start   # Use cores 0-7 for daemon
+```
+
+#### Memory Optimization
+
+```toml
+# Memory pool configuration
+[mempool]
+cache_size = 10000                # Transaction cache size
+max_txs_bytes = 1073741824       # 1GB max transaction bytes
+max_tx_bytes = 1048576           # 1MB max single transaction
+
+# State database optimization
+[state]
+cache_size = 1000000             # State cache size
+pruning = "default"              # Pruning strategy
+snapshot_interval = 1000         # Snapshot every 1000 blocks
+```
+
+#### Storage Optimization
+
+```bash
+# Use high-performance storage
+# Recommended: NVMe SSD with high IOPS
+
+# Mount options for better performance
+/dev/nvme0n1 /data ext4 defaults,noatime,discard 0 0
+
+# Database optimization
+[db]
+backend = "goleveldb"            # Database backend
+batch_size = 1000               # Batch write size
+cache_size = 268435456          # 256MB cache
+compression = "snappy"          # Compression algorithm
+```
+
+### Network Optimization
+
+#### Bandwidth Management
+
+```toml
+# Network performance tuning
+[p2p]
+max_packet_msg_payload_size = 1024    # 1KB max message size
+send_rate = 5120000                   # 5MB/s send rate
+recv_rate = 5120000                   # 5MB/s receive rate
+flush_throttle_timeout = "100ms"
+
+# Connection management
+max_num_inbound_peers = 40
+max_num_outbound_peers = 10
+persistent_peers_max_dial_period = "0s"
+addr_book_strict = true
+```
+
+#### Peer Management
+
+```bash
+# Configure peer discovery
+[p2p.peer_manager]
+enabled = true
+max_peers = 50
+min_peers = 10
+discovery_interval = "30s"
+peer_quality_threshold = 0.8
+
+# Peer filtering
+[p2p.filters]
+whitelist = [
+  "trusted-peer-1",
+  "trusted-peer-2"
+]
+blacklist = [
+  "malicious-peer-1"
+]
+```
+
+## Monitoring and Maintenance
+
+### Monitoring Setup
+
+#### Prometheus Integration
+
+```toml
+# Enable Prometheus metrics
+[instrumentation]
+prometheus = true
+prometheus_listen_addr = ":26660"
+max_open_connections = 3
+namespace = "tos"
+
+# Custom metrics
+[metrics]
+enabled = true
+sink = "prometheus"
+service_name = "tos-node"
+```
+
+#### Grafana Dashboard
+
+```bash
+# Import TOS Network Grafana dashboard
+curl -o tos-dashboard.json \
+  https://raw.githubusercontent.com/tos-network/monitoring/main/grafana/dashboard.json
+
+# Key metrics to monitor:
+# - Block height and sync status
+# - Peer connections
+# - Transaction throughput
+# - Memory and CPU usage
+# - Disk space utilization
+# - Network bandwidth
+```
+
+### Health Checks
+
+```bash
+#!/bin/bash
+# health-check.sh - Node health monitoring script
+
+# Check if daemon is running
+if ! pgrep -f tos-daemon > /dev/null; then
+    echo "ERROR: TOS daemon not running"
+    exit 1
+fi
+
+# Check sync status
+SYNC_STATUS=$(tos-daemon status | jq -r '.SyncInfo.catching_up')
+if [ "$SYNC_STATUS" = "true" ]; then
+    echo "WARNING: Node is syncing"
+fi
+
+# Check peer connections
+PEER_COUNT=$(tos-daemon status | jq -r '.SyncInfo.peers')
+if [ "$PEER_COUNT" -lt 5 ]; then
+    echo "WARNING: Low peer count: $PEER_COUNT"
+fi
+
+# Check disk space
+DISK_USAGE=$(df ~/.tos | tail -1 | awk '{print $5}' | sed 's/%//')
+if [ "$DISK_USAGE" -gt 90 ]; then
+    echo "ERROR: Disk usage high: $DISK_USAGE%"
+    exit 1
+fi
+
+echo "Node health check passed"
+```
+
+### Automated Maintenance
+
+```bash
+#!/bin/bash
+# maintenance.sh - Automated maintenance script
+
+# Update node software
+update_node() {
+    echo "Checking for updates..."
+    LATEST=$(curl -s https://api.github.com/repos/tos-network/tos-daemon/releases/latest | jq -r '.tag_name')
+    CURRENT=$(tos-daemon version)
+
+    if [ "$LATEST" != "$CURRENT" ]; then
+        echo "Updating from $CURRENT to $LATEST"
+        systemctl stop tos-daemon
+        wget "https://releases.tos.network/$LATEST/tos-daemon"
+        sudo mv tos-daemon /usr/local/bin/
+        sudo chmod +x /usr/local/bin/tos-daemon
+        systemctl start tos-daemon
+    fi
+}
+
+# Backup validator keys
+backup_keys() {
+    echo "Backing up validator keys..."
+    tar -czf "/backup/validator-keys-$(date +%Y%m%d).tar.gz" ~/.tos/validator/
+
+    # Keep only last 30 days of backups
+    find /backup -name "validator-keys-*.tar.gz" -mtime +30 -delete
+}
+
+# Clean up old logs
+cleanup_logs() {
+    echo "Cleaning up old logs..."
+    find ~/.tos/logs -name "*.log" -mtime +7 -delete
+}
+
+# Optimize database
+optimize_db() {
+    echo "Optimizing database..."
+    tos-daemon db compact
+}
+
+# Run maintenance tasks
+update_node
+backup_keys
+cleanup_logs
+optimize_db
+
+echo "Maintenance completed"
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### Sync Problems
+
+```bash
+# Check sync status
+tos-daemon status | jq '.SyncInfo'
+
+# Reset node if sync is stuck
+tos-daemon unsafe-reset-all
+
+# Fast sync from trusted snapshot
+tos-daemon snapshot restore \
+  --snapshot-url https://snapshots.tos.network/latest \
+  --trust-height 1000000 \
+  --trust-hash 0xabc123...
+```
+
+#### Peer Connection Issues
+
+```bash
+# Check peer connections
+tos-daemon net_info
+
+# Manually add peers
+tos-daemon dial_peers "node@ip:port"
+
+# Reset peer connections
+rm ~/.tos/config/addrbook.json
+systemctl restart tos-daemon
+```
+
+#### Performance Issues
+
+```bash
+# Check resource usage
+htop
+iotop
+iftop
+
+# Analyze logs for errors
+tail -f ~/.tos/logs/tos.log | grep ERROR
+
+# Database maintenance
+tos-daemon db stats
+tos-daemon db compact
+```
+
+### Log Analysis
+
+```bash
+# Common log patterns to monitor
+grep "ERROR" ~/.tos/logs/tos.log
+grep "consensus" ~/.tos/logs/tos.log
+grep "connection" ~/.tos/logs/tos.log
+
+# Log rotation setup
+# /etc/logrotate.d/tos-daemon
+/home/tos/.tos/logs/*.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+```
+
+## Advanced Configurations
+
+### Multi-Node Setup
+
+#### Sentry Node Architecture
+
+```toml
+# Sentry node configuration
+[validator]
+enabled = false                # Sentry nodes are not validators
+
+[p2p]
+pex = true                    # Enable peer exchange
+private_peer_ids = ["validator-node-id"]
+persistent_peers = ["validator@internal-ip:2080"]
+
+[rpc]
+enabled = true
+listen_addr = "0.0.0.0:8080"  # Public RPC access
+```
+
+#### Validator Node (Private)
+
+```toml
+# Validator node configuration
+[validator]
+enabled = true
+
+[p2p]
+pex = false                   # Disable peer exchange
+private_peer_ids = []
+persistent_peers = [
+  "sentry1@sentry1-ip:2080",
+  "sentry2@sentry2-ip:2080"
+]
+addr_book_strict = true
+
+[rpc]
+enabled = false               # No public RPC access
+```
+
+### Load Balancing
+
+```nginx
+# nginx.conf - Load balancer for RPC endpoints
+upstream tos_rpc {
+    least_conn;
+    server node1:8080 max_fails=3 fail_timeout=30s;
+    server node2:8080 max_fails=3 fail_timeout=30s;
+    server node3:8080 max_fails=3 fail_timeout=30s;
+}
+
+server {
+    listen 80;
+    server_name rpc.tos.network;
+
+    location / {
+        proxy_pass http://tos_rpc;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+### High Availability Setup
+
+```bash
+#!/bin/bash
+# ha-setup.sh - High availability configuration
+
+# Keepalived configuration for validator failover
+cat > /etc/keepalived/keepalived.conf << EOF
+vrrp_script chk_tos {
+    script "/usr/local/bin/check_tos_health.sh"
+    interval 5
+    weight -2
+    fall 3
+    rise 2
+}
+
+vrrp_instance VI_1 {
+    state MASTER
+    interface eth0
+    virtual_router_id 51
+    priority 110
+    advert_int 1
+    authentication {
+        auth_type PASS
+        auth_pass mypassword
+    }
+    virtual_ipaddress {
+        10.0.1.100/24
+    }
+    track_script {
+        chk_tos
+    }
+}
+EOF
+
+# Start keepalived
+systemctl enable keepalived
+systemctl start keepalived
+```
+
+## Conclusion
+
+This comprehensive network configuration guide provides everything needed to successfully deploy and maintain TOS Network infrastructure. Key takeaways:
+
+### For Node Operators
+- **Choose the right node type** for your use case and resources
+- **Follow security best practices** to protect your infrastructure
+- **Monitor performance** and maintain your nodes proactively
+- **Stay updated** with the latest software releases
+
+### For Validators
+- **Implement redundancy** to ensure high availability
+- **Use sentry node architecture** for enhanced security
+- **Monitor validator performance** and commission rates
+- **Backup validator keys** regularly and securely
+
+### For Developers
+- **Use testnet** for development and testing
+- **Configure devnet** for local development
+- **Optimize RPC endpoints** for application performance
+- **Implement proper error handling** for network interactions
+
+### For Enterprises
+- **Plan for scalability** with multi-node deployments
+- **Implement monitoring** and alerting systems
+- **Follow compliance** and security requirements
+- **Consider professional support** for critical deployments
+
+TOS Network's configuration system embodies the principle **"Don't Trust, Verify it"** - every configuration option is transparent, verifiable, and provides cryptographic guarantees about network security and integrity.
+
+Whether you're running a single node or a complex multi-validator setup, TOS Network provides the flexibility and security needed for any deployment scenario.
+
+## Additional Resources
+
+- **TOS Network Documentation**: Complete platform documentation
+- **Node Operator Discord**: Real-time support and community
+- **GitHub Repository**: Open-source node software and tools
+- **Professional Services**: Enterprise support and consulting
+
+Remember: **"Don't Trust, Verify it"** - Always verify your configuration and monitor your infrastructure to ensure optimal performance and security!

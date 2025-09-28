@@ -1,0 +1,302 @@
+---
+title: Zero-Knowledge Proofs
+description: Cryptographic proofs that verify transactions without revealing private information
+---
+
+# Zero-Knowledge Proofs: Proving Without Revealing
+
+Zero-Knowledge Proofs (ZK Proofs) are a fundamental pillar of TOS Network's **"Don't Trust, Verify it"** philosophy. These cryptographic proofs allow the network to verify the validity of encrypted transactions without ever revealing the actual amounts or balances involved.
+
+## What are Zero-Knowledge Proofs?
+
+A **zero-knowledge proof** is a cryptographic method where one party (the prover) can demonstrate knowledge of specific information to another party (the verifier) **without revealing the actual information**. In TOS Network, this means:
+
+- **Complete Privacy**: Transaction amounts remain encrypted and hidden
+- **Mathematical Verification**: Network can prove transactions are valid
+- **No Trust Required**: Verification is purely mathematical, requiring no trusted parties
+- **Immutable Proofs**: Once proven valid, the proof cannot be forged or manipulated
+
+## TOS Implementation: Bulletproofs
+
+TOS Network uses **Bulletproofs**, a cutting-edge zero-knowledge proof protocol specifically optimized for blockchain applications. Bulletproofs provide the perfect combination of privacy, efficiency, and security required for a trustless financial system.
+
+### Why Bulletproofs?
+
+✅ **No Trusted Setup**: Unlike some ZK systems, Bulletproofs require no trusted ceremony
+✅ **Logarithmic Proof Size**: Proofs scale efficiently with the number of transactions
+✅ **Range Proof Specialization**: Perfect for proving amounts are within valid ranges
+✅ **Batch Verification**: Multiple proofs can be verified together for efficiency
+✅ **Non-Interactive**: Proofs can be verified without communication with the prover
+
+### Key Advantages over Alternatives
+
+| Feature | Bulletproofs (TOS) | zk-SNARKs | zk-STARKs |
+|---------|-------------------|-----------|-----------|
+| **Trusted Setup** | ❌ None required | ⚠️ Required | ❌ None required |
+| **Proof Size** | 🔥 Logarithmic | ⭐ Constant | 📏 Large |
+| **Verification Time** | ⚡ Fast | ⚡ Very Fast | 🐌 Slower |
+| **Quantum Resistance** | ❌ No | ❌ No | ✅ Yes |
+| **Maturity** | ✅ Production Ready | ✅ Mature | 🧪 Experimental |
+
+## How TOS Uses Zero-Knowledge Proofs
+
+### 1. Range Proofs for Transaction Validity
+
+Every transaction in TOS must prove two critical properties without revealing amounts:
+
+**Proof 1: Non-Negative Amounts**
+```
+Prove: transferred_amount ≥ 0
+Without revealing: actual value of transferred_amount
+```
+
+**Proof 2: Sufficient Balance**
+```
+Prove: sender_balance ≥ transferred_amount
+Without revealing: actual values of balance or amount
+```
+
+### 2. Balance Integrity Verification
+
+```
+Network Verification Process:
+1. Receive encrypted transaction from sender
+2. Verify zero-knowledge proof mathematically
+3. Confirm sender has sufficient encrypted balance
+4. Update encrypted balances homomorphically
+5. All amounts remain hidden throughout process
+```
+
+### 3. Multi-Asset Privacy
+
+TOS supports private transactions across multiple assets simultaneously:
+
+```
+Single Transaction Proof:
+- Asset A: Prove sufficient balance for amount A (hidden)
+- Asset B: Prove sufficient balance for amount B (hidden)
+- Asset C: Prove sufficient balance for amount C (hidden)
+Combined into one efficient batch proof
+```
+
+## Performance Optimizations
+
+TOS Network implements several cutting-edge optimizations to achieve industry-leading performance:
+
+### Batch Verification
+- **Individual Verification**: ~0.40ms per transaction
+- **Batch Verification**: Process 100 transactions in ~40ms total
+- **Throughput**: Enables 2,500+ transactions per second
+- **Scalability**: Verification time scales logarithmically, not linearly
+
+### Aggregated Range Proofs
+```rust
+// Instead of proving each output separately:
+Proof₁: output₁ ∈ [0, 2⁶⁴]
+Proof₂: output₂ ∈ [0, 2⁶⁴]
+Proof₃: output₃ ∈ [0, 2⁶⁴]
+
+// TOS aggregates into single proof:
+Proof: (output₁, output₂, output₃) ∈ [0, 2⁶⁴]³
+```
+
+### Sigma Protocol Batching
+- Multiple signatures verified together
+- Reduces cryptographic operations
+- Maintains same security guarantees
+- Significant performance improvement
+
+## Advanced Features: Front-Running Protection
+
+TOS implements sophisticated mechanisms to prevent front-running and maintain transaction validity in a concurrent environment:
+
+### BlockDAG Compatibility
+
+**Challenge**: Multiple blocks at same height could reorder transactions
+**Solution**: Topological ordering ensures transaction dependencies are preserved
+
+```
+Example:
+Block A (height 1000): Alice → Bob (100 TOS)
+Block B (height 1001): Bob → Charlie (50 TOS)
+
+Even if blocks are reordered, Bob's transaction always executes after Alice's
+```
+
+### Incoming Transaction Handling
+
+**Challenge**: New incoming funds could invalidate pending transaction proofs
+**Solution**: Proofs based on last outgoing transaction balance
+
+```
+Timeline:
+1. Alice creates proof with balance at height 1000
+2. Bob sends Alice funds at height 1001
+3. Alice's transaction still valid - proof references stable outgoing balance
+4. Immediate spending of received funds possible
+```
+
+### Multiple Transaction Coordination
+
+**Challenge**: Multiple outgoing transactions from same account
+**Solution**: Nonce-based ordering with output balance tracking
+
+```
+Account State Management:
+- Final Balance: actual account balance (includes all transactions)
+- Output Balance: balance minus pending outgoing transactions
+- Nonce System: prevents replay attacks and ensures ordering
+```
+
+## Real-World Transaction Example
+
+Let's trace a private transaction from Alice to Bob:
+
+### Step 1: Transaction Creation
+```
+Alice wants to send 100 TOS to Bob
+Alice's encrypted balance: Encrypt(1000 TOS)
+```
+
+### Step 2: Zero-Knowledge Proof Generation
+```
+Proof₁: Prove encrypted_amount ≥ 0 (without revealing 100)
+Proof₂: Prove encrypted_balance ≥ encrypted_amount (without revealing 1000 ≥ 100)
+Proof₃: Generate range proof for amount ∈ [0, 2⁶⁴]
+```
+
+### Step 3: Network Verification
+```
+Network receives:
+- Encrypted transaction: Alice → Bob, Encrypt(100)
+- Zero-knowledge proofs: π₁, π₂, π₃
+- Homomorphic operation instructions
+
+Network verifies:
+✅ Proof₁ valid: Amount is positive
+✅ Proof₂ valid: Alice has sufficient balance
+✅ Proof₃ valid: Amount in valid range
+✅ All cryptographic signatures valid
+```
+
+### Step 4: Balance Updates
+```
+Alice's new balance: Encrypt(1000) - Encrypt(100) = Encrypt(900)
+Bob's new balance: Encrypt(500) + Encrypt(100) = Encrypt(600)
+
+Network knows:
+✅ Transaction is mathematically valid
+✅ Balances are properly updated
+❌ Actual amounts remain completely hidden
+```
+
+## Security Guarantees
+
+### Cryptographic Security
+- **Discrete Logarithm Assumption**: Based on well-studied mathematical problem
+- **Soundness**: Impossible to prove false statements
+- **Zero-Knowledge**: No information leakage beyond validity
+- **Non-Malleability**: Proofs cannot be modified or reused
+
+### Network Security
+- **Replay Protection**: Nonce system prevents transaction replay
+- **Double-Spend Prevention**: Balance proofs ensure sufficient funds
+- **Consensus Integration**: Proofs verified by all network participants
+- **Immutable Verification**: Once proven, validity is permanent
+
+## Performance Benchmarks
+
+### Proof Generation (Client-Side)
+- **Range Proof Generation**: ~2-5ms per output
+- **Balance Proof Generation**: ~1-3ms per asset
+- **Total Transaction Creation**: ~10-50ms depending on complexity
+
+### Proof Verification (Network-Side)
+- **Single Transaction**: ~0.4ms verification time
+- **Batch of 100 Transactions**: ~40ms total (0.4ms average)
+- **Large Batch (1000 Transactions)**: ~200ms total (0.2ms average)
+
+### Storage Requirements
+- **Range Proof Size**: ~675 bytes per proof
+- **Transaction Overhead**: ~1KB additional data for privacy
+- **Network Bandwidth**: Minimal impact on block propagation
+
+## Developer Integration
+
+### Creating Private Transactions
+
+```javascript
+// Generate zero-knowledge proof for transaction
+const zkProof = await generateZKProof({
+  senderBalance: encryptedBalance,
+  transferAmount: amount,
+  recipientKey: bobPublicKey,
+  assetId: 'TOS'
+})
+
+// Create transaction with proof
+const transaction = {
+  sender: aliceAddress,
+  recipient: bobAddress,
+  encryptedAmount: zkProof.encryptedAmount,
+  rangeProof: zkProof.rangeProof,
+  balanceProof: zkProof.balanceProof,
+  nonce: currentNonce + 1
+}
+```
+
+### Verifying Proofs
+
+```javascript
+// Network verification process
+const isValid = await verifyZKProof({
+  transaction: receivedTransaction,
+  senderBalance: getSenderEncryptedBalance(transaction.sender),
+  networkParameters: getNetworkParameters()
+})
+
+if (isValid) {
+  await executeTransaction(transaction)
+} else {
+  rejectTransaction(transaction, 'Invalid zero-knowledge proof')
+}
+```
+
+## Future Enhancements
+
+TOS Network continues to advance zero-knowledge proof technology:
+
+### Upcoming Features
+- **Recursive Proofs**: Proofs of proofs for even better scalability
+- **Cross-Chain ZK**: Maintaining privacy across blockchain bridges
+- **Confidential Smart Contracts**: Private computation with RVM integration
+- **Post-Quantum Preparation**: Research into quantum-resistant ZK systems
+
+### Research Areas
+- **PLONK Integration**: Exploring universal setup systems
+- **zk-STARK Adoption**: Monitoring quantum-resistant alternatives
+- **Hardware Acceleration**: GPU and ASIC optimization for proof generation
+- **Mobile Optimization**: Lightweight proofs for mobile wallet applications
+
+## Comparison with Other Privacy Coins
+
+| Feature | TOS Network | Monero | Zcash | Ethereum |
+|---------|-------------|--------|-------|----------|
+| **Privacy Method** | ZK + HE | Ring Signatures | zk-SNARKs | None (public) |
+| **Trusted Setup** | ❌ None | ❌ None | ⚠️ Required | N/A |
+| **Transaction Size** | Small | Large | Small | N/A |
+| **Verification Time** | 0.4ms | ~2ms | ~2.3ms | N/A |
+| **Programmability** | ✅ RVM | ❌ Limited | ❌ Limited | ✅ EVM |
+| **Scalability** | 2500+ TPS | ~1.7 TPS | ~6 TPS | ~15 TPS |
+
+## Conclusion
+
+Zero-Knowledge Proofs in TOS Network represent the cutting edge of blockchain privacy technology. By enabling **complete transaction privacy without sacrificing verifiability**, TOS delivers on its core promise: **"Don't Trust, Verify it"**.
+
+Every transaction is mathematically proven to be valid without revealing any private information. Your financial activity remains completely confidential while the network maintains full integrity and consensus. This is the future of private, trustless finance.
+
+## Learn More
+
+- [Homomorphic Encryption](/features/privacy/homomorphic-encryption) - How TOS encrypts transaction amounts
+- [Confidential Assets](/features/privacy/confidential-assets) - Private tokens and multi-asset support
+- [Technical Implementation](/whitepaper/03-technology) - Deep dive into the cryptographic details

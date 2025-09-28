@@ -1,0 +1,1342 @@
+---
+title: TOS Network SDKs
+description: Comprehensive guide to TOS Network Software Development Kits for JavaScript, Python, Go, Java, and Rust development
+---
+
+# TOS Network SDKs
+
+TOS Network provides comprehensive Software Development Kits (SDKs) for multiple programming languages, making it easy to integrate TOS Network features into your applications. Each SDK provides full access to TOS Network's privacy features, AI-Mining capabilities, smart contracts, and energy management.
+
+## Available SDKs
+
+### Supported Languages
+
+| Language | Package | Status | Documentation |
+|----------|---------|--------|---------------|
+| **JavaScript/TypeScript** | `@tos-network/sdk` | ✅ Stable | [JS/TS Docs](#javascript-typescript-sdk) |
+| **Python** | `tos-network-python` | ✅ Stable | [Python Docs](#python-sdk) |
+| **Go** | `github.com/tos-network/go-tos` | ✅ Stable | [Go Docs](#go-sdk) |
+| **Java** | `com.tosnetwork:tos-sdk` | ✅ Stable | [Java Docs](#java-sdk) |
+| **Rust** | `tos-network-sdk` | ✅ Stable | [Rust Docs](#rust-sdk) |
+| **C#** | `TosNetwork.SDK` | 🔶 Beta | [C# Docs](#c-sdk) |
+| **PHP** | `tos-network/php-sdk` | 🔶 Beta | [PHP Docs](#php-sdk) |
+| **Ruby** | `tos-network-ruby` | 🔶 Beta | [Ruby Docs](#ruby-sdk) |
+
+## JavaScript/TypeScript SDK
+
+### Installation
+
+```bash
+# NPM
+npm install @tos-network/sdk
+
+# Yarn
+yarn add @tos-network/sdk
+
+# PNPM
+pnpm add @tos-network/sdk
+```
+
+### Quick Start
+
+```typescript
+import { TOSNetwork, PrivacyLevel } from '@tos-network/sdk';
+
+// Initialize connection
+const tos = new TOSNetwork({
+    network: 'mainnet', // 'mainnet', 'testnet', or RPC URL
+    apiKey: 'your-api-key', // Optional for enhanced features
+    privacy: PrivacyLevel.MAXIMUM
+});
+
+// Connect to network
+await tos.connect();
+
+// Get network information
+const networkInfo = await tos.getNetworkInfo();
+console.log('Connected to TOS Network:', networkInfo);
+```
+
+### Wallet Operations
+
+```typescript
+// Create or import wallet
+const wallet = await tos.wallet.create({
+    password: 'secure-password',
+    mnemonic: 'your mnemonic phrase' // Optional for import
+});
+
+// Get wallet balance (encrypted)
+const balance = await wallet.getBalance();
+console.log('Encrypted balance:', balance);
+
+// Generate receiving address
+const address = await wallet.generateAddress({
+    label: 'Main receiving address'
+});
+
+// Send private transaction
+const transaction = await wallet.sendTransaction({
+    to: 'tos1recipient-address...',
+    amount: '100.0',
+    memo: 'Private payment',
+    paymentMethod: 'energy' // or 'gas'
+});
+
+console.log('Transaction sent:', transaction.hash);
+```
+
+### Smart Contract Interaction
+
+```typescript
+// Deploy smart contract
+const contract = await tos.contracts.deploy({
+    bytecode: contractBytecode,
+    constructorArgs: ['arg1', 'arg2'],
+    gasLimit: 1000000
+});
+
+// Interact with deployed contract
+const result = await contract.call('getBalance', ['tos1address...']);
+
+// Execute contract method
+const execution = await contract.execute('transfer', [
+    'tos1recipient...',
+    '1000'
+], {
+    gasLimit: 500000,
+    useEnergy: true
+});
+```
+
+### AI-Mining Integration
+
+```typescript
+// Register as AI miner
+await tos.aiMining.registerMiner({
+    capabilities: ['code-analysis', 'data-processing'],
+    hardwareProfile: {
+        cpuCores: 8,
+        ramGB: 16,
+        gpuAvailable: false
+    }
+});
+
+// Get available tasks
+const tasks = await tos.aiMining.getAvailableTasks({
+    difficulty: 'intermediate',
+    categories: ['code-analysis']
+});
+
+// Submit solution
+const submission = await tos.aiMining.submitSolution({
+    taskId: 'task-123',
+    solution: solutionData,
+    stakeAmount: '10.0'
+});
+```
+
+### Energy Management
+
+```typescript
+// Stake TOS for energy
+const staking = await tos.energy.stake({
+    amount: '1000.0',
+    duration: 30, // days
+    autoRenew: true
+});
+
+// Check energy balance
+const energyBalance = await tos.energy.getBalance();
+
+// Use energy for transaction
+const energyTx = await wallet.sendTransaction({
+    to: 'tos1recipient...',
+    amount: '50.0',
+    paymentMethod: 'energy'
+});
+```
+
+### Privacy Features
+
+```typescript
+// Encrypt amount for transaction
+const encryptedAmount = await tos.privacy.encryptAmount(
+    '100.0',
+    recipientPublicKey
+);
+
+// Generate zero-knowledge proof
+const proof = await tos.privacy.generateProof({
+    secret: privateValue,
+    publicInput: publicValue,
+    circuit: 'balance-proof'
+});
+
+// Verify proof
+const isValid = await tos.privacy.verifyProof(proof);
+```
+
+### Real-time Updates
+
+```typescript
+// Subscribe to new blocks
+tos.on('newBlock', (block) => {
+    console.log('New block:', block.height);
+});
+
+// Subscribe to transactions for specific address
+tos.on('transaction', {
+    address: 'tos1your-address...'
+}, (transaction) => {
+    console.log('New transaction:', transaction);
+});
+
+// Subscribe to AI-Mining events
+tos.aiMining.on('taskCompleted', (event) => {
+    console.log('Task completed:', event.taskId);
+});
+```
+
+## Python SDK
+
+### Installation
+
+```bash
+# PyPI
+pip install tos-network-python
+
+# With development dependencies
+pip install tos-network-python[dev]
+
+# From source
+git clone https://github.com/tos-network/tos-python.git
+cd tos-python
+pip install -e .
+```
+
+### Quick Start
+
+```python
+from tos_network import TOSNetwork, PrivacyLevel
+import asyncio
+
+async def main():
+    # Initialize TOS Network connection
+    tos = TOSNetwork(
+        network='mainnet',
+        privacy_level=PrivacyLevel.MAXIMUM
+    )
+
+    await tos.connect()
+
+    # Get network information
+    network_info = await tos.get_network_info()
+    print(f"Connected to TOS Network: {network_info}")
+
+# Run async function
+asyncio.run(main())
+```
+
+### Wallet Operations
+
+```python
+from tos_network import Wallet
+
+class WalletManager:
+    def __init__(self, tos_network):
+        self.tos = tos_network
+        self.wallet = None
+
+    async def create_wallet(self, password: str):
+        """Create new wallet"""
+        self.wallet = await self.tos.wallet.create(password=password)
+        return self.wallet
+
+    async def send_private_transaction(self, to: str, amount: str):
+        """Send private transaction"""
+        if not self.wallet:
+            raise Exception("Wallet not initialized")
+
+        transaction = await self.wallet.send_transaction(
+            to=to,
+            amount=amount,
+            privacy_level=PrivacyLevel.MAXIMUM,
+            payment_method='energy'
+        )
+
+        return transaction.hash
+
+    async def get_encrypted_balance(self):
+        """Get encrypted wallet balance"""
+        if not self.wallet:
+            raise Exception("Wallet not initialized")
+
+        return await self.wallet.get_balance()
+```
+
+### Smart Contract Development
+
+```python
+from tos_network.contracts import SmartContract
+
+class TokenContract(SmartContract):
+    def __init__(self, tos_network, address=None):
+        super().__init__(tos_network, address)
+        self.abi = [
+            {
+                "name": "transfer",
+                "inputs": [
+                    {"name": "to", "type": "address"},
+                    {"name": "amount", "type": "uint256"}
+                ],
+                "outputs": [{"name": "success", "type": "bool"}]
+            }
+        ]
+
+    async def deploy(self, initial_supply: int):
+        """Deploy token contract"""
+        deployment = await self.deploy_contract(
+            bytecode=self.get_bytecode(),
+            constructor_args=[initial_supply],
+            gas_limit=1000000
+        )
+        return deployment
+
+    async def transfer(self, to: str, amount: int):
+        """Transfer tokens"""
+        return await self.execute_method(
+            'transfer',
+            [to, amount],
+            gas_limit=100000
+        )
+
+    async def get_balance(self, address: str):
+        """Get token balance"""
+        return await self.call_method('balanceOf', [address])
+```
+
+### AI-Mining Integration
+
+```python
+from tos_network.ai_mining import AIMiner
+
+class AITaskProcessor:
+    def __init__(self, tos_network):
+        self.tos = tos_network
+        self.miner = AIMiner(tos_network)
+
+    async def register_miner(self):
+        """Register as AI miner"""
+        await self.miner.register(
+            capabilities=['code_analysis', 'data_processing'],
+            hardware_profile={
+                'cpu_cores': 8,
+                'ram_gb': 16,
+                'gpu_available': False
+            }
+        )
+
+    async def process_tasks(self):
+        """Process available AI tasks"""
+        tasks = await self.miner.get_available_tasks(
+            difficulty='intermediate'
+        )
+
+        for task in tasks:
+            if self.can_handle_task(task):
+                solution = await self.solve_task(task)
+                await self.miner.submit_solution(
+                    task_id=task.id,
+                    solution=solution,
+                    stake_amount='10.0'
+                )
+
+    def can_handle_task(self, task):
+        """Check if we can handle this task type"""
+        return task.category in ['code_analysis', 'data_processing']
+
+    async def solve_task(self, task):
+        """Solve AI task (implement your logic here)"""
+        # Implement task-specific solving logic
+        if task.category == 'code_analysis':
+            return await self.analyze_code(task.data)
+        elif task.category == 'data_processing':
+            return await self.process_data(task.data)
+```
+
+### Data Analysis and Monitoring
+
+```python
+import pandas as pd
+from tos_network.analytics import NetworkAnalytics
+
+class TOSAnalytics:
+    def __init__(self, tos_network):
+        self.tos = tos_network
+        self.analytics = NetworkAnalytics(tos_network)
+
+    async def get_transaction_analytics(self, days: int = 30):
+        """Get transaction analytics"""
+        transactions = await self.analytics.get_transactions(
+            from_date=datetime.now() - timedelta(days=days),
+            to_date=datetime.now()
+        )
+
+        df = pd.DataFrame(transactions)
+
+        return {
+            'total_transactions': len(df),
+            'total_volume': df['amount'].sum(),
+            'average_amount': df['amount'].mean(),
+            'privacy_percentage': len(df[df['privacy_level'] == 'maximum']) / len(df) * 100,
+            'energy_usage_percentage': len(df[df['payment_method'] == 'energy']) / len(df) * 100
+        }
+
+    async def monitor_ai_mining_performance(self):
+        """Monitor AI mining performance"""
+        stats = await self.analytics.get_ai_mining_stats()
+
+        return {
+            'total_tasks_completed': stats.total_tasks,
+            'average_quality_score': stats.avg_quality,
+            'total_earnings': stats.total_earnings,
+            'reputation_score': stats.reputation
+        }
+```
+
+## Go SDK
+
+### Installation
+
+```bash
+# Go modules
+go mod init your-project
+go get github.com/tos-network/go-tos
+
+# Or add to go.mod
+require github.com/tos-network/go-tos v1.0.0
+```
+
+### Quick Start
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+
+    "github.com/tos-network/go-tos/client"
+    "github.com/tos-network/go-tos/types"
+)
+
+func main() {
+    // Create TOS client
+    client, err := client.New(&client.Config{
+        Network:     "mainnet",
+        RPCURL:      "https://mainnet-rpc.tos.network",
+        PrivacyLevel: types.PrivacyLevelMaximum,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Get network information
+    networkInfo, err := client.GetNetworkInfo(context.Background())
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Connected to TOS Network: %+v\n", networkInfo)
+}
+```
+
+### Wallet Operations
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/tos-network/go-tos/wallet"
+    "github.com/tos-network/go-tos/types"
+)
+
+type WalletManager struct {
+    client *client.Client
+    wallet *wallet.Wallet
+}
+
+func NewWalletManager(client *client.Client) *WalletManager {
+    return &WalletManager{client: client}
+}
+
+func (w *WalletManager) CreateWallet(password string) error {
+    var err error
+    w.wallet, err = wallet.Create(&wallet.Config{
+        Password: password,
+        Client:   w.client,
+    })
+    return err
+}
+
+func (w *WalletManager) SendTransaction(to string, amount string) (*types.Transaction, error) {
+    return w.wallet.SendTransaction(context.Background(), &wallet.TransactionRequest{
+        To:            to,
+        Amount:        amount,
+        PrivacyLevel:  types.PrivacyLevelMaximum,
+        PaymentMethod: types.PaymentMethodEnergy,
+    })
+}
+
+func (w *WalletManager) GetBalance() (*types.EncryptedBalance, error) {
+    return w.wallet.GetBalance(context.Background())
+}
+```
+
+### Smart Contract Interaction
+
+```go
+package contracts
+
+import (
+    "context"
+    "github.com/tos-network/go-tos/contracts"
+    "github.com/tos-network/go-tos/types"
+)
+
+type TokenContract struct {
+    contract *contracts.SmartContract
+}
+
+func NewTokenContract(client *client.Client, address string) *TokenContract {
+    return &TokenContract{
+        contract: contracts.New(client, address),
+    }
+}
+
+func (t *TokenContract) Transfer(ctx context.Context, to string, amount uint64) (*types.TransactionResult, error) {
+    return t.contract.Execute(ctx, "transfer", []interface{}{to, amount}, &contracts.ExecuteOptions{
+        GasLimit:  100000,
+        UseEnergy: true,
+    })
+}
+
+func (t *TokenContract) GetBalance(ctx context.Context, address string) (uint64, error) {
+    result, err := t.contract.Call(ctx, "balanceOf", []interface{}{address})
+    if err != nil {
+        return 0, err
+    }
+
+    balance, ok := result.(uint64)
+    if !ok {
+        return 0, fmt.Errorf("unexpected result type")
+    }
+
+    return balance, nil
+}
+```
+
+### AI-Mining Implementation
+
+```go
+package aimining
+
+import (
+    "context"
+    "github.com/tos-network/go-tos/aimining"
+    "github.com/tos-network/go-tos/types"
+)
+
+type AIMiner struct {
+    client *aimining.Client
+}
+
+func NewAIMiner(tosClient *client.Client) *AIMiner {
+    return &AIMiner{
+        client: aimining.New(tosClient),
+    }
+}
+
+func (a *AIMiner) RegisterMiner(ctx context.Context, capabilities []string) error {
+    return a.client.Register(ctx, &aimining.MinerProfile{
+        Capabilities: capabilities,
+        HardwareProfile: &types.HardwareProfile{
+            CPUCores:     8,
+            RAMGB:        16,
+            GPUAvailable: false,
+        },
+    })
+}
+
+func (a *AIMiner) ProcessTasks(ctx context.Context) error {
+    tasks, err := a.client.GetAvailableTasks(ctx, &aimining.TaskFilter{
+        Difficulty: types.DifficultyIntermediate,
+        Categories: []string{"code_analysis", "data_processing"},
+    })
+    if err != nil {
+        return err
+    }
+
+    for _, task := range tasks {
+        solution, err := a.solveTask(ctx, task)
+        if err != nil {
+            continue // Skip failed tasks
+        }
+
+        _, err = a.client.SubmitSolution(ctx, &aimining.SolutionSubmission{
+            TaskID:      task.ID,
+            Solution:    solution,
+            StakeAmount: "10.0",
+        })
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+func (a *AIMiner) solveTask(ctx context.Context, task *types.AITask) ([]byte, error) {
+    // Implement task-specific solving logic
+    switch task.Category {
+    case "code_analysis":
+        return a.analyzeCode(task.Data)
+    case "data_processing":
+        return a.processData(task.Data)
+    default:
+        return nil, fmt.Errorf("unsupported task category: %s", task.Category)
+    }
+}
+```
+
+## Java SDK
+
+### Installation
+
+#### Maven
+
+```xml
+<dependency>
+    <groupId>com.tosnetwork</groupId>
+    <artifactId>tos-sdk</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+#### Gradle
+
+```gradle
+implementation 'com.tosnetwork:tos-sdk:1.0.0'
+```
+
+### Quick Start
+
+```java
+import com.tosnetwork.sdk.TOSNetwork;
+import com.tosnetwork.sdk.types.PrivacyLevel;
+
+public class TOSExample {
+    public static void main(String[] args) throws Exception {
+        // Initialize TOS Network client
+        TOSNetwork tos = new TOSNetwork.Builder()
+            .network("mainnet")
+            .privacyLevel(PrivacyLevel.MAXIMUM)
+            .build();
+
+        // Connect to network
+        tos.connect();
+
+        // Get network information
+        NetworkInfo networkInfo = tos.getNetworkInfo();
+        System.out.println("Connected to TOS Network: " + networkInfo);
+    }
+}
+```
+
+### Wallet Operations
+
+```java
+import com.tosnetwork.sdk.wallet.Wallet;
+import com.tosnetwork.sdk.types.Transaction;
+
+public class WalletManager {
+    private TOSNetwork tos;
+    private Wallet wallet;
+
+    public WalletManager(TOSNetwork tos) {
+        this.tos = tos;
+    }
+
+    public void createWallet(String password) throws Exception {
+        this.wallet = tos.wallet().create(
+            Wallet.Config.builder()
+                .password(password)
+                .build()
+        );
+    }
+
+    public Transaction sendTransaction(String to, String amount) throws Exception {
+        return wallet.sendTransaction(
+            TransactionRequest.builder()
+                .to(to)
+                .amount(amount)
+                .privacyLevel(PrivacyLevel.MAXIMUM)
+                .paymentMethod(PaymentMethod.ENERGY)
+                .build()
+        );
+    }
+
+    public EncryptedBalance getBalance() throws Exception {
+        return wallet.getBalance();
+    }
+}
+```
+
+### Smart Contract Development
+
+```java
+import com.tosnetwork.sdk.contracts.SmartContract;
+import com.tosnetwork.sdk.contracts.annotations.*;
+
+@Contract
+public class TokenContract extends SmartContract {
+
+    @Constructor
+    public void init(String name, String symbol, long totalSupply) {
+        // Contract initialization
+        setState("name", name);
+        setState("symbol", symbol);
+        setState("totalSupply", totalSupply);
+    }
+
+    @Public
+    public boolean transfer(String to, long amount) {
+        String from = getContext().getCaller();
+
+        long fromBalance = getBalance(from);
+        if (fromBalance < amount) {
+            return false;
+        }
+
+        setBalance(from, fromBalance - amount);
+        setBalance(to, getBalance(to) + amount);
+
+        emitEvent(new TransferEvent(from, to, amount));
+        return true;
+    }
+
+    @View
+    public long balanceOf(String address) {
+        return getBalance(address);
+    }
+
+    private long getBalance(String address) {
+        return (Long) getState("balance_" + address, 0L);
+    }
+
+    private void setBalance(String address, long balance) {
+        setState("balance_" + address, balance);
+    }
+
+    @Event
+    public static class TransferEvent {
+        @Indexed public String from;
+        @Indexed public String to;
+        public long amount;
+
+        public TransferEvent(String from, String to, long amount) {
+            this.from = from;
+            this.to = to;
+            this.amount = amount;
+        }
+    }
+}
+```
+
+### AI-Mining Integration
+
+```java
+import com.tosnetwork.sdk.aimining.AIMiner;
+import com.tosnetwork.sdk.aimining.types.*;
+
+public class AITaskProcessor {
+    private AIMiner miner;
+
+    public AITaskProcessor(TOSNetwork tos) {
+        this.miner = tos.aiMining();
+    }
+
+    public void registerMiner() throws Exception {
+        MinerProfile profile = MinerProfile.builder()
+            .capabilities(Arrays.asList("code_analysis", "data_processing"))
+            .hardwareProfile(HardwareProfile.builder()
+                .cpuCores(8)
+                .ramGB(16)
+                .gpuAvailable(false)
+                .build())
+            .build();
+
+        miner.register(profile);
+    }
+
+    public void processTasks() throws Exception {
+        TaskFilter filter = TaskFilter.builder()
+            .difficulty(Difficulty.INTERMEDIATE)
+            .categories(Arrays.asList("code_analysis"))
+            .build();
+
+        List<AITask> tasks = miner.getAvailableTasks(filter);
+
+        for (AITask task : tasks) {
+            if (canHandleTask(task)) {
+                TaskSolution solution = solveTask(task);
+
+                SolutionSubmission submission = SolutionSubmission.builder()
+                    .taskId(task.getId())
+                    .solution(solution)
+                    .stakeAmount("10.0")
+                    .build();
+
+                miner.submitSolution(submission);
+            }
+        }
+    }
+
+    private boolean canHandleTask(AITask task) {
+        return Arrays.asList("code_analysis", "data_processing")
+                     .contains(task.getCategory());
+    }
+
+    private TaskSolution solveTask(AITask task) {
+        // Implement task-specific solving logic
+        switch (task.getCategory()) {
+            case "code_analysis":
+                return analyzeCode(task.getData());
+            case "data_processing":
+                return processData(task.getData());
+            default:
+                throw new UnsupportedOperationException("Unsupported task category: " + task.getCategory());
+        }
+    }
+}
+```
+
+## Rust SDK
+
+### Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+tos-network-sdk = "1.0.0"
+tokio = { version = "1.0", features = ["full"] }
+```
+
+### Quick Start
+
+```rust
+use tos_network_sdk::{TOSNetwork, PrivacyLevel};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize TOS Network client
+    let tos = TOSNetwork::builder()
+        .network("mainnet")
+        .privacy_level(PrivacyLevel::Maximum)
+        .build()
+        .await?;
+
+    // Get network information
+    let network_info = tos.get_network_info().await?;
+    println!("Connected to TOS Network: {:?}", network_info);
+
+    Ok(())
+}
+```
+
+### Wallet Operations
+
+```rust
+use tos_network_sdk::wallet::{Wallet, TransactionRequest};
+use tos_network_sdk::types::{PrivacyLevel, PaymentMethod};
+
+pub struct WalletManager {
+    tos: TOSNetwork,
+    wallet: Option<Wallet>,
+}
+
+impl WalletManager {
+    pub fn new(tos: TOSNetwork) -> Self {
+        Self {
+            tos,
+            wallet: None,
+        }
+    }
+
+    pub async fn create_wallet(&mut self, password: &str) -> Result<(), Box<dyn std::error::Error>> {
+        self.wallet = Some(
+            self.tos
+                .wallet()
+                .create(password)
+                .await?
+        );
+        Ok(())
+    }
+
+    pub async fn send_transaction(
+        &self,
+        to: &str,
+        amount: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let wallet = self.wallet.as_ref().ok_or("Wallet not initialized")?;
+
+        let request = TransactionRequest {
+            to: to.to_string(),
+            amount: amount.to_string(),
+            privacy_level: PrivacyLevel::Maximum,
+            payment_method: PaymentMethod::Energy,
+            memo: None,
+        };
+
+        let transaction = wallet.send_transaction(request).await?;
+        Ok(transaction.hash)
+    }
+
+    pub async fn get_balance(&self) -> Result<String, Box<dyn std::error::Error>> {
+        let wallet = self.wallet.as_ref().ok_or("Wallet not initialized")?;
+        let balance = wallet.get_balance().await?;
+        Ok(balance.to_string())
+    }
+}
+```
+
+### Smart Contract Interaction
+
+```rust
+use tos_network_sdk::contracts::{SmartContract, ExecuteOptions};
+use serde_json::Value;
+
+pub struct TokenContract {
+    contract: SmartContract,
+}
+
+impl TokenContract {
+    pub fn new(tos: &TOSNetwork, address: &str) -> Self {
+        Self {
+            contract: SmartContract::new(tos.clone(), address),
+        }
+    }
+
+    pub async fn transfer(
+        &self,
+        to: &str,
+        amount: u64,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let result = self
+            .contract
+            .execute(
+                "transfer",
+                vec![Value::String(to.to_string()), Value::Number(amount.into())],
+                ExecuteOptions {
+                    gas_limit: Some(100_000),
+                    use_energy: true,
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        Ok(result.transaction_hash)
+    }
+
+    pub async fn get_balance(&self, address: &str) -> Result<u64, Box<dyn std::error::Error>> {
+        let result = self
+            .contract
+            .call("balanceOf", vec![Value::String(address.to_string())])
+            .await?;
+
+        let balance = result
+            .as_u64()
+            .ok_or("Invalid balance format")?;
+
+        Ok(balance)
+    }
+}
+```
+
+### AI-Mining Implementation
+
+```rust
+use tos_network_sdk::ai_mining::{AIMiner, MinerProfile, TaskFilter, SolutionSubmission};
+use tos_network_sdk::types::{HardwareProfile, Difficulty};
+
+pub struct AITaskProcessor {
+    miner: AIMiner,
+}
+
+impl AITaskProcessor {
+    pub fn new(tos: TOSNetwork) -> Self {
+        Self {
+            miner: AIMiner::new(tos),
+        }
+    }
+
+    pub async fn register_miner(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let profile = MinerProfile {
+            capabilities: vec!["code_analysis".to_string(), "data_processing".to_string()],
+            hardware_profile: HardwareProfile {
+                cpu_cores: 8,
+                ram_gb: 16,
+                gpu_available: false,
+                storage_gb: 100,
+                network_speed_mbps: 100,
+            },
+            availability: Default::default(),
+        };
+
+        self.miner.register(profile).await?;
+        Ok(())
+    }
+
+    pub async fn process_tasks(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let filter = TaskFilter {
+            difficulty: Some(Difficulty::Intermediate),
+            categories: Some(vec!["code_analysis".to_string()]),
+            ..Default::default()
+        };
+
+        let tasks = self.miner.get_available_tasks(filter).await?;
+
+        for task in tasks {
+            if self.can_handle_task(&task) {
+                let solution = self.solve_task(&task).await?;
+
+                let submission = SolutionSubmission {
+                    task_id: task.id,
+                    solution,
+                    stake_amount: "10.0".to_string(),
+                };
+
+                self.miner.submit_solution(submission).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn can_handle_task(&self, task: &AITask) -> bool {
+        matches!(task.category.as_str(), "code_analysis" | "data_processing")
+    }
+
+    async fn solve_task(&self, task: &AITask) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        match task.category.as_str() {
+            "code_analysis" => self.analyze_code(&task.data).await,
+            "data_processing" => self.process_data(&task.data).await,
+            _ => Err("Unsupported task category".into()),
+        }
+    }
+
+    async fn analyze_code(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // Implement code analysis logic
+        Ok(vec![])
+    }
+
+    async fn process_data(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        // Implement data processing logic
+        Ok(vec![])
+    }
+}
+```
+
+## SDK Comparison
+
+### Feature Comparison
+
+| Feature | JavaScript | Python | Go | Java | Rust |
+|---------|------------|--------|----|----- |------|
+| **Wallet Operations** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Smart Contracts** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **AI-Mining** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Privacy Features** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Energy Management** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Real-time Events** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **TypeScript Support** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Async/Await** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Performance** | 🔶 | 🔶 | ✅ | ✅ | ✅ |
+| **Memory Safety** | ❌ | ❌ | 🔶 | 🔶 | ✅ |
+
+### Performance Characteristics
+
+| SDK | Startup Time | Memory Usage | Throughput | Best For |
+|-----|-------------|--------------|------------|----------|
+| **JavaScript** | Fast | Medium | Medium | Web apps, Node.js services |
+| **Python** | Medium | High | Medium | Data analysis, AI/ML, scripting |
+| **Go** | Fast | Low | High | Microservices, CLI tools |
+| **Java** | Slow | High | High | Enterprise applications |
+| **Rust** | Fast | Low | Very High | System programming, performance-critical apps |
+
+## Common Patterns
+
+### Error Handling
+
+#### JavaScript/TypeScript
+```typescript
+try {
+    const result = await tos.wallet.sendTransaction(txRequest);
+    console.log('Transaction sent:', result.hash);
+} catch (error) {
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+        console.error('Not enough balance');
+    } else if (error.code === 'NETWORK_ERROR') {
+        console.error('Network connection failed');
+    } else {
+        console.error('Unknown error:', error.message);
+    }
+}
+```
+
+#### Python
+```python
+from tos_network.exceptions import InsufficientBalanceError, NetworkError
+
+try:
+    result = await tos.wallet.send_transaction(tx_request)
+    print(f"Transaction sent: {result.hash}")
+except InsufficientBalanceError:
+    print("Not enough balance")
+except NetworkError:
+    print("Network connection failed")
+except Exception as e:
+    print(f"Unknown error: {e}")
+```
+
+#### Go
+```go
+result, err := tos.Wallet.SendTransaction(ctx, txRequest)
+if err != nil {
+    switch {
+    case errors.Is(err, wallet.ErrInsufficientBalance):
+        fmt.Println("Not enough balance")
+    case errors.Is(err, client.ErrNetworkError):
+        fmt.Println("Network connection failed")
+    default:
+        fmt.Printf("Unknown error: %v\n", err)
+    }
+    return
+}
+fmt.Printf("Transaction sent: %s\n", result.Hash)
+```
+
+### Connection Management
+
+#### Connection Pooling
+```javascript
+// JavaScript - Connection pooling
+const tos = new TOSNetwork({
+    network: 'mainnet',
+    connectionPool: {
+        maxConnections: 10,
+        retryAttempts: 3,
+        timeout: 30000
+    }
+});
+```
+
+```python
+# Python - Connection management
+from tos_network import TOSNetwork
+
+async with TOSNetwork(
+    network='mainnet',
+    connection_pool_size=10,
+    retry_attempts=3
+) as tos:
+    # Use tos client
+    result = await tos.get_network_info()
+```
+
+### Batch Operations
+
+```typescript
+// Batch multiple operations for efficiency
+const batch = tos.createBatch();
+
+batch.add(tos.wallet.getBalance());
+batch.add(tos.wallet.getTransactionHistory());
+batch.add(tos.energy.getBalance());
+
+const [balance, history, energy] = await batch.execute();
+```
+
+## Best Practices
+
+### Security
+
+1. **API Key Management**
+```javascript
+// ❌ Don't hardcode API keys
+const tos = new TOSNetwork({
+    apiKey: 'your-api-key-here' // Bad!
+});
+
+// ✅ Use environment variables
+const tos = new TOSNetwork({
+    apiKey: process.env.TOS_API_KEY
+});
+```
+
+2. **Wallet Security**
+```python
+# ✅ Use secure password handling
+import getpass
+
+password = getpass.getpass("Enter wallet password: ")
+wallet = await tos.wallet.create(password=password)
+
+# ✅ Clear sensitive data
+password = None
+```
+
+### Performance
+
+1. **Connection Reuse**
+```go
+// ✅ Reuse client connections
+type App struct {
+    tosClient *client.Client
+}
+
+func (a *App) init() error {
+    var err error
+    a.tosClient, err = client.New(&client.Config{
+        Network: "mainnet",
+    })
+    return err
+}
+```
+
+2. **Async Operations**
+```rust
+// ✅ Use async for I/O operations
+async fn process_multiple_transactions(
+    wallet: &Wallet,
+    transactions: Vec<TransactionRequest>,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let futures: Vec<_> = transactions
+        .into_iter()
+        .map(|tx| wallet.send_transaction(tx))
+        .collect();
+
+    let results = futures::future::try_join_all(futures).await?;
+    Ok(results.into_iter().map(|tx| tx.hash).collect())
+}
+```
+
+### Error Recovery
+
+```typescript
+// Implement retry logic for network operations
+async function withRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3
+): Promise<T> {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error) {
+            if (i === maxRetries - 1) throw error;
+
+            const delay = Math.pow(2, i) * 1000; // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    throw new Error('Max retries exceeded');
+}
+
+// Usage
+const balance = await withRetry(() => tos.wallet.getBalance());
+```
+
+## Migration and Upgrades
+
+### Version Migration
+
+When upgrading SDK versions, follow these steps:
+
+1. **Check Breaking Changes**
+```bash
+# Check changelog for breaking changes
+npm info @tos-network/sdk versions --json
+```
+
+2. **Update Dependencies**
+```json
+{
+  "dependencies": {
+    "@tos-network/sdk": "^2.0.0"
+  }
+}
+```
+
+3. **Update Code**
+```typescript
+// v1.x
+const tos = new TOSNetwork('mainnet');
+
+// v2.x
+const tos = new TOSNetwork({
+    network: 'mainnet',
+    version: '2.0'
+});
+```
+
+### API Compatibility
+
+SDKs maintain backward compatibility within major versions:
+
+- **Major versions** (1.x → 2.x): May contain breaking changes
+- **Minor versions** (1.1 → 1.2): New features, backward compatible
+- **Patch versions** (1.1.1 → 1.1.2): Bug fixes, fully compatible
+
+## Support and Resources
+
+### Documentation
+- **API Reference**: Complete API documentation for each SDK
+- **Examples Repository**: [GitHub examples](https://github.com/tos-network/sdk-examples)
+- **Tutorial Series**: Step-by-step tutorials for each language
+
+### Community
+- **Developer Discord**: Real-time help and discussions
+- **Stack Overflow**: Tag questions with `tos-network`
+- **GitHub Issues**: Bug reports and feature requests
+
+### Professional Support
+- **Enterprise Support**: Dedicated support for enterprise customers
+- **Consulting Services**: Implementation assistance and best practices
+- **Training Programs**: Developer training and certification
+
+## Conclusion
+
+TOS Network SDKs provide comprehensive, language-specific access to all TOS Network features. Whether you're building web applications, mobile apps, enterprise systems, or blockchain tools, there's an SDK designed for your needs.
+
+Key benefits of TOS Network SDKs:
+- **Complete Feature Access**: All TOS Network capabilities available
+- **Privacy-First**: Built-in privacy features and best practices
+- **Developer-Friendly**: Familiar patterns and comprehensive documentation
+- **High Performance**: Optimized for production use
+- **Active Maintenance**: Regular updates and community support
+
+**"Don't Trust, Verify it"** - All SDKs provide transparent access to TOS Network's cryptographic verification features!
+
+## Next Steps
+
+1. **Choose Your SDK**: Select the SDK for your preferred language
+2. **Follow Quick Start**: Get up and running in minutes
+3. **Explore Examples**: Check out the examples repository
+4. **Join Community**: Connect with other developers
+5. **Build Applications**: Start building on TOS Network!
+
+For detailed documentation on each SDK, visit the language-specific documentation links or join our developer community for personalized support.

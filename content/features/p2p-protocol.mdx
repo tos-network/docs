@@ -1,0 +1,1525 @@
+---
+title: "P2P Network Protocol"
+description: "Comprehensive guide to the TOS Network peer-to-peer protocol, including network topology, message formats, consensus mechanisms, and privacy-preserving communication."
+---
+
+# P2P Network Protocol
+
+The TOS Network implements a sophisticated peer-to-peer protocol designed for maximum security, privacy, and efficiency. Built on the principle of **"Don't Trust, Verify it"**, every aspect of the network protocol is transparent and verifiable.
+
+## Protocol Overview
+
+### Core Features
+
+- **Quantum-Resistant Encryption**: Future-proof communication security
+- **Privacy-First Design**: Built-in anonymity and traffic obfuscation
+- **Adaptive Topology**: Dynamic network structure optimization
+- **AI-Enhanced Routing**: Intelligent message propagation
+- **Consensus Integration**: Seamless BlockDAG consensus support
+- **Energy Efficiency**: Optimized for the TOS Energy Model
+
+### Network Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TOS Network Layer Stack                  │
+├─────────────────────────────────────────────────────────────┤
+│ Application Layer │ Wallet, Mining, Smart Contracts         │
+├─────────────────────────────────────────────────────────────┤
+│ Protocol Layer    │ Block Sync, Transaction Relay, Mining   │
+├─────────────────────────────────────────────────────────────┤
+│ Network Layer     │ Peer Discovery, Message Routing         │
+├─────────────────────────────────────────────────────────────┤
+│ Security Layer    │ Encryption, Authentication, Privacy     │
+├─────────────────────────────────────────────────────────────┤
+│ Transport Layer   │ TCP/UDP, QUIC, Connection Management    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Network Topology
+
+### Node Types
+
+#### Full Nodes
+- Store complete blockchain history
+- Validate all transactions and blocks
+- Participate in consensus
+- Relay messages to other peers
+
+#### Light Nodes
+- Store block headers only
+- Verify transactions using SPV proofs
+- Reduced bandwidth and storage requirements
+- Ideal for mobile devices
+
+#### Mining Nodes
+- Specialized for AI-mining operations
+- High computational resources
+- Optimized network connections
+- Support both traditional and AI mining
+
+#### Validator Nodes
+- Participate in BlockDAG consensus
+- Stake TOS tokens for validation rights
+- Earn rewards for honest validation
+- High uptime requirements
+
+### Network Structure
+
+```javascript
+// Network topology configuration
+const networkTopology = {
+  maxPeers: 50,
+  targetPeers: 25,
+  minPeers: 8,
+
+  // Node type distribution targets
+  nodeDistribution: {
+    fullNodes: 0.6,      // 60% full nodes
+    lightNodes: 0.3,     // 30% light nodes
+    miningNodes: 0.08,   // 8% mining nodes
+    validatorNodes: 0.02 // 2% validator nodes
+  },
+
+  // Connection preferences
+  connectionPreferences: {
+    diverseGeolocation: true,
+    lowLatencyPriority: true,
+    highUptimePriority: true,
+    aiMiningCapability: true
+  }
+};
+```
+
+## Message Protocol
+
+### Message Format
+
+All P2P messages follow a standardized format:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    TOS P2P Message Format                   │
+├─────────────────┬───────────────────────────────────────────┤
+│ Header (32 bytes)                                           │
+├─────────────────┼───────────────────────────────────────────┤
+│ Magic (4 bytes) │ Protocol Version (2 bytes)                │
+├─────────────────┼───────────────────────────────────────────┤
+│ Message Type (2 bytes) │ Payload Length (4 bytes)          │
+├─────────────────┼───────────────────────────────────────────┤
+│ Checksum (8 bytes) │ Timestamp (8 bytes)                   │
+├─────────────────┼───────────────────────────────────────────┤
+│ Node ID (32 bytes)                                          │
+├─────────────────────────────────────────────────────────────┤
+│ Encrypted Payload (Variable Length)                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Message Types
+
+| Type | Code | Description | Privacy Level |
+|------|------|-------------|---------------|
+| PING | 0x01 | Connectivity test | Low |
+| PONG | 0x02 | Ping response | Low |
+| PEER_EXCHANGE | 0x10 | Share peer information | Medium |
+| BLOCK_ANNOUNCE | 0x20 | New block notification | Medium |
+| BLOCK_REQUEST | 0x21 | Request block data | Medium |
+| BLOCK_RESPONSE | 0x22 | Block data response | Medium |
+| TX_ANNOUNCE | 0x30 | New transaction | High |
+| TX_REQUEST | 0x31 | Request transaction | High |
+| TX_RESPONSE | 0x32 | Transaction data | High |
+| CONSENSUS_VOTE | 0x40 | BlockDAG vote | High |
+| AI_MINING_SHARE | 0x50 | AI mining result | Medium |
+
+### Message Implementation
+
+```rust
+use serde::{Serialize, Deserialize};
+use sha3::{Sha3_256, Digest};
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct P2PMessage {
+    pub header: MessageHeader,
+    pub payload: MessagePayload,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MessageHeader {
+    pub magic: [u8; 4],           // Network magic bytes
+    pub version: u16,             // Protocol version
+    pub message_type: u16,        // Message type identifier
+    pub payload_length: u32,      // Payload size in bytes
+    pub checksum: u64,           // Payload checksum
+    pub timestamp: u64,          // Unix timestamp
+    pub node_id: [u8; 32],       // Sender node ID
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum MessagePayload {
+    Ping(PingMessage),
+    Pong(PongMessage),
+    PeerExchange(PeerExchangeMessage),
+    BlockAnnounce(BlockAnnounceMessage),
+    BlockRequest(BlockRequestMessage),
+    BlockResponse(BlockResponseMessage),
+    TransactionAnnounce(TransactionAnnounceMessage),
+    TransactionRequest(TransactionRequestMessage),
+    TransactionResponse(TransactionResponseMessage),
+    ConsensusVote(ConsensusVoteMessage),
+    AIMiningShare(AIMiningShareMessage),
+}
+
+impl P2PMessage {
+    pub fn new(message_type: u16, payload: MessagePayload, node_id: [u8; 32]) -> Self {
+        let serialized_payload = bincode::serialize(&payload).unwrap();
+        let checksum = Self::calculate_checksum(&serialized_payload);
+
+        let header = MessageHeader {
+            magic: [0x54, 0x4F, 0x53, 0x4E], // "TOSN"
+            version: 1,
+            message_type,
+            payload_length: serialized_payload.len() as u32,
+            checksum,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            node_id,
+        };
+
+        Self { header, payload }
+    }
+
+    pub fn calculate_checksum(data: &[u8]) -> u64 {
+        let mut hasher = Sha3_256::new();
+        hasher.update(data);
+        let result = hasher.finalize();
+        u64::from_be_bytes(result[0..8].try_into().unwrap())
+    }
+
+    pub fn verify_checksum(&self) -> bool {
+        let serialized_payload = bincode::serialize(&self.payload).unwrap();
+        let calculated_checksum = Self::calculate_checksum(&serialized_payload);
+        calculated_checksum == self.header.checksum
+    }
+
+    pub fn encrypt(&mut self, peer_public_key: &[u8; 32]) {
+        // Implement encryption using ChaCha20-Poly1305
+        let encrypted_payload = encrypt_payload(&self.payload, peer_public_key);
+        // Update payload with encrypted data
+    }
+
+    pub fn decrypt(&mut self, private_key: &[u8; 32]) -> Result<(), String> {
+        // Implement decryption
+        let decrypted_payload = decrypt_payload(&self.payload, private_key)?;
+        self.payload = decrypted_payload;
+        Ok(())
+    }
+}
+
+// Specific message types
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PingMessage {
+    pub nonce: u64,
+    pub user_agent: String,
+    pub services: u64,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PongMessage {
+    pub nonce: u64,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct BlockAnnounceMessage {
+    pub block_hash: [u8; 32],
+    pub block_height: u64,
+    pub difficulty: u64,
+    pub ai_mined: bool,
+    pub timestamp: u64,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct TransactionAnnounceMessage {
+    pub tx_hash: [u8; 32],
+    pub fee: u64,
+    pub priority: u8,
+    pub privacy_level: u8,
+    pub energy_used: u64,
+}
+```
+
+## Peer Discovery
+
+### Bootstrap Process
+
+```python
+import asyncio
+import socket
+import random
+from typing import List, Tuple
+
+class TOS_PeerDiscovery:
+    def __init__(self, network_id: str = "mainnet"):
+        self.network_id = network_id
+        self.known_peers: List[Tuple[str, int]] = []
+        self.connected_peers: List[Tuple[str, int]] = []
+        self.bootstrap_nodes = self.get_bootstrap_nodes()
+
+    def get_bootstrap_nodes(self) -> List[Tuple[str, int]]:
+        """Get initial bootstrap nodes for network entry"""
+        bootstrap_nodes = {
+            "mainnet": [
+                ("seed1.tos.network", 2080),
+                ("seed2.tos.network", 2080),
+                ("seed3.tos.network", 2080),
+                ("seed4.tos.network", 2080),
+                ("seed5.tos.network", 2080),
+            ],
+            "testnet": [
+                ("testseed1.tos.network", 2080),
+                ("testseed2.tos.network", 2080),
+            ],
+            "devnet": [
+                ("127.0.0.1", 2080),
+            ]
+        }
+        return bootstrap_nodes.get(self.network_id, [])
+
+    async def discover_peers(self) -> List[Tuple[str, int]]:
+        """Discover new peers using multiple methods"""
+        discovered_peers = []
+
+        # Method 1: DNS seeds
+        dns_peers = await self.discover_via_dns()
+        discovered_peers.extend(dns_peers)
+
+        # Method 2: DHT (Distributed Hash Table)
+        dht_peers = await self.discover_via_dht()
+        discovered_peers.extend(dht_peers)
+
+        # Method 3: Peer exchange
+        exchange_peers = await self.discover_via_peer_exchange()
+        discovered_peers.extend(exchange_peers)
+
+        # Method 4: mDNS (for local network)
+        mdns_peers = await self.discover_via_mdns()
+        discovered_peers.extend(mdns_peers)
+
+        # Remove duplicates and return
+        unique_peers = list(set(discovered_peers))
+        return unique_peers
+
+    async def discover_via_dns(self) -> List[Tuple[str, int]]:
+        """Discover peers via DNS TXT records"""
+        peers = []
+        dns_seeds = [
+            f"peers.{self.network_id}.tos.network",
+            f"nodes.{self.network_id}.tos.network",
+        ]
+
+        for seed in dns_seeds:
+            try:
+                # Query DNS TXT records for peer information
+                import dns.resolver
+                answers = dns.resolver.resolve(seed, 'TXT')
+
+                for answer in answers:
+                    # Parse TXT record: "ip:port:node_type:capabilities"
+                    record = answer.to_text().strip('"')
+                    parts = record.split(':')
+                    if len(parts) >= 2:
+                        ip, port = parts[0], int(parts[1])
+                        peers.append((ip, port))
+
+            except Exception as e:
+                print(f"DNS discovery failed for {seed}: {e}")
+
+        return peers
+
+    async def discover_via_dht(self) -> List[Tuple[str, int]]:
+        """Discover peers via Distributed Hash Table"""
+        # Simplified DHT implementation
+        dht_nodes = [
+            ("dht1.tos.network", 6881),
+            ("dht2.tos.network", 6881),
+        ]
+
+        peers = []
+        for node_ip, node_port in dht_nodes:
+            try:
+                # Query DHT for TOS Network peers
+                dht_peers = await self.query_dht_node(node_ip, node_port)
+                peers.extend(dht_peers)
+            except Exception as e:
+                print(f"DHT discovery failed for {node_ip}: {e}")
+
+        return peers
+
+    async def discover_via_peer_exchange(self) -> List[Tuple[str, int]]:
+        """Request peer lists from connected peers"""
+        peers = []
+
+        for peer_ip, peer_port in self.connected_peers:
+            try:
+                # Send PEER_EXCHANGE message
+                peer_list = await self.request_peer_list(peer_ip, peer_port)
+                peers.extend(peer_list)
+            except Exception as e:
+                print(f"Peer exchange failed with {peer_ip}: {e}")
+
+        return peers
+
+    async def discover_via_mdns(self) -> List[Tuple[str, int]]:
+        """Discover local network peers via mDNS"""
+        peers = []
+
+        try:
+            # Broadcast mDNS query for TOS Network services
+            service_name = f"_tos-{self.network_id}._tcp.local"
+            # Implementation would use zeroconf library
+            # peers = query_mdns_service(service_name)
+        except Exception as e:
+            print(f"mDNS discovery failed: {e}")
+
+        return peers
+
+    def calculate_peer_score(self, peer_info: dict) -> float:
+        """Calculate quality score for peer selection"""
+        score = 100.0  # Base score
+
+        # Uptime factor (0.5x to 1.5x)
+        uptime_factor = min(1.5, peer_info.get('uptime', 0.8))
+        score *= uptime_factor
+
+        # Latency factor (0.5x to 1.2x)
+        latency = peer_info.get('latency_ms', 100)
+        latency_factor = max(0.5, 1.2 - (latency / 1000))
+        score *= latency_factor
+
+        # Bandwidth factor (0.8x to 1.3x)
+        bandwidth = peer_info.get('bandwidth_mbps', 10)
+        bandwidth_factor = min(1.3, 0.8 + (bandwidth / 100))
+        score *= bandwidth_factor
+
+        # AI mining capability bonus
+        if peer_info.get('ai_mining_capable', False):
+            score *= 1.1
+
+        # Geographic diversity bonus
+        if self.is_geographically_diverse(peer_info):
+            score *= 1.05
+
+        return score
+
+    async def connect_to_peers(self, max_connections: int = 25):
+        """Establish connections to high-quality peers"""
+        discovered_peers = await self.discover_peers()
+
+        # Score and sort peers
+        peer_scores = []
+        for peer in discovered_peers:
+            peer_info = await self.get_peer_info(peer)
+            score = self.calculate_peer_score(peer_info)
+            peer_scores.append((peer, score))
+
+        # Sort by score (highest first)
+        peer_scores.sort(key=lambda x: x[1], reverse=True)
+
+        # Connect to top peers
+        connection_tasks = []
+        for i, (peer, score) in enumerate(peer_scores[:max_connections]):
+            if len(self.connected_peers) >= max_connections:
+                break
+
+            task = asyncio.create_task(self.connect_to_peer(peer))
+            connection_tasks.append(task)
+
+        # Wait for connections to complete
+        await asyncio.gather(*connection_tasks, return_exceptions=True)
+```
+
+## Network Security
+
+### Encryption and Authentication
+
+```rust
+use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce, aead::Aead};
+use x25519_dalek::{PublicKey, StaticSecret};
+use rand::rngs::OsRng;
+
+pub struct SecureChannel {
+    local_private_key: StaticSecret,
+    local_public_key: PublicKey,
+    remote_public_key: Option<PublicKey>,
+    shared_secret: Option<[u8; 32]>,
+    cipher: Option<ChaCha20Poly1305>,
+}
+
+impl SecureChannel {
+    pub fn new() -> Self {
+        let private_key = StaticSecret::new(OsRng);
+        let public_key = PublicKey::from(&private_key);
+
+        Self {
+            local_private_key: private_key,
+            local_public_key: public_key,
+            remote_public_key: None,
+            shared_secret: None,
+            cipher: None,
+        }
+    }
+
+    pub fn establish_channel(&mut self, remote_public_key: PublicKey) {
+        let shared_secret = self.local_private_key.diffie_hellman(&remote_public_key);
+        let shared_secret_bytes = shared_secret.as_bytes();
+
+        self.remote_public_key = Some(remote_public_key);
+        self.shared_secret = Some(*shared_secret_bytes);
+
+        // Derive encryption key from shared secret
+        let key = Key::from_slice(shared_secret_bytes);
+        self.cipher = Some(ChaCha20Poly1305::new(key));
+    }
+
+    pub fn encrypt_message(&self, plaintext: &[u8]) -> Result<Vec<u8>, String> {
+        let cipher = self.cipher.as_ref().ok_or("Channel not established")?;
+
+        // Generate random nonce
+        let mut nonce_bytes = [0u8; 12];
+        use rand::RngCore;
+        OsRng.fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Encrypt message
+        let ciphertext = cipher.encrypt(nonce, plaintext)
+            .map_err(|e| format!("Encryption failed: {:?}", e))?;
+
+        // Prepend nonce to ciphertext
+        let mut result = nonce_bytes.to_vec();
+        result.extend_from_slice(&ciphertext);
+
+        Ok(result)
+    }
+
+    pub fn decrypt_message(&self, encrypted_data: &[u8]) -> Result<Vec<u8>, String> {
+        if encrypted_data.len() < 12 {
+            return Err("Invalid encrypted data length".to_string());
+        }
+
+        let cipher = self.cipher.as_ref().ok_or("Channel not established")?;
+
+        // Extract nonce and ciphertext
+        let nonce = Nonce::from_slice(&encrypted_data[0..12]);
+        let ciphertext = &encrypted_data[12..];
+
+        // Decrypt message
+        let plaintext = cipher.decrypt(nonce, ciphertext)
+            .map_err(|e| format!("Decryption failed: {:?}", e))?;
+
+        Ok(plaintext)
+    }
+
+    pub fn get_public_key(&self) -> PublicKey {
+        self.local_public_key
+    }
+}
+
+// Digital signatures for message authentication
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+
+pub struct MessageSigner {
+    signing_key: SigningKey,
+    verifying_key: VerifyingKey,
+}
+
+impl MessageSigner {
+    pub fn new() -> Self {
+        let signing_key = SigningKey::generate(&mut OsRng);
+        let verifying_key = signing_key.verifying_key();
+
+        Self {
+            signing_key,
+            verifying_key,
+        }
+    }
+
+    pub fn sign_message(&self, message: &[u8]) -> Signature {
+        self.signing_key.sign(message)
+    }
+
+    pub fn verify_signature(&self, message: &[u8], signature: &Signature, public_key: &VerifyingKey) -> bool {
+        public_key.verify(message, signature).is_ok()
+    }
+
+    pub fn get_public_key(&self) -> VerifyingKey {
+        self.verifying_key
+    }
+}
+```
+
+### Anti-DoS Protection
+
+```python
+import time
+import collections
+from typing import Dict, Set
+from dataclasses import dataclass
+
+@dataclass
+class ConnectionInfo:
+    ip_address: str
+    connection_time: float
+    message_count: int
+    bandwidth_used: int
+    reputation_score: float
+    is_blacklisted: bool = False
+
+class DDoSProtection:
+    def __init__(self):
+        self.connections: Dict[str, ConnectionInfo] = {}
+        self.message_rate_limit = 100  # messages per minute
+        self.bandwidth_limit = 1048576  # 1MB per minute
+        self.connection_limit_per_ip = 3
+        self.reputation_threshold = 0.3
+
+        # Rate limiting windows
+        self.message_windows: Dict[str, collections.deque] = {}
+        self.bandwidth_windows: Dict[str, collections.deque] = {}
+
+        # Blacklist and whitelist
+        self.blacklisted_ips: Set[str] = set()
+        self.whitelisted_ips: Set[str] = set()
+
+    def should_accept_connection(self, ip_address: str) -> bool:
+        """Determine if a new connection should be accepted"""
+
+        # Check whitelist first
+        if ip_address in self.whitelisted_ips:
+            return True
+
+        # Check blacklist
+        if ip_address in self.blacklisted_ips:
+            return False
+
+        # Check connection count from this IP
+        ip_connections = sum(1 for conn in self.connections.values()
+                           if conn.ip_address == ip_address)
+
+        if ip_connections >= self.connection_limit_per_ip:
+            return False
+
+        return True
+
+    def should_accept_message(self, ip_address: str, message_size: int) -> bool:
+        """Determine if a message should be processed"""
+
+        if ip_address in self.whitelisted_ips:
+            return True
+
+        if ip_address in self.blacklisted_ips:
+            return False
+
+        current_time = time.time()
+
+        # Check message rate limit
+        if not self._check_message_rate(ip_address, current_time):
+            self._penalize_peer(ip_address, "message_rate_exceeded")
+            return False
+
+        # Check bandwidth limit
+        if not self._check_bandwidth_limit(ip_address, message_size, current_time):
+            self._penalize_peer(ip_address, "bandwidth_exceeded")
+            return False
+
+        # Update counters
+        self._update_message_counter(ip_address, message_size, current_time)
+
+        return True
+
+    def _check_message_rate(self, ip_address: str, current_time: float) -> bool:
+        """Check if peer is within message rate limits"""
+        if ip_address not in self.message_windows:
+            self.message_windows[ip_address] = collections.deque()
+
+        window = self.message_windows[ip_address]
+
+        # Remove old messages (older than 1 minute)
+        while window and current_time - window[0] > 60:
+            window.popleft()
+
+        return len(window) < self.message_rate_limit
+
+    def _check_bandwidth_limit(self, ip_address: str, message_size: int, current_time: float) -> bool:
+        """Check if peer is within bandwidth limits"""
+        if ip_address not in self.bandwidth_windows:
+            self.bandwidth_windows[ip_address] = collections.deque()
+
+        window = self.bandwidth_windows[ip_address]
+
+        # Remove old entries (older than 1 minute)
+        while window and current_time - window[0][0] > 60:
+            window.popleft()
+
+        # Calculate current bandwidth usage
+        current_bandwidth = sum(size for _, size in window)
+
+        return current_bandwidth + message_size <= self.bandwidth_limit
+
+    def _update_message_counter(self, ip_address: str, message_size: int, current_time: float):
+        """Update message and bandwidth counters"""
+        # Update message window
+        if ip_address not in self.message_windows:
+            self.message_windows[ip_address] = collections.deque()
+        self.message_windows[ip_address].append(current_time)
+
+        # Update bandwidth window
+        if ip_address not in self.bandwidth_windows:
+            self.bandwidth_windows[ip_address] = collections.deque()
+        self.bandwidth_windows[ip_address].append((current_time, message_size))
+
+        # Update connection info
+        if ip_address in self.connections:
+            self.connections[ip_address].message_count += 1
+            self.connections[ip_address].bandwidth_used += message_size
+
+    def _penalize_peer(self, ip_address: str, reason: str):
+        """Apply penalty to misbehaving peer"""
+        if ip_address in self.connections:
+            conn = self.connections[ip_address]
+
+            # Reduce reputation score
+            penalty_map = {
+                "message_rate_exceeded": 0.1,
+                "bandwidth_exceeded": 0.15,
+                "invalid_message": 0.2,
+                "consensus_violation": 0.3,
+            }
+
+            penalty = penalty_map.get(reason, 0.1)
+            conn.reputation_score = max(0, conn.reputation_score - penalty)
+
+            # Blacklist if reputation is too low
+            if conn.reputation_score < self.reputation_threshold:
+                self.blacklisted_ips.add(ip_address)
+                conn.is_blacklisted = True
+                print(f"Blacklisted peer {ip_address} due to low reputation: {conn.reputation_score}")
+
+    def update_reputation(self, ip_address: str, behavior: str):
+        """Update peer reputation based on behavior"""
+        if ip_address not in self.connections:
+            return
+
+        conn = self.connections[ip_address]
+
+        reputation_changes = {
+            "valid_block": +0.05,
+            "valid_transaction": +0.02,
+            "helpful_peer_info": +0.01,
+            "fast_response": +0.01,
+            "invalid_block": -0.2,
+            "invalid_transaction": -0.1,
+            "slow_response": -0.01,
+            "connection_drop": -0.05,
+        }
+
+        change = reputation_changes.get(behavior, 0)
+        conn.reputation_score = max(0, min(1, conn.reputation_score + change))
+
+        # Remove from blacklist if reputation improves
+        if conn.reputation_score > self.reputation_threshold and ip_address in self.blacklisted_ips:
+            self.blacklisted_ips.remove(ip_address)
+            conn.is_blacklisted = False
+            print(f"Removed {ip_address} from blacklist due to improved reputation")
+
+    def get_peer_stats(self, ip_address: str) -> Dict:
+        """Get statistics for a peer"""
+        if ip_address not in self.connections:
+            return {}
+
+        conn = self.connections[ip_address]
+        current_time = time.time()
+
+        # Calculate recent message rate
+        if ip_address in self.message_windows:
+            recent_messages = len([t for t in self.message_windows[ip_address]
+                                 if current_time - t < 60])
+        else:
+            recent_messages = 0
+
+        # Calculate recent bandwidth usage
+        if ip_address in self.bandwidth_windows:
+            recent_bandwidth = sum(size for time, size in self.bandwidth_windows[ip_address]
+                                 if current_time - time < 60)
+        else:
+            recent_bandwidth = 0
+
+        return {
+            "ip_address": ip_address,
+            "connected_duration": current_time - conn.connection_time,
+            "total_messages": conn.message_count,
+            "total_bandwidth": conn.bandwidth_used,
+            "recent_message_rate": recent_messages,
+            "recent_bandwidth_usage": recent_bandwidth,
+            "reputation_score": conn.reputation_score,
+            "is_blacklisted": conn.is_blacklisted,
+        }
+```
+
+## Consensus Integration
+
+### BlockDAG Vote Propagation
+
+```go
+package consensus
+
+import (
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "sync"
+    "time"
+)
+
+type BlockDAGVote struct {
+    BlockHash     [32]byte  `json:"block_hash"`
+    VoterID       [32]byte  `json:"voter_id"`
+    VoteType      VoteType  `json:"vote_type"`
+    Timestamp     int64     `json:"timestamp"`
+    Signature     [64]byte  `json:"signature"`
+    ParentVotes   [][32]byte `json:"parent_votes"`
+}
+
+type VoteType int
+
+const (
+    VoteAccept VoteType = iota
+    VoteReject
+    VoteAbstain
+)
+
+type ConsensusNetwork struct {
+    peers           map[string]*Peer
+    votes           map[[32]byte]*BlockDAGVote
+    voteCache       *VoteCache
+    propagationMux  sync.RWMutex
+    maxVoteAge      time.Duration
+}
+
+type VoteCache struct {
+    cache map[[32]byte]CacheEntry
+    mutex sync.RWMutex
+}
+
+type CacheEntry struct {
+    vote      *BlockDAGVote
+    timestamp time.Time
+    propagated bool
+}
+
+func NewConsensusNetwork() *ConsensusNetwork {
+    return &ConsensusNetwork{
+        peers:       make(map[string]*Peer),
+        votes:       make(map[[32]byte]*BlockDAGVote),
+        voteCache:   &VoteCache{cache: make(map[[32]byte]CacheEntry)},
+        maxVoteAge:  30 * time.Minute,
+    }
+}
+
+func (cn *ConsensusNetwork) PropagateVote(vote *BlockDAGVote) error {
+    // Validate vote first
+    if !cn.validateVote(vote) {
+        return fmt.Errorf("invalid vote")
+    }
+
+    // Check if already propagated
+    voteHash := cn.calculateVoteHash(vote)
+    if cn.voteCache.isAlreadyPropagated(voteHash) {
+        return nil // Already propagated
+    }
+
+    // Add to cache
+    cn.voteCache.addVote(voteHash, vote)
+
+    // Propagate to peers
+    cn.propagationMux.RLock()
+    defer cn.propagationMux.RUnlock()
+
+    var wg sync.WaitGroup
+    for peerID, peer := range cn.peers {
+        if peer.SupportsConsensus() {
+            wg.Add(1)
+            go func(p *Peer, id string) {
+                defer wg.Done()
+                if err := p.SendVote(vote); err != nil {
+                    fmt.Printf("Failed to send vote to peer %s: %v\n", id, err)
+                }
+            }(peer, peerID)
+        }
+    }
+
+    wg.Wait()
+    return nil
+}
+
+func (cn *ConsensusNetwork) HandleIncomingVote(vote *BlockDAGVote, fromPeer string) error {
+    // Validate vote
+    if !cn.validateVote(vote) {
+        return fmt.Errorf("invalid vote from peer %s", fromPeer)
+    }
+
+    // Check vote age
+    voteAge := time.Since(time.Unix(vote.Timestamp, 0))
+    if voteAge > cn.maxVoteAge {
+        return fmt.Errorf("vote too old: %v", voteAge)
+    }
+
+    // Add to local vote storage
+    voteHash := cn.calculateVoteHash(vote)
+    cn.votes[voteHash] = vote
+
+    // Propagate to other peers (excluding sender)
+    return cn.propagateToOthers(vote, fromPeer)
+}
+
+func (cn *ConsensusNetwork) validateVote(vote *BlockDAGVote) bool {
+    // Basic validation
+    if vote.Timestamp == 0 {
+        return false
+    }
+
+    // Verify signature
+    if !cn.verifyVoteSignature(vote) {
+        return false
+    }
+
+    // Check voter authorization
+    if !cn.isAuthorizedVoter(vote.VoterID) {
+        return false
+    }
+
+    // Validate parent votes exist
+    for _, parentHash := range vote.ParentVotes {
+        if _, exists := cn.votes[parentHash]; !exists {
+            // Request missing parent vote
+            cn.requestVote(parentHash)
+        }
+    }
+
+    return true
+}
+
+func (cn *ConsensusNetwork) calculateVoteHash(vote *BlockDAGVote) [32]byte {
+    data := fmt.Sprintf("%x%x%d%d", vote.BlockHash, vote.VoterID,
+                       vote.VoteType, vote.Timestamp)
+    return sha256.Sum256([]byte(data))
+}
+
+func (cn *ConsensusNetwork) verifyVoteSignature(vote *BlockDAGVote) bool {
+    // Implement Ed25519 signature verification
+    // This is a simplified placeholder
+    return true
+}
+
+func (cn *ConsensusNetwork) isAuthorizedVoter(voterID [32]byte) bool {
+    // Check if voter has sufficient stake or authority
+    // Implement stake verification logic
+    return true
+}
+
+func (cn *ConsensusNetwork) propagateToOthers(vote *BlockDAGVote, excludePeer string) error {
+    cn.propagationMux.RLock()
+    defer cn.propagationMux.RUnlock()
+
+    for peerID, peer := range cn.peers {
+        if peerID != excludePeer && peer.SupportsConsensus() {
+            go func(p *Peer, id string) {
+                if err := p.SendVote(vote); err != nil {
+                    fmt.Printf("Failed to propagate vote to peer %s: %v\n", id, err)
+                }
+            }(peer, peerID)
+        }
+    }
+
+    return nil
+}
+
+func (vc *VoteCache) isAlreadyPropagated(voteHash [32]byte) bool {
+    vc.mutex.RLock()
+    defer vc.mutex.RUnlock()
+
+    entry, exists := vc.cache[voteHash]
+    return exists && entry.propagated
+}
+
+func (vc *VoteCache) addVote(voteHash [32]byte, vote *BlockDAGVote) {
+    vc.mutex.Lock()
+    defer vc.mutex.Unlock()
+
+    vc.cache[voteHash] = CacheEntry{
+        vote:       vote,
+        timestamp:  time.Now(),
+        propagated: true,
+    }
+}
+
+// Clean up old votes periodically
+func (cn *ConsensusNetwork) CleanupOldVotes() {
+    ticker := time.NewTicker(5 * time.Minute)
+    defer ticker.Stop()
+
+    for range ticker.C {
+        cn.voteCache.mutex.Lock()
+        now := time.Now()
+        for hash, entry := range cn.voteCache.cache {
+            if now.Sub(entry.timestamp) > cn.maxVoteAge {
+                delete(cn.voteCache.cache, hash)
+            }
+        }
+        cn.voteCache.mutex.Unlock()
+    }
+}
+```
+
+## AI-Enhanced Routing
+
+### Intelligent Message Propagation
+
+```python
+import numpy as np
+import networkx as nx
+from typing import Dict, List, Tuple, Set
+import machine_learning as ml
+
+class AIRoutingEngine:
+    def __init__(self):
+        self.network_graph = nx.Graph()
+        self.peer_metrics = {}
+        self.routing_model = self.load_routing_model()
+        self.message_priority_weights = {
+            'block_announce': 1.0,
+            'transaction': 0.8,
+            'consensus_vote': 0.9,
+            'peer_exchange': 0.3,
+            'ping': 0.1
+        }
+
+    def load_routing_model(self):
+        """Load pre-trained ML model for routing decisions"""
+        # This would load a trained neural network model
+        # For now, we'll use a simple heuristic-based approach
+        return None
+
+    def update_network_topology(self, peers: Dict[str, Dict]):
+        """Update network graph with current peer information"""
+        # Clear existing graph
+        self.network_graph.clear()
+
+        # Add nodes for each peer
+        for peer_id, peer_info in peers.items():
+            self.network_graph.add_node(peer_id, **peer_info)
+
+        # Add edges based on peer connections
+        for peer_id, peer_info in peers.items():
+            connected_peers = peer_info.get('connected_peers', [])
+            for connected_peer in connected_peers:
+                if connected_peer in peers:
+                    # Weight edge by connection quality
+                    weight = self.calculate_connection_weight(
+                        peer_info, peers[connected_peer]
+                    )
+                    self.network_graph.add_edge(peer_id, connected_peer, weight=weight)
+
+    def calculate_connection_weight(self, peer1_info: Dict, peer2_info: Dict) -> float:
+        """Calculate connection quality weight between two peers"""
+        # Factors affecting connection quality
+        latency1 = peer1_info.get('latency_ms', 100)
+        latency2 = peer2_info.get('latency_ms', 100)
+        avg_latency = (latency1 + latency2) / 2
+
+        bandwidth1 = peer1_info.get('bandwidth_mbps', 10)
+        bandwidth2 = peer2_info.get('bandwidth_mbps', 10)
+        min_bandwidth = min(bandwidth1, bandwidth2)
+
+        uptime1 = peer1_info.get('uptime', 0.9)
+        uptime2 = peer2_info.get('uptime', 0.9)
+        avg_uptime = (uptime1 + uptime2) / 2
+
+        # Calculate composite weight (lower is better)
+        weight = (avg_latency / 1000) / (min_bandwidth * avg_uptime)
+        return weight
+
+    def find_optimal_routes(self, source: str, targets: List[str],
+                           message_type: str) -> Dict[str, List[str]]:
+        """Find optimal routing paths for message propagation"""
+        routes = {}
+        message_priority = self.message_priority_weights.get(message_type, 0.5)
+
+        for target in targets:
+            if target == source:
+                continue
+
+            try:
+                # Use Dijkstra's algorithm with AI-enhanced weights
+                path = nx.shortest_path(
+                    self.network_graph,
+                    source,
+                    target,
+                    weight='weight'
+                )
+                routes[target] = path
+
+            except nx.NetworkXNoPath:
+                # No direct path found, use flood routing
+                routes[target] = self.find_flood_route(source, target)
+
+        return routes
+
+    def find_flood_route(self, source: str, target: str) -> List[str]:
+        """Find route using controlled flooding"""
+        # BFS to find any available path
+        visited = set([source])
+        queue = [(source, [source])]
+
+        while queue:
+            current, path = queue.pop(0)
+
+            if current == target:
+                return path
+
+            for neighbor in self.network_graph.neighbors(current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append((neighbor, path + [neighbor]))
+
+        return []  # No path found
+
+    def optimize_propagation_strategy(self, message_type: str,
+                                    urgency: float) -> Dict[str, float]:
+        """AI-optimized message propagation strategy"""
+
+        # Feature vector for ML model
+        features = np.array([
+            urgency,
+            self.message_priority_weights.get(message_type, 0.5),
+            len(self.network_graph.nodes()),  # Network size
+            nx.density(self.network_graph),   # Network density
+            self.calculate_network_congestion(),
+        ])
+
+        # If ML model is available, use it for optimization
+        if self.routing_model:
+            strategy_params = self.routing_model.predict([features])[0]
+        else:
+            # Fallback to heuristic-based optimization
+            strategy_params = self.heuristic_optimization(features)
+
+        return {
+            'redundancy_factor': strategy_params[0],  # How many paths to use
+            'timeout_multiplier': strategy_params[1], # Timeout adjustment
+            'retry_attempts': int(strategy_params[2]), # Number of retries
+            'batching_factor': strategy_params[3],    # Message batching
+        }
+
+    def heuristic_optimization(self, features: np.ndarray) -> List[float]:
+        """Heuristic-based optimization when ML model is not available"""
+        urgency, priority, network_size, density, congestion = features
+
+        # Redundancy factor (1.0 to 3.0)
+        redundancy = 1.0 + (urgency * priority * 2.0)
+        redundancy = min(3.0, redundancy)
+
+        # Timeout multiplier (0.5 to 2.0)
+        timeout_mult = 1.0 + (congestion * 1.0) - (density * 0.5)
+        timeout_mult = max(0.5, min(2.0, timeout_mult))
+
+        # Retry attempts (1 to 5)
+        retries = max(1, int(urgency * priority * 5))
+        retries = min(5, retries)
+
+        # Batching factor (0.1 to 1.0)
+        batching = max(0.1, 1.0 - urgency)
+
+        return [redundancy, timeout_mult, retries, batching]
+
+    def calculate_network_congestion(self) -> float:
+        """Calculate current network congestion level"""
+        if not self.network_graph.nodes():
+            return 0.0
+
+        # Simple congestion metric based on average degree and load
+        total_load = 0
+        total_capacity = 0
+
+        for node in self.network_graph.nodes():
+            node_data = self.network_graph.nodes[node]
+            load = node_data.get('message_queue_size', 0)
+            capacity = node_data.get('max_message_queue', 1000)
+
+            total_load += load
+            total_capacity += capacity
+
+        if total_capacity == 0:
+            return 0.0
+
+        return total_load / total_capacity
+
+    def adaptive_routing_decision(self, message_type: str, target_peers: List[str],
+                                current_network_state: Dict) -> Dict[str, List[str]]:
+        """Make adaptive routing decisions based on current network state"""
+
+        # Update network state
+        self.update_network_topology(current_network_state.get('peers', {}))
+
+        # Calculate message urgency
+        urgency = self.calculate_message_urgency(message_type, current_network_state)
+
+        # Get optimization strategy
+        strategy = self.optimize_propagation_strategy(message_type, urgency)
+
+        # Find routes with redundancy
+        routes = {}
+        redundancy_factor = strategy['redundancy_factor']
+
+        for target in target_peers:
+            primary_route = self.find_optimal_routes('self', [target], message_type)
+            routes[target] = primary_route.get(target, [])
+
+            # Add backup routes if redundancy is needed
+            if redundancy_factor > 1.0:
+                backup_routes = self.find_backup_routes('self', target,
+                                                      int(redundancy_factor) - 1)
+                routes[f"{target}_backup"] = backup_routes
+
+        return routes
+
+    def calculate_message_urgency(self, message_type: str,
+                                network_state: Dict) -> float:
+        """Calculate urgency score for message type"""
+        base_urgency = {
+            'block_announce': 0.9,
+            'consensus_vote': 0.95,
+            'transaction': 0.7,
+            'ai_mining_share': 0.8,
+            'peer_exchange': 0.2,
+            'ping': 0.1
+        }.get(message_type, 0.5)
+
+        # Adjust based on network conditions
+        network_load = network_state.get('congestion_level', 0.5)
+        block_height = network_state.get('current_block_height', 0)
+        last_block_time = network_state.get('last_block_time', 0)
+
+        # Increase urgency if network is behind
+        if last_block_time > 0:
+            time_since_last_block = time.time() - last_block_time
+            if time_since_last_block > 30:  # 30 seconds threshold
+                base_urgency *= 1.2
+
+        # Decrease urgency if network is congested
+        if network_load > 0.8:
+            base_urgency *= 0.8
+
+        return min(1.0, base_urgency)
+
+    def find_backup_routes(self, source: str, target: str,
+                          num_backups: int) -> List[List[str]]:
+        """Find backup routing paths"""
+        backup_routes = []
+
+        try:
+            # Find k-shortest paths
+            paths = list(nx.shortest_simple_paths(
+                self.network_graph, source, target, weight='weight'
+            ))
+
+            # Take the requested number of backup paths
+            backup_routes = paths[1:num_backups+1]  # Skip primary path
+
+        except (nx.NetworkXNoPath, nx.NetworkXError):
+            pass
+
+        return backup_routes
+```
+
+## Network Monitoring
+
+### Real-time Network Analytics
+
+```javascript
+class TOSNetworkMonitor {
+  constructor() {
+    this.metrics = {
+      totalPeers: 0,
+      activePeers: 0,
+      networkLatency: 0,
+      messageRate: 0,
+      blockPropagationTime: 0,
+      consensusParticipation: 0,
+      networkHealthScore: 0
+    };
+
+    this.peerMetrics = new Map();
+    this.messageStats = {
+      sent: 0,
+      received: 0,
+      dropped: 0,
+      duplicate: 0
+    };
+
+    this.monitoringInterval = 30000; // 30 seconds
+    this.startMonitoring();
+  }
+
+  startMonitoring() {
+    setInterval(() => {
+      this.collectMetrics();
+      this.updateNetworkHealth();
+      this.reportMetrics();
+    }, this.monitoringInterval);
+  }
+
+  collectMetrics() {
+    // Collect peer metrics
+    this.metrics.totalPeers = this.peerMetrics.size;
+    this.metrics.activePeers = Array.from(this.peerMetrics.values())
+      .filter(peer => peer.lastSeen > Date.now() - 300000).length; // 5 min
+
+    // Calculate average latency
+    const latencies = Array.from(this.peerMetrics.values())
+      .map(peer => peer.latency)
+      .filter(latency => latency > 0);
+
+    this.metrics.networkLatency = latencies.length > 0
+      ? latencies.reduce((sum, lat) => sum + lat, 0) / latencies.length
+      : 0;
+
+    // Calculate message rate (messages per second)
+    const timeWindow = 60000; // 1 minute
+    const currentTime = Date.now();
+    const recentMessages = Array.from(this.peerMetrics.values())
+      .reduce((total, peer) => {
+        const recentCount = peer.messageHistory
+          .filter(timestamp => currentTime - timestamp < timeWindow).length;
+        return total + recentCount;
+      }, 0);
+
+    this.metrics.messageRate = recentMessages / 60; // per second
+
+    // Calculate consensus participation
+    const votingPeers = Array.from(this.peerMetrics.values())
+      .filter(peer => peer.supportsConsensus && peer.isActive).length;
+
+    this.metrics.consensusParticipation = this.metrics.activePeers > 0
+      ? votingPeers / this.metrics.activePeers
+      : 0;
+  }
+
+  updateNetworkHealth() {
+    let healthScore = 100;
+
+    // Penalty for low peer count
+    if (this.metrics.activePeers < 10) {
+      healthScore -= (10 - this.metrics.activePeers) * 5;
+    }
+
+    // Penalty for high latency
+    if (this.metrics.networkLatency > 1000) { // 1 second
+      healthScore -= Math.min(30, (this.metrics.networkLatency - 1000) / 100);
+    }
+
+    // Penalty for low consensus participation
+    if (this.metrics.consensusParticipation < 0.5) {
+      healthScore -= (0.5 - this.metrics.consensusParticipation) * 40;
+    }
+
+    // Penalty for message drops
+    const dropRate = this.messageStats.dropped /
+      (this.messageStats.sent + this.messageStats.received);
+    if (dropRate > 0.05) { // 5% drop rate
+      healthScore -= Math.min(25, (dropRate - 0.05) * 500);
+    }
+
+    this.metrics.networkHealthScore = Math.max(0, Math.min(100, healthScore));
+  }
+
+  updatePeerMetrics(peerId, metrics) {
+    if (!this.peerMetrics.has(peerId)) {
+      this.peerMetrics.set(peerId, {
+        peerId: peerId,
+        latency: 0,
+        messageHistory: [],
+        lastSeen: Date.now(),
+        supportsConsensus: false,
+        isActive: true,
+        reputation: 1.0,
+        connectionQuality: 1.0
+      });
+    }
+
+    const peer = this.peerMetrics.get(peerId);
+    Object.assign(peer, metrics);
+    peer.lastSeen = Date.now();
+  }
+
+  recordMessage(type, direction, peerId) {
+    this.messageStats[direction]++;
+
+    if (this.peerMetrics.has(peerId)) {
+      const peer = this.peerMetrics.get(peerId);
+      peer.messageHistory.push(Date.now());
+
+      // Keep only recent message history
+      const cutoff = Date.now() - 3600000; // 1 hour
+      peer.messageHistory = peer.messageHistory.filter(time => time > cutoff);
+    }
+  }
+
+  recordBlockPropagation(blockHash, propagationTime) {
+    // Update block propagation metrics
+    if (this.blockPropagationTimes) {
+      this.blockPropagationTimes.push(propagationTime);
+
+      // Keep only recent measurements
+      if (this.blockPropagationTimes.length > 100) {
+        this.blockPropagationTimes.shift();
+      }
+
+      // Calculate average
+      this.metrics.blockPropagationTime =
+        this.blockPropagationTimes.reduce((sum, time) => sum + time, 0) /
+        this.blockPropagationTimes.length;
+    } else {
+      this.blockPropagationTimes = [propagationTime];
+      this.metrics.blockPropagationTime = propagationTime;
+    }
+  }
+
+  getNetworkTopology() {
+    const topology = {
+      nodes: [],
+      edges: []
+    };
+
+    // Add nodes
+    for (const [peerId, peer] of this.peerMetrics) {
+      topology.nodes.push({
+        id: peerId,
+        type: peer.nodeType || 'full',
+        latency: peer.latency,
+        reputation: peer.reputation,
+        connectionQuality: peer.connectionQuality,
+        isActive: peer.isActive,
+        supportsAIMining: peer.supportsAIMining || false,
+        location: peer.location || null
+      });
+    }
+
+    // Add edges (connections between peers)
+    for (const [peerId, peer] of this.peerMetrics) {
+      if (peer.connectedPeers) {
+        for (const connectedPeer of peer.connectedPeers) {
+          if (this.peerMetrics.has(connectedPeer)) {
+            topology.edges.push({
+              source: peerId,
+              target: connectedPeer,
+              weight: peer.connectionQuality || 1.0
+            });
+          }
+        }
+      }
+    }
+
+    return topology;
+  }
+
+  generateNetworkReport() {
+    return {
+      timestamp: Date.now(),
+      metrics: { ...this.metrics },
+      topology: this.getNetworkTopology(),
+      messageStats: { ...this.messageStats },
+      peerDistribution: this.calculatePeerDistribution(),
+      performanceIndicators: this.calculatePerformanceIndicators()
+    };
+  }
+
+  calculatePeerDistribution() {
+    const distribution = {
+      byType: {},
+      byLocation: {},
+      byCapability: {}
+    };
+
+    for (const peer of this.peerMetrics.values()) {
+      // By node type
+      const type = peer.nodeType || 'unknown';
+      distribution.byType[type] = (distribution.byType[type] || 0) + 1;
+
+      // By location
+      const location = peer.location || 'unknown';
+      distribution.byLocation[location] = (distribution.byLocation[location] || 0) + 1;
+
+      // By capability
+      if (peer.supportsAIMining) {
+        distribution.byCapability.aiMining = (distribution.byCapability.aiMining || 0) + 1;
+      }
+      if (peer.supportsConsensus) {
+        distribution.byCapability.consensus = (distribution.byCapability.consensus || 0) + 1;
+      }
+    }
+
+    return distribution;
+  }
+
+  calculatePerformanceIndicators() {
+    const indicators = {};
+
+    // Network efficiency
+    indicators.networkEfficiency = this.metrics.activePeers > 0
+      ? this.metrics.messageRate / this.metrics.activePeers
+      : 0;
+
+    // Consensus health
+    indicators.consensusHealth = this.metrics.consensusParticipation;
+
+    // Connection stability
+    const stablePeers = Array.from(this.peerMetrics.values())
+      .filter(peer => peer.connectionQuality > 0.8).length;
+    indicators.connectionStability = this.metrics.activePeers > 0
+      ? stablePeers / this.metrics.activePeers
+      : 0;
+
+    // Message success rate
+    const totalMessages = this.messageStats.sent + this.messageStats.received;
+    indicators.messageSuccessRate = totalMessages > 0
+      ? 1 - (this.messageStats.dropped / totalMessages)
+      : 1;
+
+    return indicators;
+  }
+
+  reportMetrics() {
+    const report = this.generateNetworkReport();
+
+    console.log('TOS Network Metrics Report:');
+    console.log(`Active Peers: ${report.metrics.activePeers}`);
+    console.log(`Network Latency: ${report.metrics.networkLatency.toFixed(2)}ms`);
+    console.log(`Message Rate: ${report.metrics.messageRate.toFixed(2)}/s`);
+    console.log(`Network Health: ${report.metrics.networkHealthScore.toFixed(1)}%`);
+    console.log(`Consensus Participation: ${(report.metrics.consensusParticipation * 100).toFixed(1)}%`);
+
+    // Send to monitoring system
+    this.sendToMonitoringSystem(report);
+  }
+
+  sendToMonitoringSystem(report) {
+    // Implementation would send metrics to external monitoring
+    // This could be Prometheus, Grafana, or custom monitoring solution
+  }
+}
+```
+
+The TOS Network P2P protocol provides a robust, scalable, and privacy-preserving foundation for the blockchain network. By incorporating AI-enhanced routing, quantum-resistant security, and adaptive topology management, the protocol ensures optimal performance while maintaining the core principle of "Don't Trust, Verify it."

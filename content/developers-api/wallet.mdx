@@ -1,0 +1,1581 @@
+---
+title: "Wallet API"
+description: "Complete TOS Network Wallet API reference for secure wallet management, private transactions, energy staking, and multi-signature operations."
+---
+
+# Wallet API
+
+The TOS Network Wallet API provides comprehensive wallet management capabilities with privacy-first design and advanced cryptographic features. Built on the principle of **"Don't Trust, Verify it"**, all wallet operations are cryptographically secure and verifiable.
+
+## Overview
+
+The Wallet API enables developers to:
+
+- **Secure Wallet Management**: Create, import, and manage encrypted wallets
+- **Private Transactions**: Send completely private transactions with zero-knowledge proofs
+- **Energy Staking**: Stake TOS tokens to generate energy for gas-free transactions
+- **Multi-Signature Support**: Create and manage multi-signature wallets
+- **Stealth Addresses**: Generate and use stealth addresses for enhanced privacy
+- **Cross-Platform Compatibility**: Works across desktop, mobile, and web platforms
+
+## Connection and Authentication
+
+### HTTP Connection
+
+**Endpoint**: `https://wallet.tos.network/json_rpc` (Mainnet)
+**Endpoint**: `https://wallet-testnet.tos.network/json_rpc` (Testnet)
+
+### Authentication Methods
+
+#### Basic Authentication (RFC 7617)
+
+```javascript
+// Base64 encode username:password
+const credentials = btoa('username:password');
+
+const response = await fetch('https://wallet.tos.network/json_rpc', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Basic ${credentials}`
+  },
+  body: JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'get_version',
+    params: {},
+    id: 1
+  })
+});
+```
+
+#### API Key Authentication
+
+```javascript
+const response = await fetch('https://wallet.tos.network/json_rpc', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-wallet-api-key'
+  },
+  body: JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'get_balance',
+    params: {},
+    id: 1
+  })
+});
+```
+
+### WebSocket Connection
+
+```javascript
+const ws = new WebSocket('wss://wallet.tos.network/ws');
+
+ws.onopen = () => {
+  // Authenticate with WebSocket
+  ws.send(JSON.stringify({
+    jsonrpc: '2.0',
+    method: 'authenticate',
+    params: {
+      username: 'your_username',
+      password: 'your_password'
+    },
+    id: 1
+  }));
+};
+```
+
+## Core Wallet Management
+
+### Wallet Creation and Management
+
+#### `create_wallet`
+
+Create a new wallet with advanced security features.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "create_wallet",
+  "params": {
+    "name": "My TOS Wallet",
+    "password": "secure-password-123",
+    "language": "English",
+    "wallet_type": "standard", // "standard", "multisig", "watching", "hardware"
+    "privacy_level": "maximum",
+    "seed_phrase_length": 24, // 12, 18, or 24 words
+    "derive_addresses": 5 // Pre-generate addresses
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "wallet_id": "wallet_550e8400-e29b-41d4-a716-446655440000",
+    "name": "My TOS Wallet",
+    "network": "mainnet",
+    "wallet_type": "standard",
+    "primary_address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+    "public_key": "0x03a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
+    "view_key": "0xview_key_hex_data_for_encrypted_balance_viewing",
+    "encrypted_seed": "0xencrypted_seed_phrase_data",
+    "derivation_path": "m/44'/1729'/0'",
+    "created_at": 1672531200,
+    "backup_required": true,
+    "addresses": [
+      {
+        "address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+        "index": 0,
+        "is_change": false,
+        "public_key": "0x03a1b2c3..."
+      }
+      // ... more pre-generated addresses
+    ]
+  },
+  "id": 1
+}
+```
+
+#### `import_wallet`
+
+Import wallet from seed phrase or private keys.
+
+```javascript
+// Request - Import from seed phrase
+{
+  "jsonrpc": "2.0",
+  "method": "import_wallet",
+  "params": {
+    "name": "Imported Wallet",
+    "password": "secure-password-123",
+    "import_type": "seed_phrase",
+    "seed_phrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+    "derivation_path": "m/44'/1729'/0'",
+    "scan_for_funds": true, // Scan blockchain for existing transactions
+    "scan_height": 1000000 // Start scanning from this height
+  },
+  "id": 1
+}
+
+// Request - Import from private key
+{
+  "jsonrpc": "2.0",
+  "method": "import_wallet",
+  "params": {
+    "name": "Private Key Wallet",
+    "password": "secure-password-123",
+    "import_type": "private_key",
+    "private_key": "0xprivate_key_hex_data",
+    "scan_for_funds": true
+  },
+  "id": 1
+}
+
+// Response: Same as create_wallet
+```
+
+#### `open_wallet`
+
+Open and unlock an existing wallet.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "open_wallet",
+  "params": {
+    "wallet_id": "wallet_550e8400-e29b-41d4-a716-446655440000",
+    "password": "secure-password-123"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "wallet_id": "wallet_550e8400-e29b-41d4-a716-446655440000",
+    "name": "My TOS Wallet",
+    "status": "unlocked",
+    "network": "mainnet",
+    "synced": true,
+    "sync_height": 1250000,
+    "primary_address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+    "balance": {
+      "confirmed": "5000000000000",
+      "pending": "100000000000",
+      "staked": "2000000000000",
+      "available": "4900000000000"
+    },
+    "energy": {
+      "available": "2500.5",
+      "generating_rate": "500.5",
+      "next_generation": 1672532800
+    },
+    "transaction_count": 156,
+    "last_activity": 1672531000
+  },
+  "id": 1
+}
+```
+
+#### `close_wallet`
+
+Close and lock the wallet.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "close_wallet",
+  "params": {},
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "closed",
+    "message": "Wallet closed successfully"
+  },
+  "id": 1
+}
+```
+
+### Wallet Information
+
+#### `get_version`
+
+Get wallet software version and capabilities.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_version",
+  "params": {},
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "version": "1.2.0",
+    "api_version": "1.0",
+    "network": "mainnet",
+    "features": [
+      "privacy_transactions",
+      "energy_staking",
+      "smart_contracts",
+      "multi_signature",
+      "stealth_addresses",
+      "ai_mining_integration"
+    ],
+    "supported_languages": ["English", "Chinese", "Spanish", "French", "German"],
+    "build_commit": "a1b2c3d4",
+    "build_date": "2024-01-15T10:30:00Z"
+  },
+  "id": 1
+}
+```
+
+#### `get_wallet_info`
+
+Get comprehensive wallet information.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_wallet_info",
+  "params": {},
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "wallet_id": "wallet_550e8400-e29b-41d4-a716-446655440000",
+    "name": "My TOS Wallet",
+    "network": "mainnet",
+    "wallet_type": "standard",
+    "created_at": 1672531200,
+    "last_backup": 1672531200,
+    "encryption_status": "encrypted",
+    "sync_status": {
+      "synced": true,
+      "current_height": 1250000,
+      "network_height": 1250000,
+      "sync_percentage": 100.0
+    },
+    "addresses": {
+      "total": 10,
+      "used": 5,
+      "unused": 5,
+      "change_addresses": 3
+    },
+    "security": {
+      "backup_required": false,
+      "two_factor_enabled": false,
+      "hardware_wallet": false,
+      "seed_phrase_verified": true
+    }
+  },
+  "id": 1
+}
+```
+
+## Balance and Address Management
+
+#### `get_balance`
+
+Get wallet balance with detailed breakdown.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_balance",
+  "params": {
+    "address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m" // Optional: specific address
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "total_balance": "7100000000000",
+    "confirmed_balance": "5000000000000",
+    "pending_balance": "100000000000",
+    "staked_balance": "2000000000000",
+    "available_balance": "4900000000000",
+    "locked_balance": "100000000000",
+    "energy": {
+      "available": "2500.5",
+      "generating_rate": "500.5",
+      "total_staked": "2000000000000",
+      "active_stakes": 3,
+      "next_generation": 1672532800
+    },
+    "breakdown_by_address": [
+      {
+        "address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+        "balance": "3000000000000",
+        "pending": "50000000000",
+        "transaction_count": 89
+      },
+      {
+        "address": "tos1qy7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4z3y2x1w0v9u8t",
+        "balance": "2000000000000",
+        "pending": "50000000000",
+        "transaction_count": 67
+      }
+    ]
+  },
+  "id": 1
+}
+```
+
+#### `get_address`
+
+Get primary or specific address information.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_address",
+  "params": {
+    "index": 0 // Optional: address index (default: primary address)
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+    "index": 0,
+    "public_key": "0x03a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890",
+    "view_key": "0xview_key_hex_data",
+    "derivation_path": "m/44'/1729'/0'/0/0",
+    "is_change": false,
+    "is_primary": true,
+    "created_at": 1672531200,
+    "balance": "3000000000000",
+    "transaction_count": 89,
+    "last_used": 1672531000
+  },
+  "id": 1
+}
+```
+
+#### `create_address`
+
+Generate a new receiving address.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "create_address",
+  "params": {
+    "address_type": "standard", // "standard", "stealth", "integrated"
+    "label": "Shopping Address"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "address": "tos1qy7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4z3y2x1w0v9u8t",
+    "index": 10,
+    "public_key": "0x02b3c4d5e6f7890123456789012345678901234567890123456789012345678901",
+    "view_key": "0xnew_view_key_hex_data",
+    "address_type": "standard",
+    "label": "Shopping Address",
+    "derivation_path": "m/44'/1729'/0'/0/10",
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+  },
+  "id": 1
+}
+```
+
+#### `list_addresses`
+
+List all wallet addresses with their status.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "list_addresses",
+  "params": {
+    "include_used": true,
+    "include_unused": true,
+    "include_change": false
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "addresses": [
+      {
+        "address": "tos1qz8x9v7c6b5n4m3k2j1h9g8f7e6d5c4b3a2z1y0x9w8v7u6t5r4q3p2o1n0m",
+        "index": 0,
+        "label": "Primary Address",
+        "balance": "3000000000000",
+        "is_used": true,
+        "is_change": false,
+        "transaction_count": 89
+      },
+      {
+        "address": "tos1qy7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0f9e8d7c6b5a4z3y2x1w0v9u8t",
+        "index": 1,
+        "label": "Shopping Address",
+        "balance": "2000000000000",
+        "is_used": true,
+        "is_change": false,
+        "transaction_count": 67
+      }
+      // ... more addresses
+    ],
+    "total_addresses": 10,
+    "used_addresses": 5,
+    "unused_addresses": 5
+  },
+  "id": 1
+}
+```
+
+## Transaction Operations
+
+#### `build_transaction`
+
+Build and optionally broadcast a transaction.
+
+```javascript
+// Request - Standard private transaction
+{
+  "jsonrpc": "2.0",
+  "method": "build_transaction",
+  "params": {
+    "transfers": [
+      {
+        "destination": "tos1recipient_address_here",
+        "amount": "1000000000000", // 1000 TOS in nanoTOS
+        "burn": "0" // Optional: amount to burn
+      }
+    ],
+    "fee": "1000000", // Optional: specific fee (auto-calculated if not provided)
+    "payment_method": "energy", // "energy" or "gas"
+    "energy_amount": "50.5", // Required if payment_method is "energy"
+    "privacy_level": "maximum", // "low", "medium", "high", "maximum"
+    "memo": "Private payment for services", // Optional encrypted memo
+    "broadcast": true // Set to false to only build, not send
+  },
+  "id": 1
+}
+
+// Request - Multi-destination transaction
+{
+  "jsonrpc": "2.0",
+  "method": "build_transaction",
+  "params": {
+    "transfers": [
+      {
+        "destination": "tos1recipient1_address",
+        "amount": "500000000000"
+      },
+      {
+        "destination": "tos1recipient2_address",
+        "amount": "300000000000"
+      },
+      {
+        "destination": "tos1recipient3_address",
+        "amount": "200000000000",
+        "burn": "50000000000" // Burn 50 TOS with this transfer
+      }
+    ],
+    "payment_method": "gas",
+    "fee": "2000000",
+    "privacy_level": "high",
+    "broadcast": true
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "tx_hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    "fee_paid": "1000000",
+    "energy_used": "50.5",
+    "total_transferred": "1000000000000",
+    "total_burned": "0",
+    "transaction_size": 1024,
+    "privacy_level": "maximum",
+    "confirmations": 0,
+    "broadcast_status": "success",
+    "estimated_confirmation_time": 45, // seconds
+    "transaction_data": {
+      "version": 1,
+      "nonce": 42,
+      "source": "tos1your_address",
+      "range_proof": "0xrange_proof_hex",
+      "signature": "0xsignature_hex",
+      "encrypted_memo": "0xencrypted_memo_hex"
+    }
+  },
+  "id": 1
+}
+```
+
+#### `list_transactions`
+
+Get transaction history with filtering options.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "list_transactions",
+  "params": {
+    "address": "tos1your_address", // Optional: filter by address
+    "min_height": 1249000, // Optional: minimum block height
+    "max_height": 1250000, // Optional: maximum block height
+    "limit": 50,
+    "offset": 0,
+    "include_pending": true,
+    "transaction_type": "all", // "all", "incoming", "outgoing", "mining", "staking"
+    "sort_order": "desc" // "asc" or "desc" by timestamp
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "transactions": [
+      {
+        "hash": "0x1234567890abcdef...",
+        "height": 1249950,
+        "timestamp": 1672531000,
+        "confirmations": 50,
+        "status": "confirmed", // "pending", "confirmed", "failed"
+        "transaction_type": "outgoing",
+        "from_address": "tos1your_address",
+        "to_address": "tos1recipient_address",
+        "amount": "1000000000000",
+        "fee": "1000000",
+        "energy_used": "50.5",
+        "privacy_level": "maximum",
+        "memo": "Payment for services", // Decrypted memo
+        "proof_verified": true,
+        "block_hash": "0xblock_hash..."
+      },
+      {
+        "hash": "0xabcdef1234567890...",
+        "height": 1249925,
+        "timestamp": 1672530625,
+        "confirmations": 75,
+        "status": "confirmed",
+        "transaction_type": "incoming",
+        "from_address": "tos1sender_address",
+        "to_address": "tos1your_address",
+        "amount": "2000000000000",
+        "fee": "1500000",
+        "privacy_level": "high",
+        "memo": "Refund",
+        "proof_verified": true
+      }
+      // ... more transactions
+    ],
+    "total_transactions": 156,
+    "pending_transactions": 3,
+    "has_more": true
+  },
+  "id": 1
+}
+```
+
+#### `get_transaction`
+
+Get detailed information about a specific transaction.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_transaction",
+  "params": {
+    "hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "hash": "0x1234567890abcdef...",
+    "version": 1,
+    "nonce": 42,
+    "source": "tos1your_address",
+    "fee": "1000000",
+    "data": {
+      "Transfer": {
+        "destination": "tos1recipient_address",
+        "amount": "1000000000000",
+        "extra_data": null
+      }
+    },
+    "range_proof": "0xrange_proof_hex_data",
+    "signature": "0xsignature_hex_data",
+    "block_info": {
+      "block_hash": "0xblock_hash...",
+      "block_height": 1249950,
+      "block_timestamp": 1672531000,
+      "confirmations": 50
+    },
+    "status": "confirmed",
+    "privacy_details": {
+      "privacy_level": "maximum",
+      "encrypted_amount": "0xencrypted_amount",
+      "commitment": "0xpedersen_commitment",
+      "proof_verified": true,
+      "memo_encrypted": "0xencrypted_memo"
+    },
+    "energy_info": {
+      "energy_used": "50.5",
+      "payment_method": "energy",
+      "gas_equivalent": "1000000"
+    }
+  },
+  "id": 1
+}
+```
+
+## Energy and Staking Operations
+
+#### `stake_energy`
+
+Stake TOS tokens to generate energy for gas-free transactions.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "stake_energy",
+  "params": {
+    "amount": "10000000000000", // 10,000 TOS in nanoTOS
+    "duration_days": 30, // Staking duration
+    "auto_compound": true, // Auto-compound generated energy
+    "address": "tos1your_address" // Optional: specific address to stake from
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "stake_id": "stake_550e8400-e29b-41d4-a716-446655440001",
+    "transaction_hash": "0xstake_tx_hash...",
+    "amount_staked": "10000000000000",
+    "duration_days": 30,
+    "unlock_timestamp": 1675123200,
+    "energy_generation_rate": "500.5", // Energy units per day
+    "total_energy_to_generate": "15015",
+    "compound_frequency": "daily",
+    "estimated_apy": "8.5%",
+    "staking_address": "tos1your_address",
+    "status": "active"
+  },
+  "id": 1
+}
+```
+
+#### `unstake_energy`
+
+Unstake TOS tokens after the lock period.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "unstake_energy",
+  "params": {
+    "stake_id": "stake_550e8400-e29b-41d4-a716-446655440001",
+    "partial_amount": "5000000000000" // Optional: partial unstaking
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "transaction_hash": "0xunstake_tx_hash...",
+    "unstaked_amount": "5000000000000",
+    "remaining_staked": "5000000000000",
+    "energy_forfeited": "1000.0", // Energy lost due to early unstaking
+    "penalty_amount": "100000000000", // Penalty for early unstaking (if applicable)
+    "unlock_timestamp": 1672531200,
+    "status": "completed"
+  },
+  "id": 1
+}
+```
+
+#### `get_energy_info`
+
+Get detailed energy and staking information.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_energy_info",
+  "params": {},
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "total_energy": "2500.5",
+    "available_energy": "2000.0",
+    "reserved_energy": "500.5", // Energy reserved for pending transactions
+    "generation_info": {
+      "total_staked": "10000000000000",
+      "daily_generation": "500.5",
+      "next_generation": 1672532800,
+      "generation_efficiency": "95.2%"
+    },
+    "active_stakes": [
+      {
+        "stake_id": "stake_550e8400-e29b-41d4-a716-446655440001",
+        "amount": "10000000000000",
+        "start_date": 1672531200,
+        "unlock_date": 1675123200,
+        "daily_generation": "500.5",
+        "total_generated": "5005.0",
+        "status": "active"
+      }
+    ],
+    "energy_usage_24h": "125.5",
+    "estimated_days_remaining": 16.0, // Days of energy remaining at current usage
+    "compound_rewards": "250000000000" // Compounded staking rewards
+  },
+  "id": 1
+}
+```
+
+## Privacy Features
+
+#### `create_stealth_address`
+
+Generate stealth address for enhanced privacy.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "create_stealth_address",
+  "params": {
+    "label": "Anonymous Payments",
+    "payment_id": "payment_12345", // Optional payment ID
+    "view_only": false // Set to true for view-only stealth address
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "stealth_address": "tos2stealth_address_longer_format_with_view_key_embedded",
+    "public_spend_key": "0xspend_key_public",
+    "public_view_key": "0xview_key_public",
+    "private_spend_key": "0xspend_key_private",
+    "private_view_key": "0xview_key_private",
+    "payment_id": "payment_12345",
+    "label": "Anonymous Payments",
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "integration_uri": "tos:stealth_address?amount=1000&message=Payment"
+  },
+  "id": 1
+}
+```
+
+#### `scan_stealth_transactions`
+
+Scan blockchain for incoming stealth transactions.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "scan_stealth_transactions",
+  "params": {
+    "start_height": 1249000,
+    "end_height": 1250000,
+    "stealth_address": "tos2stealth_address...", // Optional: specific stealth address
+    "payment_id": "payment_12345" // Optional: filter by payment ID
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "transactions_found": [
+      {
+        "tx_hash": "0xstealth_tx_hash...",
+        "block_height": 1249950,
+        "amount": "1000000000000",
+        "stealth_address": "tos2stealth_address...",
+        "payment_id": "payment_12345",
+        "sender_public_key": "0xsender_public_key",
+        "one_time_key": "0xone_time_key",
+        "key_image": "0xkey_image_for_double_spend_protection",
+        "timestamp": 1672531000,
+        "confirmations": 50
+      }
+    ],
+    "total_found": 1,
+    "scan_progress": 100.0,
+    "blocks_scanned": 1000
+  },
+  "id": 1
+}
+```
+
+#### `generate_proof`
+
+Generate cryptographic proofs for various purposes.
+
+```javascript
+// Request - Balance proof
+{
+  "jsonrpc": "2.0",
+  "method": "generate_proof",
+  "params": {
+    "proof_type": "balance", // "balance", "payment", "reserve"
+    "amount": "1000000000000",
+    "message": "Proof of sufficient balance for purchase",
+    "address": "tos1your_address"
+  },
+  "id": 1
+}
+
+// Request - Payment proof
+{
+  "jsonrpc": "2.0",
+  "method": "generate_proof",
+  "params": {
+    "proof_type": "payment",
+    "transaction_hash": "0xtx_hash...",
+    "recipient_address": "tos1recipient...",
+    "message": "Proof of payment for Order #12345"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "proof_data": "0xproof_hex_data_that_can_be_verified_independently",
+    "proof_signature": "0xproof_signature",
+    "proof_type": "balance",
+    "generated_at": 1672531200,
+    "message": "Proof of sufficient balance for purchase",
+    "verification_instructions": "Use verify_proof API with this proof data",
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+  },
+  "id": 1
+}
+```
+
+#### `verify_proof`
+
+Verify cryptographic proofs.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "verify_proof",
+  "params": {
+    "proof_data": "0xproof_hex_data",
+    "proof_signature": "0xproof_signature",
+    "expected_address": "tos1address...", // Optional: verify proof is from this address
+    "expected_amount": "1000000000000" // Optional: verify proof covers this amount
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "valid": true,
+    "proof_type": "balance",
+    "verified_amount": "1000000000000",
+    "verified_address": "tos1address...",
+    "generated_at": 1672531200,
+    "message": "Proof of sufficient balance for purchase",
+    "verification_details": {
+      "cryptographic_validity": true,
+      "amount_sufficient": true,
+      "timestamp_valid": true,
+      "signature_valid": true
+    }
+  },
+  "id": 1
+}
+```
+
+## Multi-Signature Support
+
+#### `create_multisig_wallet`
+
+Create a multi-signature wallet for enhanced security.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "create_multisig_wallet",
+  "params": {
+    "name": "Company Treasury",
+    "password": "secure-multisig-password",
+    "required_signatures": 2, // M of N signatures required
+    "total_signers": 3, // Total number of signers
+    "signer_public_keys": [
+      "0xsigner1_public_key",
+      "0xsigner2_public_key",
+      "0xsigner3_public_key"
+    ],
+    "signer_labels": [
+      "CEO",
+      "CFO",
+      "CTO"
+    ],
+    "timeout_hours": 24 // Transaction timeout in hours
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "wallet_id": "multisig_wallet_id",
+    "multisig_address": "tos1multisig_address_with_embedded_script_hash",
+    "script_hash": "0xmultisig_script_hash",
+    "required_signatures": 2,
+    "total_signers": 3,
+    "signers": [
+      {
+        "public_key": "0xsigner1_public_key",
+        "label": "CEO",
+        "address": "tos1signer1_individual_address"
+      },
+      {
+        "public_key": "0xsigner2_public_key",
+        "label": "CFO",
+        "address": "tos1signer2_individual_address"
+      },
+      {
+        "public_key": "0xsigner3_public_key",
+        "label": "CTO",
+        "address": "tos1signer3_individual_address"
+      }
+    ],
+    "created_at": 1672531200,
+    "backup_data": "0xmultisig_wallet_backup_data"
+  },
+  "id": 1
+}
+```
+
+#### `propose_multisig_transaction`
+
+Propose a transaction that requires multiple signatures.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "propose_multisig_transaction",
+  "params": {
+    "multisig_wallet_id": "multisig_wallet_id",
+    "transfers": [
+      {
+        "destination": "tos1recipient_address",
+        "amount": "5000000000000" // 5,000 TOS
+      }
+    ],
+    "fee": "2000000",
+    "description": "Q1 Development Budget Payment",
+    "expiry_hours": 24
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "proposal_id": "proposal_550e8400-e29b-41d4-a716-446655440002",
+    "transaction_data": "0xunsigned_multisig_transaction_data",
+    "required_signatures": 2,
+    "current_signatures": 1, // Your signature is automatically added
+    "signers_pending": ["CFO", "CTO"],
+    "signers_completed": ["CEO"],
+    "expiry_timestamp": 1672617600,
+    "description": "Q1 Development Budget Payment",
+    "status": "pending_signatures"
+  },
+  "id": 1
+}
+```
+
+#### `sign_multisig_transaction`
+
+Sign a pending multi-signature transaction.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "sign_multisig_transaction",
+  "params": {
+    "proposal_id": "proposal_550e8400-e29b-41d4-a716-446655440002",
+    "password": "your-wallet-password"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "proposal_id": "proposal_550e8400-e29b-41d4-a716-446655440002",
+    "signature": "0xyour_signature",
+    "required_signatures": 2,
+    "current_signatures": 2,
+    "signers_completed": ["CEO", "CFO"],
+    "transaction_ready": true,
+    "transaction_hash": "0xfinal_multisig_tx_hash", // Only if transaction_ready is true
+    "status": "completed" // "pending_signatures" or "completed"
+  },
+  "id": 1
+}
+```
+
+#### `list_multisig_proposals`
+
+List pending and completed multi-signature proposals.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "list_multisig_proposals",
+  "params": {
+    "multisig_wallet_id": "multisig_wallet_id",
+    "status": "all", // "pending", "completed", "expired", "all"
+    "limit": 20,
+    "offset": 0
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "proposals": [
+      {
+        "proposal_id": "proposal_550e8400-e29b-41d4-a716-446655440002",
+        "description": "Q1 Development Budget Payment",
+        "amount": "5000000000000",
+        "destination": "tos1recipient_address",
+        "proposer": "CEO",
+        "created_at": 1672531200,
+        "expiry_timestamp": 1672617600,
+        "required_signatures": 2,
+        "current_signatures": 2,
+        "signers_completed": ["CEO", "CFO"],
+        "status": "completed",
+        "transaction_hash": "0xfinal_multisig_tx_hash"
+      }
+      // ... more proposals
+    ],
+    "total_proposals": 15,
+    "pending_proposals": 3,
+    "expired_proposals": 1
+  },
+  "id": 1
+}
+```
+
+## Wallet Backup and Recovery
+
+#### `export_wallet`
+
+Export wallet data for backup purposes.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "export_wallet",
+  "params": {
+    "password": "your-wallet-password",
+    "export_type": "full", // "full", "keys_only", "watch_only"
+    "include_transaction_history": true,
+    "encryption_password": "backup-encryption-password" // Optional additional encryption
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "wallet_data": "0xencrypted_wallet_backup_data",
+    "backup_format": "TOS_WALLET_V1",
+    "created_at": 1672531200,
+    "includes": {
+      "private_keys": true,
+      "transaction_history": true,
+      "address_labels": true,
+      "multisig_data": false
+    },
+    "verification_hash": "0xbackup_verification_hash",
+    "recovery_instructions": "Store this backup securely. Use import_wallet to restore."
+  },
+  "id": 1
+}
+```
+
+#### `get_seed_phrase`
+
+Retrieve the wallet's seed phrase (requires password).
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_seed_phrase",
+  "params": {
+    "password": "your-wallet-password"
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "seed_phrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+    "language": "English",
+    "word_count": 24,
+    "checksum_valid": true,
+    "warning": "Never share this seed phrase. Anyone with access can control your wallet."
+  },
+  "id": 1
+}
+```
+
+## Online/Offline Mode
+
+#### `set_online_mode`
+
+Connect or disconnect from the TOS Network daemon.
+
+```javascript
+// Request - Go online
+{
+  "jsonrpc": "2.0",
+  "method": "set_online_mode",
+  "params": {
+    "online": true,
+    "daemon_address": "https://node.tos.network:8080",
+    "auto_sync": true
+  },
+  "id": 1
+}
+
+// Request - Go offline
+{
+  "jsonrpc": "2.0",
+  "method": "set_online_mode",
+  "params": {
+    "online": false
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "online": true,
+    "daemon_address": "https://node.tos.network:8080",
+    "connection_status": "connected",
+    "network": "mainnet",
+    "sync_height": 1250000,
+    "network_height": 1250000,
+    "sync_percentage": 100.0,
+    "last_sync": 1672531200
+  },
+  "id": 1
+}
+```
+
+#### `get_sync_status`
+
+Get wallet synchronization status.
+
+```javascript
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "get_sync_status",
+  "params": {},
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "synced": true,
+    "sync_height": 1250000,
+    "network_height": 1250000,
+    "sync_percentage": 100.0,
+    "blocks_remaining": 0,
+    "estimated_sync_time": 0,
+    "sync_speed": "125.5 blocks/sec",
+    "last_sync": 1672531200,
+    "daemon_connection": {
+      "connected": true,
+      "address": "https://node.tos.network:8080",
+      "response_time": 45
+    }
+  },
+  "id": 1
+}
+```
+
+## WebSocket Events
+
+### Event Subscription
+
+```javascript
+// Connect to wallet WebSocket
+const ws = new WebSocket('wss://wallet.tos.network/ws');
+
+// Subscribe to balance updates
+ws.send(JSON.stringify({
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "params": {
+    "event": "balance_update"
+  },
+  "id": 1
+}));
+
+// Subscribe to transaction confirmations
+ws.send(JSON.stringify({
+  "jsonrpc": "2.0",
+  "method": "subscribe",
+  "params": {
+    "event": "transaction_update"
+  },
+  "id": 2
+}));
+```
+
+### Event Types
+
+#### Balance Update Event
+
+```javascript
+{
+  "jsonrpc": "2.0",
+  "method": "balance_update",
+  "params": {
+    "address": "tos1your_address",
+    "old_balance": "5000000000000",
+    "new_balance": "6000000000000",
+    "change": "+1000000000000",
+    "transaction_hash": "0xcausing_tx_hash",
+    "block_height": 1250001
+  }
+}
+```
+
+#### Transaction Update Event
+
+```javascript
+{
+  "jsonrpc": "2.0",
+  "method": "transaction_update",
+  "params": {
+    "tx_hash": "0xtx_hash",
+    "status": "confirmed", // "pending", "confirmed", "failed"
+    "confirmations": 1,
+    "block_height": 1250001,
+    "address": "tos1your_address",
+    "amount": "1000000000000",
+    "transaction_type": "outgoing"
+  }
+}
+```
+
+#### Energy Update Event
+
+```javascript
+{
+  "jsonrpc": "2.0",
+  "method": "energy_update",
+  "params": {
+    "available_energy": "2500.5",
+    "energy_generated": "50.5",
+    "total_staked": "10000000000000",
+    "next_generation": 1672532800
+  }
+}
+```
+
+## Error Handling
+
+### Error Response Format
+
+```javascript
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -1,
+    "message": "Wallet is locked",
+    "data": {
+      "wallet_id": "wallet_550e8400-e29b-41d4-a716-446655440000",
+      "suggestion": "Use open_wallet method to unlock"
+    }
+  },
+  "id": 1
+}
+```
+
+### Common Error Codes
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -1 | Wallet is locked | Wallet needs to be unlocked |
+| -2 | Invalid password | Incorrect wallet password |
+| -3 | Insufficient balance | Not enough funds |
+| -4 | Insufficient energy | Not enough energy for transaction |
+| -5 | Invalid address | Address format error |
+| -6 | Transaction failed | Transaction validation failed |
+| -7 | Network error | Connection to daemon failed |
+| -8 | Wallet not found | Wallet ID doesn't exist |
+| -9 | Already exists | Wallet name already in use |
+| -10 | Invalid seed phrase | Seed phrase validation failed |
+
+## Implementation Examples
+
+### JavaScript Wallet Client
+
+```javascript
+class TOSWalletClient {
+  constructor(url, username, password) {
+    this.url = url;
+    this.credentials = btoa(`${username}:${password}`);
+    this.requestId = 0;
+    this.walletId = null;
+  }
+
+  async request(method, params = {}) {
+    const response = await fetch(`${this.url}/json_rpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${this.credentials}`
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method,
+        params,
+        id: ++this.requestId
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.error) {
+      throw new Error(`Wallet Error ${result.error.code}: ${result.error.message}`);
+    }
+
+    return result.result;
+  }
+
+  async createWallet(name, password, options = {}) {
+    const params = {
+      name,
+      password,
+      language: 'English',
+      wallet_type: 'standard',
+      privacy_level: 'maximum',
+      ...options
+    };
+
+    const result = await this.request('create_wallet', params);
+    this.walletId = result.wallet_id;
+    return result;
+  }
+
+  async openWallet(walletId, password) {
+    const result = await this.request('open_wallet', {
+      wallet_id: walletId,
+      password
+    });
+    this.walletId = walletId;
+    return result;
+  }
+
+  async getBalance() {
+    return this.request('get_balance');
+  }
+
+  async sendTransaction(destination, amount, options = {}) {
+    const params = {
+      transfers: [{ destination, amount }],
+      payment_method: 'energy',
+      privacy_level: 'maximum',
+      broadcast: true,
+      ...options
+    };
+
+    return this.request('build_transaction', params);
+  }
+
+  async stakeEnergy(amount, durationDays = 30) {
+    return this.request('stake_energy', {
+      amount,
+      duration_days: durationDays,
+      auto_compound: true
+    });
+  }
+
+  async getTransactionHistory(limit = 50) {
+    return this.request('list_transactions', {
+      limit,
+      include_pending: true
+    });
+  }
+
+  async createStealthAddress(label) {
+    return this.request('create_stealth_address', { label });
+  }
+}
+
+// Usage example
+const wallet = new TOSWalletClient(
+  'https://wallet.tos.network',
+  'your_username',
+  'your_password'
+);
+
+async function example() {
+  try {
+    // Create or open wallet
+    const walletInfo = await wallet.createWallet('My Wallet', 'secure-password');
+    console.log('Wallet created:', walletInfo.primary_address);
+
+    // Check balance
+    const balance = await wallet.getBalance();
+    console.log('Balance:', balance.available_balance, 'nanoTOS');
+
+    // Send private transaction
+    const tx = await wallet.sendTransaction(
+      'tos1recipient_address',
+      '1000000000000' // 1000 TOS
+    );
+    console.log('Transaction sent:', tx.tx_hash);
+
+    // Stake for energy
+    const stake = await wallet.stakeEnergy('10000000000000', 30);
+    console.log('Staked for energy:', stake.stake_id);
+
+  } catch (error) {
+    console.error('Wallet error:', error.message);
+  }
+}
+```
+
+The TOS Network Wallet API provides comprehensive wallet management with privacy-first design, ensuring all operations maintain the highest level of security and user privacy while following the core principle of "Don't Trust, Verify it."

@@ -1,0 +1,899 @@
+---
+title: TOS Wallet Features
+description: Comprehensive guide to TOS Network wallet capabilities including privacy, energy management, and advanced features
+---
+
+# TOS Wallet Features
+
+TOS Network wallets are more than simple cryptocurrency storage - they're comprehensive financial privacy tools that leverage cutting-edge cryptography to protect your financial information while providing seamless interaction with the TOS ecosystem.
+
+## Complete Financial Privacy
+
+### Encrypted Balance Display
+
+Your TOS wallet balance is **never visible to the network or external observers**:
+
+```
+Traditional Wallet: Balance: 1,234.56 TOS (publicly visible)
+TOS Wallet:        Balance: ██████ TOS (encrypted, private)
+```
+
+#### How It Works
+
+TOS uses **homomorphic encryption** to keep balances private:
+
+```rust
+pub struct EncryptedBalance {
+    pub commitment: Commitment,     // Pedersen commitment to balance
+    pub proof: RangeProof,         // Proof balance is non-negative
+    pub encryption: ElGamalCipher, // Encrypted balance value
+}
+
+impl EncryptedBalance {
+    pub fn new(amount: u64, viewing_key: &ViewingKey) -> Self {
+        let commitment = pedersen_commit(amount, generate_blinding_factor());
+        let proof = create_range_proof(amount, &commitment);
+        let encryption = elgamal_encrypt(amount, &viewing_key.public_key());
+
+        EncryptedBalance {
+            commitment,
+            proof,
+            encryption,
+        }
+    }
+}
+```
+
+#### Benefits
+
+- ✅ **Complete Privacy**: No one can see your balance
+- ✅ **Network Security**: Still validates without revealing amounts
+- ✅ **Regulatory Compliance**: Selective disclosure possible
+- ✅ **Business Protection**: Corporate finances remain confidential
+
+### Private Transaction History
+
+All transaction details remain confidential:
+
+```javascript
+// Traditional blockchain transaction (public)
+{
+  "from": "address123...",
+  "to": "address456...",
+  "amount": "100.0 TOS",  // Everyone can see this
+  "fee": "0.001 TOS",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+
+// TOS private transaction (encrypted)
+{
+  "from": "tos1abc123...",
+  "to": "tos1def456...",
+  "amount_commitment": "0x8f7a2b1c9d...",  // Encrypted amount
+  "proof": "0x4e6f8a2d3c...",              // Zero-knowledge proof
+  "fee_commitment": "0x1a3b5c7e9f...",     // Encrypted fee
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+## Advanced Wallet Types
+
+### 1. Standard Privacy Wallet
+
+The default wallet type for maximum privacy:
+
+```rust
+pub struct StandardWallet {
+    pub master_key: MasterKey,
+    pub viewing_key: ViewingKey,
+    pub spending_key: SpendingKey,
+    pub proof_key: ProofKey,
+    pub address_generator: AddressGenerator,
+}
+
+impl StandardWallet {
+    pub fn new_transaction(&self, to: &Address, amount: u64) -> PrivateTransaction {
+        // Generate new one-time address
+        let one_time_address = self.address_generator.generate();
+
+        // Create encrypted amount commitment
+        let amount_commitment = self.create_commitment(amount);
+
+        // Generate zero-knowledge proof
+        let proof = self.create_proof(amount, &amount_commitment);
+
+        PrivateTransaction {
+            to: to.clone(),
+            amount_commitment,
+            proof,
+            one_time_address,
+        }
+    }
+}
+```
+
+**Features:**
+- Complete transaction privacy
+- Encrypted balance storage
+- One-time address generation
+- Zero-knowledge proof creation
+
+### 2. Multi-Signature Wallet
+
+Enhanced security for organizations and high-value storage:
+
+```rust
+pub struct MultiSigWallet {
+    pub threshold: u8,           // Minimum signatures required
+    pub total_signers: u8,       // Total number of signers
+    pub public_keys: Vec<PublicKey>,
+    pub partial_signatures: Vec<PartialSignature>,
+}
+
+impl MultiSigWallet {
+    pub fn create_transaction(&self, to: &Address, amount: u64) -> PendingTransaction {
+        let tx = self.prepare_transaction(to, amount);
+
+        PendingTransaction {
+            transaction: tx,
+            required_signatures: self.threshold,
+            collected_signatures: 0,
+            status: TransactionStatus::WaitingForSignatures,
+        }
+    }
+
+    pub fn add_signature(&mut self, signature: Signature, signer_index: u8) -> Result<(), Error> {
+        // Verify signature is from authorized signer
+        if !self.verify_signer(signature, signer_index) {
+            return Err(Error::InvalidSigner);
+        }
+
+        self.partial_signatures.push(PartialSignature {
+            signature,
+            signer_index,
+        });
+
+        Ok(())
+    }
+}
+```
+
+**Use Cases:**
+- Corporate treasury management
+- Shared investment funds
+- Estate planning
+- High-security personal storage
+
+### 3. Watching Wallet
+
+View-only wallet for monitoring without spending capability:
+
+```rust
+pub struct WatchingWallet {
+    pub viewing_key: ViewingKey,
+    pub addresses: Vec<Address>,
+    pub can_spend: bool, // Always false
+}
+
+impl WatchingWallet {
+    pub fn new(viewing_key: ViewingKey) -> Self {
+        WatchingWallet {
+            viewing_key,
+            addresses: Vec::new(),
+            can_spend: false,
+        }
+    }
+
+    pub fn get_balance(&self) -> EncryptedBalance {
+        // Can decrypt and view balance using viewing key
+        self.decrypt_balance_with_viewing_key()
+    }
+
+    pub fn view_transaction_history(&self) -> Vec<Transaction> {
+        // Can view incoming/outgoing transactions
+        self.decrypt_transaction_history()
+    }
+}
+```
+
+**Features:**
+- Monitor balances and transactions
+- No spending capability
+- Perfect for auditing and compliance
+- Secure delegation of viewing rights
+
+## Energy Management System
+
+### Energy Staking
+
+Stake TOS tokens to generate energy for gas-free transactions:
+
+```javascript
+// Energy staking interface
+class EnergyManager {
+    async stakeForEnergy(amount, duration) {
+        const stakingTx = {
+            type: 'energy_stake',
+            amount: amount,           // TOS tokens to stake
+            duration: duration,       // Staking period in days
+            energy_rate: this.calculateEnergyRate(amount, duration)
+        };
+
+        return await this.wallet.submitTransaction(stakingTx);
+    }
+
+    calculateEnergyRate(amount, days) {
+        // Energy generation formula
+        const baseRate = 0.5;  // Base energy per TOS per day
+        const durationBonus = Math.min(days / 365, 0.5); // Up to 50% bonus for longer stakes
+        return amount * baseRate * (1 + durationBonus);
+    }
+
+    async getEnergyBalance() {
+        return {
+            available: await this.wallet.getAvailableEnergy(),
+            generating: await this.wallet.getGeneratingEnergy(),
+            staked_amount: await this.wallet.getStakedAmount(),
+            daily_generation: await this.wallet.getDailyEnergyGeneration()
+        };
+    }
+}
+```
+
+### Gas-Free Transaction Options
+
+Choose between traditional gas fees or energy consumption:
+
+```javascript
+// Transaction with gas fees (traditional)
+const gasTx = {
+    to: 'tos1recipient...',
+    amount: '100.0',
+    fee: '0.001 TOS',        // Paid in TOS tokens
+    fee_type: 'gas'
+};
+
+// Transaction with energy (gas-free)
+const energyTx = {
+    to: 'tos1recipient...',
+    amount: '100.0',
+    energy_cost: 15,         // Consumed from energy balance
+    fee_type: 'energy'
+};
+```
+
+### Energy Economics
+
+Understanding the energy system economics:
+
+```
+Staking Benefits:
+├── 1,000 TOS staked for 30 days
+├── Generates: ~15 energy units per day
+├── Energy value: ~0.001 TOS per unit
+├── Daily savings: ~0.015 TOS
+├── Monthly savings: ~0.45 TOS
+└── Annual return: ~5.4 TOS (0.54% of stake)
+
+Plus: Gas price protection during network congestion
+```
+
+## Smart Contract Integration
+
+### Contract Interaction
+
+TOS wallets provide seamless smart contract interaction:
+
+```java
+// Example Java smart contract interaction from wallet
+public class WalletContractInterface {
+    public void callContract(String contractAddress, String method, Object[] params) {
+        // Prepare contract call
+        ContractCall call = new ContractCall(contractAddress, method, params);
+
+        // Estimate energy/gas costs
+        CostEstimate estimate = estimateCallCost(call);
+
+        // User chooses payment method
+        PaymentMethod payment = userSelectsPaymentMethod(estimate);
+
+        // Execute with privacy protection
+        PrivateContractExecution execution = new PrivateContractExecution(call, payment);
+        wallet.executeContract(execution);
+    }
+
+    private CostEstimate estimateCallCost(ContractCall call) {
+        return new CostEstimate(
+            gasEstimate: calculateGasCost(call),
+            energyEstimate: calculateEnergyCost(call),
+            privateDataSize: calculatePrivateDataOverhead(call)
+        );
+    }
+}
+```
+
+### Privacy-Preserving Contract Calls
+
+Smart contract interactions maintain privacy:
+
+```rust
+pub struct PrivateContractCall {
+    pub contract_address: Address,
+    pub encrypted_input: EncryptedData,
+    pub proof_of_valid_input: ZKProof,
+    pub energy_payment: Option<EnergyPayment>,
+    pub gas_payment: Option<GasPayment>,
+}
+
+impl PrivateContractCall {
+    pub fn new(
+        contract: &Address,
+        input_data: &[u8],
+        viewing_key: &ViewingKey
+    ) -> Self {
+        let encrypted_input = encrypt_contract_input(input_data, viewing_key);
+        let proof = generate_input_validity_proof(input_data);
+
+        PrivateContractCall {
+            contract_address: contract.clone(),
+            encrypted_input,
+            proof_of_valid_input: proof,
+            energy_payment: None,
+            gas_payment: None,
+        }
+    }
+}
+```
+
+## Advanced Security Features
+
+### Hardware Wallet Integration
+
+Support for leading hardware wallets:
+
+```javascript
+class HardwareWalletManager {
+    async connectHardwareWallet(walletType) {
+        const supportedWallets = ['ledger', 'trezor', 'keepkey'];
+
+        if (!supportedWallets.includes(walletType)) {
+            throw new Error('Unsupported hardware wallet');
+        }
+
+        const hwWallet = await this.initializeHardwareWallet(walletType);
+
+        return {
+            isConnected: true,
+            deviceInfo: await hwWallet.getDeviceInfo(),
+            supportedFeatures: {
+                privateTransactions: true,
+                energyStaking: true,
+                smartContracts: true,
+                multiSig: true
+            }
+        };
+    }
+
+    async signTransaction(transaction, hardwareWallet) {
+        // Display transaction details on hardware wallet screen
+        await hardwareWallet.displayTransaction(transaction);
+
+        // Wait for user confirmation
+        const userConfirmed = await hardwareWallet.waitForConfirmation();
+
+        if (userConfirmed) {
+            return await hardwareWallet.signPrivateTransaction(transaction);
+        }
+
+        throw new Error('Transaction cancelled by user');
+    }
+}
+```
+
+### Biometric Authentication
+
+Enhanced security with biometric authentication:
+
+```javascript
+class BiometricAuth {
+    async enableBiometricAuth() {
+        const biometricTypes = await this.getAvailableBiometrics();
+
+        return {
+            fingerprint: biometricTypes.includes('fingerprint'),
+            faceId: biometricTypes.includes('face'),
+            voice: biometricTypes.includes('voice'),
+            retina: biometricTypes.includes('retina')
+        };
+    }
+
+    async authenticateTransaction(transaction) {
+        const authResult = await this.requestBiometricAuth();
+
+        if (authResult.success) {
+            // Add biometric signature to transaction
+            transaction.biometricSignature = authResult.signature;
+            transaction.authTimestamp = Date.now();
+            return transaction;
+        }
+
+        throw new Error('Biometric authentication failed');
+    }
+}
+```
+
+### Time-Based Security
+
+Advanced time-based security features:
+
+```rust
+pub struct TimeLockWallet {
+    pub time_locks: Vec<TimeLock>,
+    pub spending_limits: SpendingLimits,
+    pub emergency_recovery: EmergencyRecovery,
+}
+
+pub struct TimeLock {
+    pub amount: u64,
+    pub unlock_time: Timestamp,
+    pub recipient: Option<Address>, // If set, automatically sends when unlocked
+}
+
+pub struct SpendingLimits {
+    pub daily_limit: u64,
+    pub weekly_limit: u64,
+    pub monthly_limit: u64,
+    pub per_transaction_limit: u64,
+}
+
+impl TimeLockWallet {
+    pub fn create_time_locked_transaction(
+        &self,
+        amount: u64,
+        unlock_time: Timestamp,
+        recipient: Option<Address>
+    ) -> TimeLock {
+        TimeLock {
+            amount,
+            unlock_time,
+            recipient,
+        }
+    }
+
+    pub fn check_spending_limits(&self, amount: u64) -> Result<(), SpendingError> {
+        let current_spending = self.get_current_period_spending();
+
+        if amount > self.spending_limits.per_transaction_limit {
+            return Err(SpendingError::ExceedsTransactionLimit);
+        }
+
+        if current_spending.daily + amount > self.spending_limits.daily_limit {
+            return Err(SpendingError::ExceedsDailyLimit);
+        }
+
+        Ok(())
+    }
+}
+```
+
+## Multi-Asset Support
+
+### Confidential Assets
+
+Support for private versions of popular cryptocurrencies:
+
+```rust
+pub struct ConfidentialAsset {
+    pub asset_id: AssetId,
+    pub name: String,
+    pub symbol: String,
+    pub encrypted_supply: EncryptedAmount,
+    pub privacy_level: PrivacyLevel,
+}
+
+pub enum PrivacyLevel {
+    Complete,      // Amounts and balances encrypted
+    Partial,       // Amounts visible, balances encrypted
+    Transparent,   // Traditional blockchain visibility
+}
+
+impl ConfidentialAsset {
+    pub fn wrap_existing_token(token_address: &str, privacy_level: PrivacyLevel) -> Self {
+        ConfidentialAsset {
+            asset_id: generate_asset_id(token_address),
+            name: format!("Private {}", get_token_name(token_address)),
+            symbol: format!("p{}", get_token_symbol(token_address)),
+            encrypted_supply: encrypt_total_supply(token_address),
+            privacy_level,
+        }
+    }
+}
+```
+
+### Cross-Chain Bridge Integration
+
+Seamless integration with other blockchains:
+
+```javascript
+class CrossChainBridge {
+    async bridgeToTOS(sourceChain, asset, amount) {
+        const bridgeRequest = {
+            sourceChain: sourceChain,        // 'ethereum', 'bitcoin', etc.
+            sourceAsset: asset,              // Original asset address
+            amount: amount,
+            destinationAddress: this.wallet.getReceivingAddress(),
+            privacyLevel: 'complete'         // Convert to confidential asset
+        };
+
+        // Lock assets on source chain
+        const lockTx = await this.lockAssetsOnSource(bridgeRequest);
+
+        // Mint confidential assets on TOS
+        const mintTx = await this.mintConfidentialAssets(bridgeRequest, lockTx);
+
+        return {
+            sourceTx: lockTx,
+            destinationTx: mintTx,
+            bridgeTime: Date.now(),
+            confidentialAssetId: mintTx.assetId
+        };
+    }
+
+    async bridgeFromTOS(asset, amount, destinationChain, destinationAddress) {
+        // Burn confidential assets on TOS
+        const burnTx = await this.burnConfidentialAssets(asset, amount);
+
+        // Unlock original assets on destination chain
+        const unlockTx = await this.unlockAssetsOnDestination(
+            burnTx,
+            destinationChain,
+            destinationAddress
+        );
+
+        return {
+            burnTx: burnTx,
+            unlockTx: unlockTx,
+            bridgeTime: Date.now()
+        };
+    }
+}
+```
+
+## Mobile Wallet Features
+
+### Optimized Mobile Experience
+
+TOS mobile wallets provide full privacy features with mobile-optimized performance:
+
+```swift
+// iOS Swift implementation example
+class TOSMobileWallet {
+    func enableBackgroundSync() {
+        // Efficiently sync blockchain data in background
+        BackgroundTaskManager.shared.register { [weak self] in
+            self?.performIncrementalSync()
+        }
+    }
+
+    func optimizeForBattery() {
+        // Reduce computational overhead for mobile devices
+        CryptoEngine.shared.setMobileOptimizations(enabled: true)
+        NetworkManager.shared.setBandwidthLimit(.mobile)
+    }
+
+    func enableQuickAuth() {
+        // Fast authentication for frequent transactions
+        BiometricAuth.shared.enableQuickAccess(
+            timeout: 300, // 5 minutes
+            maxAmount: 100 // Small transaction limit without re-auth
+        )
+    }
+}
+```
+
+### Offline Capabilities
+
+Generate transactions offline for enhanced security:
+
+```javascript
+class OfflineTransactionManager {
+    async createOfflineTransaction(to, amount) {
+        // Create transaction without network connection
+        const offlineTx = {
+            to: to,
+            amount: amount,
+            nonce: this.getLocalNonce(),
+            timestamp: Date.now(),
+            signature: null,
+            status: 'unsigned'
+        };
+
+        // Store for later signing and broadcast
+        await this.storeOfflineTransaction(offlineTx);
+
+        return offlineTx;
+    }
+
+    async signOfflineTransactions() {
+        const pendingTxs = await this.getPendingOfflineTransactions();
+
+        for (const tx of pendingTxs) {
+            // Sign transaction offline
+            tx.signature = await this.wallet.signTransaction(tx);
+            tx.status = 'signed';
+        }
+
+        return pendingTxs;
+    }
+
+    async broadcastWhenOnline() {
+        if (this.isOnline()) {
+            const signedTxs = await this.getSignedTransactions();
+
+            for (const tx of signedTxs) {
+                await this.network.broadcast(tx);
+                tx.status = 'broadcasted';
+            }
+        }
+    }
+}
+```
+
+## Developer Integration
+
+### Wallet SDK
+
+Complete SDK for integrating TOS wallets into applications:
+
+```javascript
+import { TOSWallet, PrivacyLevel } from '@tos-network/wallet-sdk';
+
+class ApplicationWalletIntegration {
+    async initializeWallet() {
+        this.wallet = new TOSWallet({
+            network: 'mainnet',
+            privacyLevel: PrivacyLevel.MAXIMUM,
+            energyManagement: true,
+            smartContractSupport: true
+        });
+
+        await this.wallet.connect();
+    }
+
+    async requestPayment(amount, description) {
+        return await this.wallet.requestTransaction({
+            amount: amount,
+            description: description,
+            privacyLevel: PrivacyLevel.COMPLETE,
+            paymentMethod: 'auto', // Automatically choose gas or energy
+            confirmationRequired: true
+        });
+    }
+
+    async getWalletInfo() {
+        return {
+            address: await this.wallet.getReceivingAddress(),
+            balance: await this.wallet.getEncryptedBalance(),
+            energyBalance: await this.wallet.getEnergyBalance(),
+            supportedFeatures: this.wallet.getSupportedFeatures()
+        };
+    }
+}
+```
+
+### Web3 Integration
+
+Full Web3 compatibility with privacy enhancements:
+
+```javascript
+// TOS Web3 provider with privacy features
+const tosProvider = new TOSWeb3Provider({
+    privacy: {
+        balances: 'encrypted',
+        transactions: 'confidential',
+        contracts: 'private_calls'
+    }
+});
+
+// Standard Web3 interface with privacy
+const web3 = new Web3(tosProvider);
+
+// Send private transaction
+await web3.eth.sendTransaction({
+    from: userAddress,
+    to: recipientAddress,
+    value: web3.utils.toWei('1', 'ether'),
+    privacy: 'complete',        // TOS extension
+    energyPayment: true         // TOS extension
+});
+```
+
+## Performance and Optimization
+
+### Transaction Batching
+
+Optimize multiple transactions for efficiency:
+
+```rust
+pub struct TransactionBatch {
+    pub transactions: Vec<PrivateTransaction>,
+    pub batch_proof: BatchZKProof,
+    pub total_energy_cost: u64,
+    pub total_gas_cost: u64,
+}
+
+impl TransactionBatch {
+    pub fn new(transactions: Vec<PrivateTransaction>) -> Self {
+        let batch_proof = generate_batch_proof(&transactions);
+        let total_energy = transactions.iter().map(|tx| tx.energy_cost).sum();
+        let total_gas = transactions.iter().map(|tx| tx.gas_cost).sum();
+
+        TransactionBatch {
+            transactions,
+            batch_proof,
+            total_energy_cost: total_energy,
+            total_gas_cost: total_gas,
+        }
+    }
+
+    pub fn optimization_savings(&self) -> OptimizationReport {
+        let individual_cost = self.calculate_individual_costs();
+        let batch_cost = self.calculate_batch_cost();
+
+        OptimizationReport {
+            individual_total: individual_cost,
+            batch_total: batch_cost,
+            savings: individual_cost - batch_cost,
+            efficiency_gain: ((individual_cost - batch_cost) as f64 / individual_cost as f64) * 100.0
+        }
+    }
+}
+```
+
+### Caching and Storage
+
+Efficient local data management:
+
+```javascript
+class WalletDataManager {
+    constructor() {
+        this.cache = new LRUCache({
+            max: 10000,
+            ttl: 1000 * 60 * 15 // 15 minutes
+        });
+
+        this.storage = new EncryptedStorage({
+            encryption: 'AES-256-GCM',
+            compression: true
+        });
+    }
+
+    async cacheTransaction(txHash, transaction) {
+        // Cache in memory for quick access
+        this.cache.set(txHash, transaction);
+
+        // Store encrypted on disk for persistence
+        await this.storage.set(`tx_${txHash}`, transaction);
+    }
+
+    async getTransaction(txHash) {
+        // Try cache first
+        let tx = this.cache.get(txHash);
+
+        if (!tx) {
+            // Fallback to disk storage
+            tx = await this.storage.get(`tx_${txHash}`);
+
+            if (tx) {
+                // Re-cache for future access
+                this.cache.set(txHash, tx);
+            }
+        }
+
+        return tx;
+    }
+}
+```
+
+## Troubleshooting and Support
+
+### Common Issues and Solutions
+
+#### Sync Problems
+
+```bash
+# Wallet sync issues
+Problem: Wallet not syncing with network
+Solution:
+1. Check network connectivity
+2. Verify node endpoints
+3. Clear sync cache if necessary
+4. Restart wallet application
+
+# Commands for troubleshooting
+tos-wallet diagnose --network-test
+tos-wallet reset-sync --confirm
+tos-wallet update-endpoints
+```
+
+#### Balance Display Issues
+
+```javascript
+// Balance encryption/decryption problems
+class BalanceTroubleshooter {
+    async diagnoseTotalBalance() {
+        try {
+            const balance = await this.wallet.decryptBalance();
+            return { status: 'success', balance: balance };
+        } catch (error) {
+            return {
+                status: 'error',
+                error: error.message,
+                suggestions: [
+                    'Verify viewing key is correct',
+                    'Check wallet synchronization status',
+                    'Try refreshing wallet connection'
+                ]
+            };
+        }
+    }
+
+    async validateEncryption() {
+        const testAmount = 100;
+        const encrypted = await this.wallet.encryptAmount(testAmount);
+        const decrypted = await this.wallet.decryptAmount(encrypted);
+
+        return {
+            encryptionWorking: decrypted === testAmount,
+            testPassed: true
+        };
+    }
+}
+```
+
+### Support Resources
+
+- 📱 **Mobile App Support**: In-app help system with guided troubleshooting
+- 💬 **Community Discord**: Real-time help from TOS community
+- 📧 **Email Support**: wallet-support@tos.network
+- 📖 **Knowledge Base**: Comprehensive troubleshooting guides
+- 🐛 **Bug Reports**: GitHub issues for technical problems
+
+## Future Roadmap
+
+### Upcoming Features
+
+#### Q1 2025: Enhanced Privacy
+- Anonymous transaction mixing
+- Cross-chain privacy bridges
+- Advanced zero-knowledge proofs
+
+#### Q2 2025: Smart Features
+- AI-powered transaction optimization
+- Automated energy management
+- Predictive fee estimation
+
+#### Q3 2025: Enterprise Features
+- Corporate governance tools
+- Advanced compliance reporting
+- Institutional custody integration
+
+#### Q4 2025: Next Generation
+- Quantum-resistant cryptography
+- Decentralized identity integration
+- Advanced smart contract privacy
+
+## Conclusion
+
+TOS Network wallets represent the future of financial privacy and security. By combining advanced cryptography with user-friendly interfaces, TOS wallets provide complete financial privacy without sacrificing functionality or performance.
+
+Whether you're an individual seeking financial privacy, a business protecting sensitive financial information, or a developer building the next generation of private applications, TOS wallets provide the tools and security you need.
+
+**"Don't Trust, Verify it"** - Every aspect of your financial privacy is protected by mathematics, not promises.
+
+## Learn More
+
+- [Wallet Setup Guide](/getting-started/wallet-setup) - Step-by-step wallet installation
+- [Privacy Features](/features/privacy) - Deep dive into privacy technology
+- [Energy Model](/features/energy-model) - Understanding the TOS Energy System
+- [Developer API](/developers-api/wallet) - Integrating wallets into applications

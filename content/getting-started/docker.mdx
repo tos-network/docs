@@ -1,0 +1,1016 @@
+---
+title: Docker Deployment Guide
+description: Complete guide to deploying TOS Network using Docker containers for development, testing, and production environments
+---
+
+# Docker Deployment Guide
+
+This comprehensive guide covers deploying TOS Network using Docker containers. Docker provides an easy, consistent way to run TOS Network across different environments while ensuring isolation and reproducibility.
+
+## Why Use Docker for TOS Network?
+
+### Benefits
+- 🐳 **Consistent Environment**: Same runtime across development, testing, and production
+- 🔒 **Isolation**: Containers prevent conflicts with host system
+- 📦 **Easy Deployment**: Single command deployment with all dependencies
+- ⚡ **Quick Setup**: Faster than compiling from source
+- 🔄 **Easy Updates**: Simple container replacement for updates
+- 📊 **Resource Management**: Built-in resource limits and monitoring
+
+### Use Cases
+- **Development**: Local development environment
+- **Testing**: Automated testing and CI/CD pipelines
+- **Production**: Scalable production deployments
+- **Mining**: Containerized mining operations
+- **Multi-Node**: Complex network topologies
+
+## Prerequisites
+
+### Docker Installation
+
+#### Linux (Ubuntu/Debian)
+```bash
+# Update package list
+sudo apt update
+
+# Install Docker
+sudo apt install -y docker.io docker-compose
+
+# Add user to docker group
+sudo usermod -aG docker $USER
+
+# Start Docker service
+sudo systemctl enable docker
+sudo systemctl start docker
+
+# Verify installation
+docker --version
+docker-compose --version
+```
+
+#### macOS
+```bash
+# Install Docker Desktop
+brew install --cask docker
+
+# Or download from https://docker.com/products/docker-desktop
+
+# Verify installation
+docker --version
+docker-compose --version
+```
+
+#### Windows
+```powershell
+# Install Docker Desktop from https://docker.com/products/docker-desktop
+# Or using Chocolatey
+choco install docker-desktop
+
+# Verify installation
+docker --version
+docker-compose --version
+```
+
+## Quick Start
+
+### Single Node Deployment
+
+```bash
+# Pull latest TOS Network image
+docker pull tosnetwork/tos-node:latest
+
+# Run TOS daemon
+docker run -d \
+  --name tos-node \
+  --restart unless-stopped \
+  -p 2080:2080 \
+  -p 8080:8080 \
+  -v tos-data:/data \
+  -v tos-config:/config \
+  -e TOS_NETWORK=mainnet \
+  -e TOS_LOG_LEVEL=info \
+  tosnetwork/tos-node:latest
+
+# Check container status
+docker ps
+
+# View logs
+docker logs -f tos-node
+
+# Check node status
+docker exec tos-node tos-daemon status
+```
+
+### Using Docker Compose (Recommended)
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  tos-daemon:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-daemon
+    restart: unless-stopped
+    ports:
+      - "2080:2080"    # P2P port
+      - "8080:8080"    # RPC port
+    volumes:
+      - tos-data:/data
+      - tos-config:/config
+      - tos-logs:/logs
+      - ./config.toml:/config/config.toml:ro
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_LOG_LEVEL=info
+      - TOS_RPC_ENABLED=true
+      - TOS_P2P_LISTEN=0.0.0.0:2080
+      - TOS_RPC_LISTEN=0.0.0.0:8080
+    healthcheck:
+      test: ["CMD", "tos-daemon", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tos-rpc.rule=Host(`rpc.tos.local`)"
+      - "traefik.http.services.tos-rpc.loadbalancer.server.port=8080"
+
+volumes:
+  tos-data:
+    driver: local
+  tos-config:
+    driver: local
+  tos-logs:
+    driver: local
+
+networks:
+  default:
+    name: tos-network
+```
+
+Start the deployment:
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Check service status
+docker-compose ps
+
+# Stop services
+docker-compose down
+```
+
+## Complete Stack Deployment
+
+### Full TOS Network Stack
+
+```yaml
+version: '3.8'
+
+services:
+  # TOS Daemon (Blockchain Node)
+  tos-daemon:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-daemon
+    restart: unless-stopped
+    ports:
+      - "2080:2080"
+      - "8080:8080"
+    volumes:
+      - tos-data:/data
+      - tos-config:/config
+      - tos-logs:/logs
+      - ./config/daemon.toml:/config/config.toml:ro
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_LOG_LEVEL=info
+      - TOS_METRICS_ENABLED=true
+      - TOS_PROMETHEUS_PORT=9090
+    healthcheck:
+      test: ["CMD", "tos-daemon", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - tos-network
+
+  # TOS Wallet Service
+  tos-wallet:
+    image: tosnetwork/tos-wallet:latest
+    container_name: tos-wallet
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - tos-wallet-data:/wallet
+      - ./config/wallet.toml:/config/wallet.toml:ro
+    environment:
+      - TOS_DAEMON_URL=http://tos-daemon:8080
+      - TOS_WALLET_PASSWORD_FILE=/run/secrets/wallet_password
+    secrets:
+      - wallet_password
+    depends_on:
+      tos-daemon:
+        condition: service_healthy
+    networks:
+      - tos-network
+
+  # TOS Miner
+  tos-miner:
+    image: tosnetwork/tos-miner:latest
+    container_name: tos-miner
+    restart: unless-stopped
+    environment:
+      - TOS_DAEMON_URL=http://tos-daemon:8080
+      - TOS_MINING_ADDRESS=tos1your-mining-address-here...
+      - TOS_MINING_THREADS=4
+      - TOS_AI_MINING_ENABLED=true
+    depends_on:
+      tos-daemon:
+        condition: service_healthy
+    networks:
+      - tos-network
+
+  # Monitoring: Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tos-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - tos-network
+
+  # Monitoring: Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tos-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - tos-network
+
+  # Load Balancer: Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: tos-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - tos-daemon
+      - tos-wallet
+    networks:
+      - tos-network
+
+volumes:
+  tos-data:
+    driver: local
+  tos-config:
+    driver: local
+  tos-logs:
+    driver: local
+  tos-wallet-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+
+networks:
+  tos-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+secrets:
+  wallet_password:
+    file: ./secrets/wallet_password.txt
+```
+
+## Configuration Files
+
+### Daemon Configuration
+
+Create `config/daemon.toml`:
+
+```toml
+# TOS Daemon Docker Configuration
+
+[network]
+network_id = "tos-mainnet"
+chain_id = "1"
+listen_addr = "0.0.0.0:2080"
+external_addr = "your-public-ip:2080"
+max_peers = 50
+
+[node]
+mode = "full"
+moniker = "docker-tos-node"
+fast_sync = true
+prune = "default"
+
+[rpc]
+enabled = true
+listen_addr = "0.0.0.0:8080"
+cors_allowed_origins = ["*"]
+max_open_connections = 1000
+
+[consensus]
+timeout_commit = "15s"
+
+[p2p]
+pex = true
+persistent_peers = [
+  "node1@seed1.tos.network:2080",
+  "node2@seed2.tos.network:2080"
+]
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+
+[instrumentation]
+prometheus = true
+prometheus_listen_addr = "0.0.0.0:9090"
+```
+
+### Wallet Configuration
+
+Create `config/wallet.toml`:
+
+```toml
+# TOS Wallet Docker Configuration
+
+[daemon]
+url = "http://tos-daemon:8080"
+timeout = "30s"
+
+[wallet]
+name = "docker-wallet"
+password_file = "/run/secrets/wallet_password"
+auto_save = true
+backup_interval = "1h"
+
+[rpc]
+enabled = true
+listen_addr = "0.0.0.0:8081"
+cors_allowed_origins = ["*"]
+
+[logging]
+level = "info"
+format = "json"
+output = "stdout"
+```
+
+### Nginx Load Balancer
+
+Create `nginx/nginx.conf`:
+
+```nginx
+events {
+    worker_connections 1024;
+}
+
+http {
+    upstream tos_rpc {
+        least_conn;
+        server tos-daemon:8080 max_fails=3 fail_timeout=30s;
+    }
+
+    upstream tos_wallet {
+        least_conn;
+        server tos-wallet:8081 max_fails=3 fail_timeout=30s;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+
+        # TOS RPC
+        location /rpc/ {
+            proxy_pass http://tos_rpc/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+            # WebSocket support
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+
+        # Wallet API
+        location /wallet/ {
+            proxy_pass http://tos_wallet/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+
+        # Health check
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+    }
+}
+```
+
+## Development Environment
+
+### Docker Compose for Development
+
+```yaml
+version: '3.8'
+
+services:
+  tos-devnet:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-devnet
+    restart: unless-stopped
+    ports:
+      - "2080:2080"
+      - "8080:8080"
+    volumes:
+      - ./devnet-config:/config
+      - devnet-data:/data
+    environment:
+      - TOS_NETWORK=devnet
+      - TOS_LOG_LEVEL=debug
+      - TOS_MINING_ENABLED=true
+      - TOS_AI_MINING_ENABLED=true
+      - TOS_INSTANT_FINALITY=true
+    command: ["tos-daemon", "start", "--dev"]
+    networks:
+      - devnet
+
+  tos-wallet-dev:
+    image: tosnetwork/tos-wallet:latest
+    container_name: tos-wallet-dev
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - wallet-dev-data:/wallet
+    environment:
+      - TOS_DAEMON_URL=http://tos-devnet:8080
+      - TOS_NETWORK=devnet
+    depends_on:
+      - tos-devnet
+    networks:
+      - devnet
+
+  # Test tools container
+  tos-tools:
+    image: tosnetwork/tos-tools:latest
+    container_name: tos-tools
+    volumes:
+      - ./scripts:/scripts
+      - wallet-dev-data:/wallet
+    environment:
+      - TOS_DAEMON_URL=http://tos-devnet:8080
+      - TOS_WALLET_URL=http://tos-wallet-dev:8081
+    depends_on:
+      - tos-devnet
+      - tos-wallet-dev
+    networks:
+      - devnet
+
+volumes:
+  devnet-data:
+  wallet-dev-data:
+
+networks:
+  devnet:
+    driver: bridge
+```
+
+### Development Scripts
+
+Create `scripts/dev-setup.sh`:
+
+```bash
+#!/bin/bash
+# Development environment setup script
+
+set -e
+
+echo "Setting up TOS development environment..."
+
+# Wait for daemon to be ready
+echo "Waiting for daemon..."
+until curl -s http://tos-devnet:8080/status > /dev/null; do
+  sleep 1
+done
+
+# Create development wallet
+echo "Creating development wallet..."
+tos-wallet create --name dev-wallet --password dev123
+
+# Generate test address
+echo "Generating test address..."
+tos-wallet generate-address --name test-address
+
+# Mine some blocks for testing
+echo "Mining test blocks..."
+tos-daemon mine --blocks 100 --address $(tos-wallet get-address test-address)
+
+echo "Development environment ready!"
+echo "Daemon: http://localhost:8080"
+echo "Wallet: http://localhost:8081"
+```
+
+## Production Deployment
+
+### High Availability Setup
+
+```yaml
+version: '3.8'
+
+services:
+  # Load Balancer
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.email=admin@yourcompany.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-ssl:/letsencrypt
+    networks:
+      - traefik
+
+  # TOS Node 1
+  tos-node-1:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-node-1
+    restart: unless-stopped
+    volumes:
+      - tos-node-1-data:/data
+      - ./config/node1.toml:/config/config.toml:ro
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_NODE_ID=node-1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tos-rpc.rule=Host(`rpc.yourdomain.com`)"
+      - "traefik.http.routers.tos-rpc.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tos-rpc.loadbalancer.server.port=8080"
+    networks:
+      - traefik
+      - tos-internal
+
+  # TOS Node 2
+  tos-node-2:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-node-2
+    restart: unless-stopped
+    volumes:
+      - tos-node-2-data:/data
+      - ./config/node2.toml:/config/config.toml:ro
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_NODE_ID=node-2
+    networks:
+      - tos-internal
+
+  # Backup and Monitoring
+  backup:
+    image: tosnetwork/tos-backup:latest
+    container_name: tos-backup
+    restart: unless-stopped
+    volumes:
+      - tos-node-1-data:/data/node1:ro
+      - tos-node-2-data:/data/node2:ro
+      - ./backups:/backups
+    environment:
+      - BACKUP_SCHEDULE=0 2 * * *  # Daily at 2 AM
+      - BACKUP_RETENTION=30        # Keep 30 days
+      - S3_BUCKET=your-backup-bucket
+    networks:
+      - tos-internal
+
+volumes:
+  traefik-ssl:
+  tos-node-1-data:
+  tos-node-2-data:
+
+networks:
+  traefik:
+    external: true
+  tos-internal:
+    driver: bridge
+    internal: true
+```
+
+### Kubernetes Deployment
+
+Create `k8s/tos-deployment.yaml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tos-daemon
+  labels:
+    app: tos-daemon
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: tos-daemon
+  template:
+    metadata:
+      labels:
+        app: tos-daemon
+    spec:
+      containers:
+      - name: tos-daemon
+        image: tosnetwork/tos-node:latest
+        ports:
+        - containerPort: 2080
+          name: p2p
+        - containerPort: 8080
+          name: rpc
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: TOS_NETWORK
+          value: "mainnet"
+        - name: TOS_LOG_LEVEL
+          value: "info"
+        volumeMounts:
+        - name: tos-data
+          mountPath: /data
+        - name: tos-config
+          mountPath: /config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          exec:
+            command:
+            - tos-daemon
+            - status
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: tos-data
+        persistentVolumeClaim:
+          claimName: tos-data-pvc
+      - name: tos-config
+        configMap:
+          name: tos-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tos-daemon-service
+spec:
+  selector:
+    app: tos-daemon
+  ports:
+    - name: p2p
+      port: 2080
+      targetPort: 2080
+    - name: rpc
+      port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tos-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 1Ti
+```
+
+## Monitoring and Maintenance
+
+### Health Checks
+
+Create `scripts/health-check.sh`:
+
+```bash
+#!/bin/bash
+# Docker health check script
+
+# Check if container is running
+if ! docker ps | grep -q tos-daemon; then
+    echo "ERROR: TOS daemon container not running"
+    exit 1
+fi
+
+# Check daemon status
+if ! docker exec tos-daemon tos-daemon status >/dev/null 2>&1; then
+    echo "ERROR: TOS daemon not responding"
+    exit 1
+fi
+
+# Check sync status
+SYNC_STATUS=$(docker exec tos-daemon tos-daemon status | jq -r '.SyncInfo.catching_up')
+if [ "$SYNC_STATUS" = "true" ]; then
+    echo "WARNING: Node is still syncing"
+fi
+
+# Check peer count
+PEER_COUNT=$(docker exec tos-daemon tos-daemon status | jq -r '.SyncInfo.peers')
+if [ "$PEER_COUNT" -lt 5 ]; then
+    echo "WARNING: Low peer count: $PEER_COUNT"
+fi
+
+echo "Health check passed"
+```
+
+### Automated Backup
+
+Create `scripts/backup.sh`:
+
+```bash
+#!/bin/bash
+# Docker backup script
+
+BACKUP_DIR="/backups/tos"
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_NAME="tos-backup-${DATE}"
+
+mkdir -p "${BACKUP_DIR}"
+
+# Stop containers
+echo "Stopping containers..."
+docker-compose stop tos-daemon tos-wallet
+
+# Create backup
+echo "Creating backup..."
+docker run --rm \
+  -v tos-data:/data:ro \
+  -v tos-config:/config:ro \
+  -v "${BACKUP_DIR}:/backup" \
+  alpine/rsync \
+  tar -czf "/backup/${BACKUP_NAME}.tar.gz" /data /config
+
+# Start containers
+echo "Starting containers..."
+docker-compose start tos-daemon tos-wallet
+
+# Clean old backups (keep 30 days)
+find "${BACKUP_DIR}" -name "tos-backup-*.tar.gz" -mtime +30 -delete
+
+echo "Backup completed: ${BACKUP_NAME}.tar.gz"
+```
+
+### Monitoring with Prometheus
+
+Create `monitoring/prometheus.yml`:
+
+```yaml
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "tos-rules.yml"
+
+scrape_configs:
+  - job_name: 'tos-daemon'
+    static_configs:
+      - targets: ['tos-daemon:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['host.docker.internal:9323']
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+```
+
+## Troubleshooting
+
+### Common Docker Issues
+
+#### Container Won't Start
+```bash
+# Check container logs
+docker logs tos-daemon
+
+# Check container configuration
+docker inspect tos-daemon
+
+# Check resource usage
+docker stats tos-daemon
+```
+
+#### Port Conflicts
+```bash
+# Check what's using the port
+netstat -tulpn | grep :2080
+
+# Use different ports in docker-compose.yml
+ports:
+  - "2081:2080"  # Map to different host port
+  - "8081:8080"
+```
+
+#### Volume Permissions
+```bash
+# Fix volume permissions
+docker exec -u root tos-daemon chown -R tos:tos /data
+
+# Or recreate with proper permissions
+docker-compose down -v
+docker-compose up -d
+```
+
+#### Network Connectivity
+```bash
+# Test container networking
+docker exec tos-daemon ping google.com
+
+# Check Docker network
+docker network ls
+docker network inspect tos-network
+```
+
+### Performance Optimization
+
+#### Resource Limits
+```yaml
+services:
+  tos-daemon:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+```
+
+#### Storage Optimization
+```yaml
+volumes:
+  tos-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /mnt/fast-ssd/tos-data
+```
+
+## Security Considerations
+
+### Container Security
+
+```dockerfile
+# Use non-root user
+FROM tosnetwork/tos-node:latest
+USER tos
+
+# Read-only filesystem
+docker run --read-only \
+  --tmpfs /tmp \
+  --tmpfs /var/run \
+  tosnetwork/tos-node:latest
+```
+
+### Network Security
+
+```yaml
+services:
+  tos-daemon:
+    networks:
+      - internal
+    # Don't expose ports to external network
+    expose:
+      - "8080"
+    # Use secrets for sensitive data
+    secrets:
+      - tos_key
+```
+
+### Secret Management
+
+```yaml
+secrets:
+  tos_key:
+    external: true
+  wallet_password:
+    file: ./secrets/wallet_password.txt
+
+services:
+  tos-daemon:
+    secrets:
+      - tos_key
+      - wallet_password
+```
+
+## Best Practices
+
+### Production Checklist
+
+- ✅ Use specific image tags (not `latest`)
+- ✅ Set resource limits and requests
+- ✅ Configure health checks
+- ✅ Use persistent volumes for data
+- ✅ Implement backup strategy
+- ✅ Set up monitoring and alerting
+- ✅ Use secrets for sensitive data
+- ✅ Configure log rotation
+- ✅ Use multi-stage builds for custom images
+- ✅ Regular security updates
+
+### Development Best Practices
+
+- 🔧 Use docker-compose for local development
+- 🔧 Mount source code for live reloading
+- 🔧 Use development-specific configurations
+- 🔧 Implement automated testing
+- 🔧 Use consistent naming conventions
+
+## Conclusion
+
+Docker provides a powerful, flexible platform for deploying TOS Network infrastructure. Whether you're setting up a development environment, running a production node, or deploying a complex multi-service architecture, Docker containers ensure consistent, reliable deployments.
+
+Key benefits of Docker deployment:
+- **Simplified Setup**: Single command deployment
+- **Environment Consistency**: Same behavior across different systems
+- **Scalability**: Easy horizontal scaling with orchestration
+- **Maintenance**: Simple updates and rollbacks
+- **Security**: Container isolation and security best practices
+
+**"Don't Trust, Verify it"** - Always verify your Docker images and configurations before deployment in production environments!
+
+## Next Steps
+
+- [Network Configuration](/getting-started/network-config) - Configure your dockerized nodes
+- [Monitoring Setup](/guides/monitoring) - Set up comprehensive monitoring
+- [Security Hardening](/guides/security) - Secure your Docker deployments
+- [Production Deployment](/guides/production) - Best practices for production

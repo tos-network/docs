@@ -1,0 +1,258 @@
+---
+title: Introduction to TOS Network
+---
+
+import { Cards } from 'nextra/components'
+import { Card } from '../components/card'
+import Icons from '../components/icons'
+
+# TOS Network - Trustless Open System
+
+**TOS** is the world's first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts - guided by the principle **"Don't Trust, Verify it"**.
+
+Built from scratch with a focus on trustless verification, scalability, and revolutionary AI-powered mining,
+TOS Network is a decentralized blockchain that eliminates trust through cryptographic proof and verification.
+
+The project embodies the fundamental blockchain principle that **trust should be eliminated through verification**. Every aspect of the system—from transactions and balances to mining rewards and smart contract execution—provides cryptographic proof rather than requiring trust in centralized authorities.
+
+To achieve this, TOS has implemented innovative features including:
+- **Rust Virtual Machine (RVM)** - Java 8 compatible blockchain virtual machine
+- **AI-Mining System** - World's first dual-track mining combining traditional PoW with productive AI services
+- **BlockDAG architecture** with enhanced scalability and security
+- **Homomorphic Encryption** and **Zero-Knowledge Proofs** for complete privacy
+- **TOS Energy Model (TEM)** - Stake-to-earn energy for gas-free transactions
+
+Our breakthrough innovations include the production-ready **Rust Virtual Machine** and the world's first **AI-Mining ecosystem** that transforms computational waste into productive AI services while maintaining network security.
+
+Built using Rust and powered by Tokio async runtime, TOS is designed to be fast, efficient, and secure.
+
+## Key Features
+
+### Mining & Consensus
+
+<Cards>
+  <Card
+    title="AI-Mining System"
+    subtitle="World's first dual-track mining - Traditional PoW + AI services with IoT integration."
+    href="/features/mining/ai-mining"
+    icon={<Icons.Brain />}
+  />
+  <Card
+    title="Difficulty Adjustment"
+    subtitle="Using Kalman Filter to quickly converge network hashrate and filter misleading fluctuations."
+    href="/features/mining/difficulty-adjustment"
+    icon={<Icons.Graph />}
+  />
+  <Card
+    title="TOS Hash"
+    subtitle="A new CPU/GPU friendly ASIC-resistant algorithm"
+    href="/features/mining/tos-hash"
+    icon={<Icons.Mining />}
+  />
+</Cards>
+
+### Privacy & Security
+
+<Cards>
+  <Card
+    title="Homomorphic Encryption"
+    subtitle="Enabled using ElGamal to provide privacy on transferred amounts and balances."
+    href="/features/privacy/homomorphic-encryption"
+    icon={<Icons.Encryption />}
+  />
+  <Card
+    title="Zero-Knowledge Proof"
+    subtitle="Prove that transferred encrypted amounts are valid without revealing them."
+    href="/features/privacy/zero-knowledge-proof"
+    icon={<Icons.ReceiptCheck />}
+  />
+  <Card
+    title="Confidential Assets"
+    subtitle="Create your own native token fully compatible with all services and privacy features."
+    href="/features/privacy/confidential-assets"
+    icon={<Icons.Incognito />}
+  />
+</Cards>
+
+### Scalability & Performance
+
+<Cards>
+  <Card
+    title="BlockDAG"
+    subtitle="Multiple blocks at the same height to improve scalability and security of the network."
+    href="/features/scalability/blockdag"
+    icon={<Icons.BlockGraph />}
+  />
+  <Card
+    title="Client Protocol"
+    subtitle="Allows accepting same transaction in multiple blocks without double spending."
+    href="/features/scalability/client-protocol"
+    icon={<Icons.Protocol />}
+  />
+  <Card
+    title="TOS Energy Model"
+    subtitle="Stake TOS tokens to generate Energy for gas-free transactions."
+    href="/features/energy-model"
+    icon={<Icons.Energy />}
+  />
+</Cards>
+
+### Smart Contracts & Development
+
+<Cards>
+  <Card
+    title="Rust Virtual Machine"
+    subtitle="Java 8 compatible blockchain VM with enterprise-grade security and performance."
+    href="/features/smart-contracts/rvm"
+    icon={<Icons.Cpu />}
+  />
+  <Card
+    title="Smart Contracts"
+    subtitle="Easily code and create decentralized programs with familiar Java development."
+    href="/features/smart-contracts"
+    icon={<Icons.Code />}
+  />
+  <Card
+    title="P2P Encrypted Network"
+    subtitle="Prevent any network traffic analysis and provide better privacy."
+    href="/features/p2p-encrypted-network"
+    icon={<Icons.NodeConnections />}
+  />
+</Cards>
+
+### Advanced Features
+
+<Cards>
+  <Card
+    title="Transaction Fees"
+    subtitle="Flexible fee system with TOS Energy Model for cost optimization."
+    href="/features/transaction-fees"
+    icon={<Icons.Coins />}
+  />
+  <Card
+    title="MultiSig Support"
+    subtitle="Enhanced wallet security for organizations requiring multiple signatures."
+    href="/features/wallet/multisig"
+    icon={<Icons.Shield />}
+  />
+</Cards>
+
+> To read more details about all features available, click on a specific card.
+
+## Network Status
+
+Three built-in networks are available for use.
+
+<Cards>
+  <Card
+    title="Mainnet"
+    subtitle="The main TOS Network launched with full AI-Mining capabilities."
+    href="https://explorer.tos.network/"
+  />
+  <Card
+    title="Testnet"
+    subtitle="Currently running for public testing and development with AI-Mining."
+    href="https://testnet-explorer.tos.network/"
+  />
+  <Card
+    title="Devnet"
+    subtitle="Local development network for creating your own local chain with full features."
+    href="https://github.com/tos-network/tos-blockchain/tree/dev"
+  />
+</Cards>
+
+The mainnet is the primary network. Testnet and devnet are for testing and development only and can be **reset** at any time.
+All networks have the exact same consensus rules, but do not share the same chain or peers.
+
+## Consensus Configuration
+
+The current configuration of the consensus is:
+- Target Block Time: `15` seconds
+- Minimum transaction fee: `0.00001000` TOS per KB
+- Full coin divisibility: `8` decimals
+- Maximum supply: `18.4` million TOS
+- Maximum block size: `1.25` MB
+- Maximum transaction size: `1` MB
+
+To prevent address misuse across different networks, we set prefixes:
+- Mainnet addresses begin with `tos` prefix
+- Devnet/testnet addresses begin with `tst` prefix
+
+## Core Objectives
+
+### Privacy Through Trustless Verification
+We provide better **privacy** than Bitcoin and Ethereum through encrypted balances and transferred amounts.
+This is achieved using [Homomorphic Encryption](/features/privacy/homomorphic-encryption) and [Zero-Knowledge Proof](/features/privacy/zero-knowledge-proof).
+Nobody except you can see how much you own and how much you spend - all verified cryptographically.
+
+### Scalability & Security
+**Scalability** and **security** are addressed using our [BlockDAG](/features/scalability/blockdag) architecture.
+With a low block time target, we minimize orphaned blocks through BlockDAG, allowing higher block count, faster confirmation, better security, and more transactions per second.
+
+### Revolutionary AI-Mining
+Our [AI-Mining System](/features/mining/ai-mining) is the world's first dual-track mining that combines traditional Proof of Work with productive AI services.
+This transforms computational waste into valuable AI work while maintaining network security and democratizing mining for IoT devices.
+
+### Smart Contracts with RVM
+[Smart Contracts](/features/smart-contracts) are powered by our production-ready **Rust Virtual Machine (RVM)** with full Java 8 compatibility.
+This provides developers with a familiar environment while ensuring deterministic execution and enterprise-grade security.
+
+### Confidential Assets & DeFi
+[Confidential Assets](/features/privacy/confidential-assets) allow creation of truly decentralized tokens with the same level of privacy and decentralization as TOS.
+These aren't just Smart Contract numbers but native blockchain assets with full privacy features.
+
+### Decentralized Network
+**Decentralization** is ensured through widespread node distribution and democratized mining.
+Our ASIC-resistant algorithm combined with AI-Mining makes participation accessible to everyone from Arduino devices to enterprise hardware.
+
+### Ease of Use
+**Ease of use** is fundamental for real adoption in daily usage.
+This applies to both end users and developers creating applications on TOS Network.
+
+## TOS Energy Model (TEM)
+
+TOS introduces a revolutionary **TOS Energy Model** that allows users to stake TOS tokens to generate "Energy" for gas-free transactions:
+
+- **Flexible Staking**: 7-365 day lock periods with dynamic energy generation
+- **Gas-Free Transactions**: Use Energy instead of paying transaction fees
+- **Cost Predictability**: Predictable transaction costs for active users
+- **Network Stability**: Reduces circulating supply and promotes long-term holding
+- **Trustless Verification**: All staking and energy calculations are cryptographically verifiable
+
+## Funding & Development
+
+TOS Network is a community-driven project committed to decentralization and trustless verification.
+Development is supported through a transparent and decreasing dev fee structure:
+
+- **10%** from block 0 to 3,249,999 (approximately 1.5 years with BlockDAG)
+- **5%** from block 3,250,000 until the ecosystem reaches stability
+
+The funds are exclusively used for network development, ecosystem growth, and ensuring continuous innovation.
+The community participates in decisions about fund allocation through transparent governance.
+
+All fee mechanisms will transition to Smart Contract-based DAO governance once our Smart Contract capabilities are fully deployed, ensuring complete trustless management following our core principle: **"Don't Trust, Verify it"**.
+
+## Next Steps
+
+Ready to start with TOS Network?
+
+<Cards>
+  <Card
+    title="Getting Started"
+    subtitle="Learn how to set up your first TOS wallet and make transactions"
+    href="/getting-started"
+    arrow
+  />
+  <Card
+    title="AI-Mining Guide"
+    subtitle="Start earning TOS through productive AI services with your devices"
+    href="/getting-started/ai-mining"
+    arrow
+  />
+  <Card
+    title="Developer API"
+    subtitle="Build applications on TOS Network with our comprehensive APIs"
+    href="/developers-api"
+    arrow
+  />
+</Cards>

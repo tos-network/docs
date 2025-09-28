@@ -1,0 +1,1300 @@
+---
+title: "Advanced Wallet Features"
+description: "Comprehensive guide to TOS Network's advanced wallet features including multi-signature wallets, stealth addresses, hardware wallet integration, and enterprise security features."
+---
+
+# Advanced Wallet Features
+
+TOS Network wallets provide sophisticated features designed for power users, enterprises, and developers who require enhanced security, privacy, and functionality. Built on the principle of **"Don't Trust, Verify it"**, every advanced feature maintains cryptographic verifiability and user sovereignty.
+
+## Multi-Signature Wallets
+
+### Overview
+
+Multi-signature (multisig) wallets require multiple cryptographic signatures to authorize transactions, providing enhanced security for shared funds and corporate treasuries.
+
+### Key Features
+
+- **Flexible Threshold**: Support for M-of-N signature schemes (e.g., 2-of-3, 3-of-5)
+- **Role-Based Access**: Different roles with varying permissions
+- **Time-Locked Transactions**: Delayed execution with cancellation options
+- **Hierarchical Structures**: Nested multisig for complex organizations
+- **Audit Trail**: Complete transaction proposal and approval history
+
+### Creating Multi-Signature Wallets
+
+#### Basic Multi-Signature Setup
+
+```bash
+# Create a 2-of-3 multisig wallet
+tos-wallet create-multisig \
+  --name "Company Treasury" \
+  --required-signatures 2 \
+  --total-signers 3 \
+  --signers "CEO:tos1ceo_public_key,CFO:tos1cfo_public_key,CTO:tos1cto_public_key" \
+  --timeout-hours 24
+
+# Output:
+# Multisig Address: tos1multisig_company_treasury_address
+# Script Hash: 0x1a2b3c4d5e6f...
+# Backup Data: Export and securely store this data
+```
+
+#### Advanced Multi-Signature Configuration
+
+```javascript
+// JavaScript SDK example
+import { TOSWallet, MultisigConfig } from '@tos-network/wallet';
+
+const multisigConfig = new MultisigConfig({
+  name: "Corporate Treasury",
+  requiredSignatures: 3,
+  totalSigners: 5,
+  signers: [
+    { label: "CEO", publicKey: "0xceo_public_key", weight: 2 },
+    { label: "CFO", publicKey: "0xcfo_public_key", weight: 2 },
+    { label: "CTO", publicKey: "0xcto_public_key", weight: 1 },
+    { label: "COO", publicKey: "0xcoo_public_key", weight: 1 },
+    { label: "Board Rep", publicKey: "0xboard_public_key", weight: 1 }
+  ],
+  weightedThreshold: 4, // Require total weight of 4
+  timelock: {
+    enabled: true,
+    delayHours: 48,
+    emergencyOverride: ["CEO", "CFO"] // 2 specific signers can override
+  },
+  spendingLimits: {
+    dailyLimit: "1000000000000000", // 1M TOS
+    transactionLimit: "100000000000000", // 100K TOS per transaction
+    emergencyLimit: "10000000000000000" // 10M TOS with all signatures
+  }
+});
+
+const multisigWallet = await TOSWallet.createMultisig(multisigConfig);
+```
+
+### Multi-Signature Transaction Workflow
+
+#### 1. Proposal Creation
+
+```bash
+# Propose a transaction
+tos-wallet multisig-propose \
+  --wallet-id "multisig_company_treasury" \
+  --to "tos1vendor_payment_address" \
+  --amount "50000000000000" \
+  --description "Q1 Development Services Payment" \
+  --reference "PO-2024-001" \
+  --expiry-hours 48
+
+# Output:
+# Proposal ID: proposal_550e8400-e29b-41d4-a716-446655440001
+# Required Signatures: 3
+# Current Signatures: 1 (Your signature automatically added)
+# Expiry: 2024-01-17 14:30:00 UTC
+```
+
+#### 2. Review and Approval Process
+
+```javascript
+// Review pending proposals
+const pendingProposals = await wallet.multisig.getPendingProposals();
+
+for (const proposal of pendingProposals) {
+  console.log(`Proposal: ${proposal.description}`);
+  console.log(`Amount: ${proposal.amount} TOS`);
+  console.log(`Signatures: ${proposal.currentSignatures}/${proposal.requiredSignatures}`);
+  console.log(`Expires: ${proposal.expiryTime}`);
+
+  // Detailed review
+  const details = await wallet.multisig.getProposalDetails(proposal.id);
+  console.log(`Risk Assessment: ${details.riskLevel}`);
+  console.log(`Compliance Check: ${details.complianceStatus}`);
+
+  // Sign if approved
+  if (details.complianceStatus === 'approved') {
+    await wallet.multisig.signProposal(proposal.id, {
+      password: "your_password",
+      comment: "Approved after compliance review"
+    });
+  }
+}
+```
+
+#### 3. Execution and Monitoring
+
+```bash
+# Monitor proposal status
+tos-wallet multisig-status --proposal-id "proposal_550e8400-e29b-41d4-a716-446655440001"
+
+# Output:
+# Proposal Status: Ready for Execution
+# Signatures Collected: 3/3
+# Signers: CEO, CFO, CTO
+# Auto-execution: Enabled
+# Execution Block: 1250123 (Next block)
+
+# Manual execution (if auto-execution disabled)
+tos-wallet multisig-execute --proposal-id "proposal_550e8400-e29b-41d4-a716-446655440001"
+```
+
+### Enterprise Multi-Signature Features
+
+#### Hierarchical Authorization
+
+```yaml
+# Corporate structure configuration
+hierarchy:
+  departments:
+    - name: "Finance"
+      budget_limit: "1000000000000000" # 1M TOS
+      required_signatures: 2
+      signers: ["CFO", "Finance_Manager", "Accountant"]
+
+    - name: "Development"
+      budget_limit: "500000000000000" # 500K TOS
+      required_signatures: 2
+      signers: ["CTO", "Dev_Lead", "Product_Manager"]
+
+    - name: "Operations"
+      budget_limit: "250000000000000" # 250K TOS
+      required_signatures: 1
+      signers: ["COO", "Ops_Manager"]
+
+  escalation_rules:
+    - condition: "amount > department_limit"
+      action: "require_executive_approval"
+      executives: ["CEO", "CFO"]
+
+    - condition: "external_transfer && amount > 100000000000000"
+      action: "require_board_approval"
+      board_members: ["Board_Rep_1", "Board_Rep_2"]
+```
+
+#### Compliance Integration
+
+```python
+class ComplianceEngine:
+    def __init__(self, wallet):
+        self.wallet = wallet
+        self.rules = self.load_compliance_rules()
+
+    async def review_transaction(self, proposal):
+        """Automated compliance review"""
+
+        checks = []
+
+        # AML/KYC Check
+        aml_result = await self.check_aml(proposal.destination)
+        checks.append({
+            'type': 'AML',
+            'status': 'pass' if aml_result.clean else 'fail',
+            'details': aml_result.details
+        })
+
+        # Sanctions Screening
+        sanctions_result = await self.check_sanctions(proposal.destination)
+        checks.append({
+            'type': 'Sanctions',
+            'status': 'pass' if not sanctions_result.flagged else 'fail',
+            'details': sanctions_result.details
+        })
+
+        # Budget Compliance
+        budget_check = await self.check_budget_limits(proposal)
+        checks.append({
+            'type': 'Budget',
+            'status': 'pass' if budget_check.within_limits else 'warning',
+            'details': f"${budget_check.remaining_budget} remaining"
+        })
+
+        # Risk Assessment
+        risk_score = await self.calculate_risk_score(proposal)
+        checks.append({
+            'type': 'Risk',
+            'status': 'pass' if risk_score < 0.7 else 'review_required',
+            'score': risk_score
+        })
+
+        return {
+            'overall_status': self.determine_overall_status(checks),
+            'checks': checks,
+            'recommendations': self.generate_recommendations(checks)
+        }
+```
+
+## Stealth Addresses
+
+### Overview
+
+Stealth addresses provide enhanced privacy by generating unique, unlinkable addresses for each transaction while maintaining a single public address for receiving payments.
+
+### How Stealth Addresses Work
+
+1. **Key Generation**: Receiver creates spend key and view key pairs
+2. **Address Publication**: Receiver shares stealth address publicly
+3. **Payment Creation**: Sender generates one-time address from stealth address
+4. **Fund Detection**: Receiver scans blockchain using view key
+5. **Fund Access**: Receiver uses spend key to control received funds
+
+### Creating and Using Stealth Addresses
+
+#### Basic Stealth Address Setup
+
+```bash
+# Generate stealth address
+tos-wallet create-stealth-address \
+  --label "Anonymous Donations" \
+  --payment-id "charity_2024" \
+  --save-keys
+
+# Output:
+# Stealth Address: tos2stealth_long_address_with_embedded_keys_and_payment_id
+# Public Spend Key: 0x03a1b2c3d4e5f6...
+# Public View Key: 0x02b3c4d5e6f7...
+# Private Spend Key: [ENCRYPTED]
+# Private View Key: [ENCRYPTED]
+# QR Code: [Generated for easy sharing]
+```
+
+#### Advanced Stealth Configuration
+
+```javascript
+import { StealthAddress, PaymentID } from '@tos-network/wallet';
+
+// Create stealth address with custom parameters
+const stealthConfig = {
+  label: "Business Payments",
+  paymentId: PaymentID.generate("business_invoices"),
+  viewOnly: false, // Set to true for view-only addresses
+  subaddresses: {
+    enabled: true,
+    count: 10, // Pre-generate 10 subaddresses
+    labels: ["Invoice", "Subscription", "Refund", "Bonus", "Misc"]
+  },
+  scanning: {
+    enabled: true,
+    startHeight: 1250000, // Start scanning from this block
+    batchSize: 1000, // Blocks to scan per batch
+    frequency: 30 // Scan every 30 seconds
+  }
+};
+
+const stealthAddress = await wallet.createStealthAddress(stealthConfig);
+
+// Share stealth address
+const shareableAddress = stealthAddress.getShareableFormat({
+  includePaymentId: true,
+  includeLabel: false,
+  generateQR: true
+});
+
+console.log(`Share this address: ${shareableAddress.address}`);
+console.log(`QR Code: ${shareableAddress.qrCode}`);
+```
+
+#### Scanning for Stealth Transactions
+
+```python
+import asyncio
+from tos_wallet import StealthScanner
+
+class StealthTransactionScanner:
+    def __init__(self, wallet, stealth_addresses):
+        self.wallet = wallet
+        self.stealth_addresses = stealth_addresses
+        self.scanner = StealthScanner(wallet.daemon)
+
+    async def scan_for_transactions(self, start_height=None, end_height=None):
+        """Scan blockchain for stealth transactions"""
+
+        results = []
+
+        for stealth_addr in self.stealth_addresses:
+            print(f"Scanning for {stealth_addr.label}...")
+
+            # Scan blockchain
+            transactions = await self.scanner.scan_range(
+                stealth_address=stealth_addr.address,
+                view_key=stealth_addr.private_view_key,
+                start_height=start_height or stealth_addr.creation_height,
+                end_height=end_height
+            )
+
+            for tx in transactions:
+                # Verify transaction belongs to us
+                if self.verify_ownership(tx, stealth_addr):
+                    results.append({
+                        'stealth_address': stealth_addr.label,
+                        'transaction_hash': tx.hash,
+                        'amount': tx.amount,
+                        'block_height': tx.block_height,
+                        'timestamp': tx.timestamp,
+                        'one_time_address': tx.one_time_address,
+                        'payment_id': tx.payment_id
+                    })
+
+        return results
+
+    def verify_ownership(self, transaction, stealth_addr):
+        """Verify transaction belongs to stealth address"""
+
+        # Derive one-time private key
+        one_time_key = stealth_addr.derive_one_time_key(
+            transaction.one_time_public_key
+        )
+
+        # Check if we can spend this output
+        return self.wallet.can_spend_output(
+            transaction.output_key,
+            one_time_key
+        )
+
+    async def auto_scan(self, interval=60):
+        """Continuously scan for new transactions"""
+
+        last_scanned_height = await self.wallet.get_sync_height()
+
+        while True:
+            try:
+                current_height = await self.wallet.daemon.get_height()
+
+                if current_height > last_scanned_height:
+                    new_transactions = await self.scan_for_transactions(
+                        start_height=last_scanned_height + 1,
+                        end_height=current_height
+                    )
+
+                    if new_transactions:
+                        await self.process_new_transactions(new_transactions)
+
+                    last_scanned_height = current_height
+
+                await asyncio.sleep(interval)
+
+            except Exception as e:
+                print(f"Scanning error: {e}")
+                await asyncio.sleep(interval)
+```
+
+### Stealth Address Integration
+
+#### Payment Integration
+
+```html
+<!-- HTML payment form with stealth address -->
+<div class="payment-form">
+  <h3>Private Payment</h3>
+
+  <div class="stealth-address">
+    <label>Recipient Stealth Address:</label>
+    <input type="text"
+           value="tos2stealth_address_here"
+           readonly
+           class="stealth-input">
+    <button onclick="showQRCode()">Show QR</button>
+  </div>
+
+  <div class="amount-input">
+    <label>Amount (TOS):</label>
+    <input type="number" id="amount" step="0.000000001">
+  </div>
+
+  <div class="payment-id">
+    <label>Payment ID (Optional):</label>
+    <input type="text" id="paymentId" placeholder="Optional reference">
+  </div>
+
+  <button onclick="sendStealthPayment()">Send Private Payment</button>
+</div>
+
+<script>
+async function sendStealthPayment() {
+  const stealthAddress = document.querySelector('.stealth-input').value;
+  const amount = document.getElementById('amount').value;
+  const paymentId = document.getElementById('paymentId').value;
+
+  try {
+    // Generate one-time address
+    const oneTimeAddress = await wallet.stealth.generateOneTimeAddress({
+      stealthAddress: stealthAddress,
+      paymentId: paymentId
+    });
+
+    // Send transaction to one-time address
+    const transaction = await wallet.transactions.create({
+      to: oneTimeAddress.address,
+      amount: amount,
+      privacyLevel: 'maximum',
+      stealthMetadata: {
+        oneTimePublicKey: oneTimeAddress.publicKey,
+        paymentId: paymentId
+      }
+    });
+
+    console.log('Stealth payment sent:', transaction.hash);
+
+  } catch (error) {
+    console.error('Payment failed:', error);
+  }
+}
+</script>
+```
+
+## Hardware Wallet Integration
+
+### Supported Hardware Wallets
+
+- **Ledger**: Nano S, Nano X, Nano S Plus
+- **Trezor**: Model T, Model One (with firmware update)
+- **KeepKey**: Full support with TOS app
+- **BitBox**: BitBox02 with custom firmware
+- **ColdCard**: Air-gapped signing support
+
+### Hardware Wallet Setup
+
+#### Ledger Integration
+
+```bash
+# Install TOS app on Ledger device
+ledger-live install-app --name "TOS Network"
+
+# Initialize hardware wallet connection
+tos-wallet hardware-init \
+  --device ledger \
+  --app-version latest \
+  --derivation-path "m/44'/1729'/0'"
+
+# Create wallet with hardware device
+tos-wallet create \
+  --name "Ledger Wallet" \
+  --type hardware \
+  --device ledger \
+  --device-id "ledger_device_12345"
+```
+
+#### Hardware Transaction Signing
+
+```javascript
+import { LedgerTOS } from '@tos-network/hardware';
+
+class HardwareWalletManager {
+  constructor() {
+    this.ledger = null;
+    this.connected = false;
+  }
+
+  async connect() {
+    try {
+      this.ledger = new LedgerTOS();
+      await this.ledger.connect();
+
+      // Verify app is installed
+      const appInfo = await this.ledger.getAppInfo();
+      if (appInfo.name !== 'TOS Network') {
+        throw new Error('TOS app not installed on device');
+      }
+
+      this.connected = true;
+      return true;
+
+    } catch (error) {
+      console.error('Hardware wallet connection failed:', error);
+      return false;
+    }
+  }
+
+  async getAddress(index = 0) {
+    if (!this.connected) await this.connect();
+
+    const derivationPath = `m/44'/1729'/0'/0/${index}`;
+    const result = await this.ledger.getAddress(derivationPath, true); // Show on device
+
+    return {
+      address: result.address,
+      publicKey: result.publicKey,
+      derivationPath: derivationPath
+    };
+  }
+
+  async signTransaction(transaction, derivationPath) {
+    if (!this.connected) await this.connect();
+
+    // Display transaction details on device
+    await this.ledger.reviewTransaction({
+      to: transaction.destination,
+      amount: transaction.amount,
+      fee: transaction.fee,
+      memo: transaction.memo
+    });
+
+    // User confirms on device
+    const signature = await this.ledger.signTransaction(
+      transaction.unsigned_data,
+      derivationPath
+    );
+
+    return {
+      signature: signature,
+      signed_transaction: transaction.combine_signature(signature)
+    };
+  }
+
+  async signMessage(message, derivationPath) {
+    if (!this.connected) await this.connect();
+
+    return await this.ledger.signMessage(message, derivationPath);
+  }
+}
+
+// Usage example
+const hardware = new HardwareWalletManager();
+
+async function sendHardwareTransaction() {
+  // Connect to hardware wallet
+  await hardware.connect();
+
+  // Get address
+  const addressInfo = await hardware.getAddress(0);
+  console.log('Hardware address:', addressInfo.address);
+
+  // Create transaction
+  const transaction = await wallet.transactions.create({
+    from: addressInfo.address,
+    to: 'tos1recipient_address',
+    amount: '1000000000000',
+    requireHardwareConfirmation: true
+  });
+
+  // Sign with hardware device
+  const signed = await hardware.signTransaction(
+    transaction,
+    addressInfo.derivationPath
+  );
+
+  // Broadcast signed transaction
+  const result = await wallet.transactions.broadcast(signed.signed_transaction);
+  console.log('Transaction sent:', result.hash);
+}
+```
+
+### Air-Gapped Signing
+
+```python
+import qrcode
+import json
+from io import BytesIO
+
+class AirGappedWallet:
+    def __init__(self, offline_wallet):
+        self.offline_wallet = offline_wallet
+
+    def create_unsigned_transaction(self, to_address, amount, fee=None):
+        """Create unsigned transaction for air-gapped signing"""
+
+        transaction = {
+            'version': 1,
+            'from': self.offline_wallet.address,
+            'to': to_address,
+            'amount': str(amount),
+            'fee': str(fee or self.estimate_fee()),
+            'nonce': self.get_next_nonce(),
+            'timestamp': int(time.time()),
+            'privacy_level': 'maximum'
+        }
+
+        # Create QR code for transfer to offline device
+        qr_data = {
+            'type': 'tos_unsigned_transaction',
+            'data': transaction
+        }
+
+        return {
+            'transaction': transaction,
+            'qr_code': self.generate_qr_code(qr_data),
+            'hex_data': json.dumps(qr_data).encode().hex()
+        }
+
+    def sign_offline_transaction(self, unsigned_transaction, private_key):
+        """Sign transaction on air-gapped device"""
+
+        # Verify transaction details
+        self.verify_transaction_safety(unsigned_transaction)
+
+        # Sign transaction
+        signature = self.offline_wallet.sign(unsigned_transaction, private_key)
+
+        signed_transaction = {
+            **unsigned_transaction,
+            'signature': signature,
+            'public_key': self.offline_wallet.public_key
+        }
+
+        # Create QR code for transfer back to online device
+        qr_data = {
+            'type': 'tos_signed_transaction',
+            'data': signed_transaction
+        }
+
+        return {
+            'signed_transaction': signed_transaction,
+            'qr_code': self.generate_qr_code(qr_data),
+            'hex_data': json.dumps(qr_data).encode().hex()
+        }
+
+    def broadcast_signed_transaction(self, signed_transaction):
+        """Broadcast signed transaction from online device"""
+
+        # Verify signature
+        if not self.verify_signature(signed_transaction):
+            raise ValueError("Invalid transaction signature")
+
+        # Broadcast to network
+        return self.wallet.daemon.submit_transaction(signed_transaction)
+
+    def generate_qr_code(self, data):
+        """Generate QR code for data transfer"""
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+
+        qr.add_data(json.dumps(data))
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Convert to base64 for display
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+
+        import base64
+        return base64.b64encode(buffer.read()).decode()
+```
+
+## Privacy Features
+
+### Ring Signatures
+
+Ring signatures provide plausible deniability by making it impossible to determine which member of a group (ring) created a signature.
+
+```javascript
+class RingSignatureWallet {
+  constructor(wallet) {
+    this.wallet = wallet;
+    this.ringSize = 11; // Odd number for better anonymity
+  }
+
+  async createRingSignature(transaction, ringMembers = null) {
+    // Get ring members (other addresses to mix with)
+    if (!ringMembers) {
+      ringMembers = await this.selectRingMembers(transaction.amount);
+    }
+
+    // Create ring signature
+    const ringSignature = await this.wallet.crypto.createRingSignature({
+      transaction: transaction,
+      signerIndex: this.findSignerIndex(ringMembers),
+      ringMembers: ringMembers,
+      privateKey: this.wallet.privateKey
+    });
+
+    return {
+      signature: ringSignature,
+      ringMembers: ringMembers,
+      anonymitySet: ringMembers.length
+    };
+  }
+
+  async selectRingMembers(amount) {
+    // Find addresses with similar transaction patterns
+    const candidates = await this.wallet.daemon.findMixinCandidates({
+      amount: amount,
+      minRingSize: this.ringSize,
+      excludeAddress: this.wallet.address
+    });
+
+    // Select diverse ring members
+    return this.diversifyRingSelection(candidates);
+  }
+
+  diversifyRingSelection(candidates) {
+    // Implement diversity algorithm
+    // - Different transaction times
+    // - Different amounts
+    // - Geographic diversity
+    return candidates.slice(0, this.ringSize - 1);
+  }
+}
+```
+
+### Confidential Transactions
+
+```python
+from tos_crypto import PedersenCommitment, RangeProof
+
+class ConfidentialTransaction:
+    def __init__(self, wallet):
+        self.wallet = wallet
+
+    def create_confidential_transfer(self, to_address, amount, fee):
+        """Create transaction with hidden amounts"""
+
+        # Generate blinding factors
+        amount_blinding = self.generate_blinding_factor()
+        fee_blinding = self.generate_blinding_factor()
+
+        # Create Pedersen commitments
+        amount_commitment = PedersenCommitment.commit(amount, amount_blinding)
+        fee_commitment = PedersenCommitment.commit(fee, fee_blinding)
+
+        # Generate range proofs (prove amounts are positive without revealing them)
+        amount_range_proof = RangeProof.generate(
+            amount, amount_blinding, 0, 2**64 - 1
+        )
+        fee_range_proof = RangeProof.generate(
+            fee, fee_blinding, 0, 2**32 - 1
+        )
+
+        # Create transaction with commitments
+        transaction = {
+            'version': 1,
+            'inputs': self.create_confidential_inputs(),
+            'outputs': [
+                {
+                    'address': to_address,
+                    'amount_commitment': amount_commitment.to_hex(),
+                    'range_proof': amount_range_proof.to_hex()
+                }
+            ],
+            'fee_commitment': fee_commitment.to_hex(),
+            'fee_range_proof': fee_range_proof.to_hex(),
+            'balance_proof': self.create_balance_proof(
+                amount_commitment, fee_commitment
+            )
+        }
+
+        return transaction
+
+    def create_balance_proof(self, amount_commitment, fee_commitment):
+        """Prove inputs equal outputs + fees without revealing amounts"""
+
+        # Sum input commitments
+        input_commitments = [inp['commitment'] for inp in self.get_inputs()]
+        input_sum = PedersenCommitment.sum(input_commitments)
+
+        # Sum output commitments
+        output_sum = PedersenCommitment.add(amount_commitment, fee_commitment)
+
+        # Create zero-knowledge proof that input_sum = output_sum
+        return self.wallet.crypto.create_balance_proof(input_sum, output_sum)
+```
+
+## Enterprise Security Features
+
+### Role-Based Access Control (RBAC)
+
+```yaml
+# Enterprise wallet access control configuration
+rbac_config:
+  roles:
+    - name: "Administrator"
+      permissions:
+        - "create_wallet"
+        - "delete_wallet"
+        - "manage_users"
+        - "view_all_transactions"
+        - "export_data"
+        - "modify_settings"
+
+    - name: "Treasurer"
+      permissions:
+        - "create_transaction"
+        - "sign_transaction"
+        - "view_balances"
+        - "view_transaction_history"
+        - "generate_reports"
+      spending_limits:
+        daily: "10000000000000000"  # 10M TOS
+        transaction: "1000000000000000"  # 1M TOS per transaction
+
+    - name: "Accountant"
+      permissions:
+        - "view_balances"
+        - "view_transaction_history"
+        - "generate_reports"
+        - "export_transaction_data"
+      restrictions:
+        - "read_only"
+        - "no_sensitive_data"
+
+    - name: "Auditor"
+      permissions:
+        - "view_transaction_history"
+        - "verify_signatures"
+        - "generate_audit_reports"
+        - "access_compliance_data"
+      restrictions:
+        - "read_only"
+        - "time_limited_access"
+
+  users:
+    - username: "alice.ceo"
+      roles: ["Administrator", "Treasurer"]
+      mfa_required: true
+      session_timeout: 3600
+
+    - username: "bob.cfo"
+      roles: ["Treasurer"]
+      mfa_required: true
+      approval_required_above: "5000000000000000"  # 5M TOS
+
+    - username: "charlie.accountant"
+      roles: ["Accountant"]
+      mfa_required: false
+      ip_restrictions: ["192.168.1.0/24"]
+```
+
+### Audit and Compliance
+
+```python
+class AuditLogger:
+    def __init__(self, wallet):
+        self.wallet = wallet
+        self.audit_db = AuditDatabase()
+
+    def log_action(self, action, user, details, risk_level="medium"):
+        """Log all wallet actions for audit trail"""
+
+        audit_entry = {
+            'timestamp': datetime.utcnow(),
+            'action': action,
+            'user': user,
+            'wallet_id': self.wallet.id,
+            'details': details,
+            'risk_level': risk_level,
+            'ip_address': self.get_client_ip(),
+            'user_agent': self.get_user_agent(),
+            'session_id': self.get_session_id(),
+            'verification_hash': self.calculate_verification_hash(details)
+        }
+
+        # Store in tamper-evident log
+        self.audit_db.store_entry(audit_entry)
+
+        # Alert on high-risk actions
+        if risk_level == "high":
+            self.send_security_alert(audit_entry)
+
+    def generate_compliance_report(self, start_date, end_date, regulations):
+        """Generate compliance report for specific regulations"""
+
+        report = ComplianceReport()
+
+        for regulation in regulations:
+            if regulation == "AML":
+                report.add_section(self.generate_aml_report(start_date, end_date))
+            elif regulation == "GDPR":
+                report.add_section(self.generate_gdpr_report(start_date, end_date))
+            elif regulation == "SOX":
+                report.add_section(self.generate_sox_report(start_date, end_date))
+
+        return report
+
+    def verify_audit_integrity(self):
+        """Verify audit log hasn't been tampered with"""
+
+        entries = self.audit_db.get_all_entries()
+
+        for i, entry in enumerate(entries):
+            # Verify hash chain
+            if i > 0:
+                expected_hash = self.calculate_chain_hash(entries[i-1], entry)
+                if entry['chain_hash'] != expected_hash:
+                    raise AuditIntegrityError(f"Audit log tampered at entry {i}")
+
+            # Verify entry hash
+            calculated_hash = self.calculate_verification_hash(entry['details'])
+            if entry['verification_hash'] != calculated_hash:
+                raise AuditIntegrityError(f"Entry {i} verification failed")
+
+        return True
+```
+
+### Backup and Recovery
+
+#### Distributed Backup System
+
+```javascript
+class DistributedBackup {
+  constructor(wallet, config) {
+    this.wallet = wallet;
+    this.config = config;
+    this.shares = [];
+  }
+
+  async createDistributedBackup(threshold = 3, totalShares = 5) {
+    // Create Shamir's Secret Sharing backup
+    const walletData = await this.wallet.exportSecureData();
+
+    // Split into shares
+    const shares = await this.splitSecret(walletData, threshold, totalShares);
+
+    // Distribute shares to different locations
+    const distribution = await this.distributeShares(shares);
+
+    return {
+      threshold: threshold,
+      totalShares: totalShares,
+      distribution: distribution,
+      recoveryInstructions: this.generateRecoveryInstructions()
+    };
+  }
+
+  async splitSecret(secret, threshold, totalShares) {
+    const shares = [];
+
+    // Implement Shamir's Secret Sharing
+    for (let i = 1; i <= totalShares; i++) {
+      const share = await this.generateShare(secret, i, threshold);
+      shares.push({
+        index: i,
+        data: share,
+        checksum: this.calculateChecksum(share)
+      });
+    }
+
+    return shares;
+  }
+
+  async distributeShares(shares) {
+    const distribution = [];
+
+    for (const share of shares) {
+      const locations = await this.selectDistributionLocations(share);
+
+      for (const location of locations) {
+        await this.storeShare(share, location);
+        distribution.push({
+          shareIndex: share.index,
+          location: location.type,
+          identifier: location.id
+        });
+      }
+    }
+
+    return distribution;
+  }
+
+  async recoverFromShares(shareInputs) {
+    if (shareInputs.length < this.config.threshold) {
+      throw new Error('Insufficient shares for recovery');
+    }
+
+    // Verify share integrity
+    for (const shareInput of shareInputs) {
+      if (!this.verifyShareIntegrity(shareInput)) {
+        throw new Error(`Invalid share: ${shareInput.index}`);
+      }
+    }
+
+    // Reconstruct secret
+    const reconstructedSecret = await this.reconstructSecret(shareInputs);
+
+    // Import wallet from reconstructed data
+    return await this.wallet.importFromSecureData(reconstructedSecret);
+  }
+}
+```
+
+#### Time-Locked Recovery
+
+```python
+class TimeLockRecovery:
+    def __init__(self, wallet):
+        self.wallet = wallet
+
+    def create_time_locked_backup(self, unlock_date, recovery_addresses):
+        """Create backup that unlocks after specific date"""
+
+        # Create time-locked smart contract
+        timelock_contract = {
+            'type': 'timelock_recovery',
+            'unlock_timestamp': int(unlock_date.timestamp()),
+            'recovery_addresses': recovery_addresses,
+            'required_signatures': len(recovery_addresses) // 2 + 1,
+            'wallet_data_hash': self.hash_wallet_data(),
+            'emergency_override': {
+                'enabled': True,
+                'override_addresses': recovery_addresses[:2],  # First 2 can override
+                'override_delay_hours': 168  # 7 days
+            }
+        }
+
+        # Deploy contract
+        contract_address = self.deploy_timelock_contract(timelock_contract)
+
+        # Encrypt wallet data with contract key
+        encrypted_backup = self.encrypt_with_timelock(
+            self.wallet.export_data(),
+            contract_address
+        )
+
+        return {
+            'contract_address': contract_address,
+            'encrypted_backup': encrypted_backup,
+            'recovery_instructions': self.generate_recovery_instructions(
+                contract_address, unlock_date, recovery_addresses
+            )
+        }
+
+    def initiate_recovery(self, contract_address, recovery_signatures):
+        """Initiate recovery process with required signatures"""
+
+        # Verify current time vs unlock time
+        contract = self.get_timelock_contract(contract_address)
+
+        current_time = datetime.utcnow()
+        unlock_time = datetime.fromtimestamp(contract['unlock_timestamp'])
+
+        if current_time < unlock_time:
+            # Check for emergency override
+            if not self.check_emergency_override(recovery_signatures, contract):
+                raise ValueError("Recovery not available until unlock time")
+
+        # Verify signatures
+        if not self.verify_recovery_signatures(recovery_signatures, contract):
+            raise ValueError("Insufficient or invalid recovery signatures")
+
+        # Decrypt wallet data
+        decrypted_data = self.decrypt_with_timelock(
+            contract['encrypted_backup'],
+            contract_address
+        )
+
+        # Restore wallet
+        return self.wallet.import_from_backup(decrypted_data)
+```
+
+## Cross-Platform Integration
+
+### Mobile Wallet Features
+
+```swift
+// iOS Swift implementation
+import TosNetworkSDK
+import CryptoKit
+
+class MobileWalletManager {
+    private let wallet: TosWallet
+    private let keychain: Keychain
+    private let biometrics: BiometricAuth
+
+    init() {
+        self.wallet = TosWallet()
+        self.keychain = Keychain(service: "com.tosnetwork.wallet")
+        self.biometrics = BiometricAuth()
+    }
+
+    func createSecureWallet(name: String) async throws -> WalletInfo {
+        // Generate secure entropy using device hardware
+        let entropy = try SecRandomData(count: 32)
+
+        // Create wallet with hardware-backed security
+        let walletConfig = WalletConfig(
+            name: name,
+            entropy: entropy,
+            securityLevel: .maximum,
+            biometricAuth: true,
+            cloudBackup: false  // Local only for security
+        )
+
+        let walletInfo = try await wallet.create(config: walletConfig)
+
+        // Store in Secure Enclave
+        try keychain.storeWalletKeys(
+            walletId: walletInfo.id,
+            privateKey: walletInfo.privateKey,
+            accessControl: .biometryAny
+        )
+
+        return walletInfo
+    }
+
+    func authenticatedTransaction(
+        to: String,
+        amount: String,
+        biometricPrompt: String
+    ) async throws -> TransactionResult {
+
+        // Require biometric authentication
+        let authResult = try await biometrics.authenticate(
+            reason: biometricPrompt
+        )
+
+        guard authResult.success else {
+            throw WalletError.authenticationFailed
+        }
+
+        // Retrieve keys from Secure Enclave
+        let privateKey = try keychain.retrievePrivateKey(
+            walletId: wallet.id,
+            authContext: authResult.context
+        )
+
+        // Create and sign transaction
+        let transaction = try await wallet.createTransaction(
+            to: to,
+            amount: amount,
+            privacyLevel: .maximum
+        )
+
+        let signedTx = try wallet.sign(
+            transaction: transaction,
+            privateKey: privateKey
+        )
+
+        // Clear sensitive data from memory
+        privateKey.zeroize()
+
+        return try await wallet.broadcast(signedTx)
+    }
+}
+```
+
+### Web Wallet Integration
+
+```typescript
+// TypeScript Web Wallet
+import { TOSWebWallet, WebAuthn, ServiceWorker } from '@tos-network/web-wallet';
+
+class WebWalletManager {
+  private wallet: TOSWebWallet;
+  private webauthn: WebAuthn;
+  private serviceWorker: ServiceWorker;
+
+  constructor() {
+    this.wallet = new TOSWebWallet();
+    this.webauthn = new WebAuthn();
+    this.serviceWorker = new ServiceWorker();
+  }
+
+  async initializeSecureWallet(): Promise<WalletInfo> {
+    // Check for hardware security key support
+    const hasWebAuthn = await this.webauthn.isSupported();
+
+    if (hasWebAuthn) {
+      // Create credential with hardware security key
+      const credential = await this.webauthn.createCredential({
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: "TOS Network Wallet", id: "wallet.tos.network" },
+        user: {
+          id: crypto.getRandomValues(new Uint8Array(32)),
+          name: "user@example.com",
+          displayName: "TOS User"
+        },
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required"
+        }
+      });
+
+      // Store credential ID securely
+      await this.storeCredentialId(credential.id);
+    }
+
+    // Initialize wallet with Web Crypto API
+    const cryptoKey = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false, // not extractable
+      ["sign", "verify"]
+    );
+
+    const walletInfo = await this.wallet.create({
+      cryptoKey: cryptoKey,
+      securityKey: hasWebAuthn ? credential : null,
+      storageType: 'indexeddb',
+      encryptionKey: await this.deriveEncryptionKey()
+    });
+
+    // Register service worker for background sync
+    await this.serviceWorker.register('/tos-wallet-sw.js');
+
+    return walletInfo;
+  }
+
+  async authenticatedSend(
+    destination: string,
+    amount: string
+  ): Promise<TransactionResult> {
+
+    // Authenticate with WebAuthn if available
+    if (await this.webauthn.isSupported()) {
+      const assertion = await this.webauthn.getAssertion({
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{
+          id: await this.getStoredCredentialId(),
+          type: "public-key"
+        }]
+      });
+
+      if (!assertion) {
+        throw new Error('Authentication failed');
+      }
+    }
+
+    // Create transaction
+    const transaction = await this.wallet.createTransaction({
+      to: destination,
+      amount: amount,
+      privacyLevel: 'maximum',
+      energyPayment: true
+    });
+
+    // Sign with Web Crypto API (keys never leave browser)
+    const signature = await crypto.subtle.sign(
+      { name: "ECDSA", hash: "SHA-256" },
+      await this.wallet.getPrivateKey(),
+      transaction.hash
+    );
+
+    transaction.signature = signature;
+
+    // Broadcast via service worker for reliability
+    return await this.serviceWorker.broadcastTransaction(transaction);
+  }
+
+  private async deriveEncryptionKey(): Promise<CryptoKey> {
+    // Derive encryption key from user password + device fingerprint
+    const password = await this.promptForPassword();
+    const deviceFingerprint = await this.getDeviceFingerprint();
+
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password + deviceFingerprint),
+      { name: "PBKDF2" },
+      false,
+      ["deriveKey"]
+    );
+
+    return await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: crypto.getRandomValues(new Uint8Array(16)),
+        iterations: 100000,
+        hash: "SHA-256"
+      },
+      keyMaterial,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  }
+}
+```
+
+The TOS Network's advanced wallet features provide enterprise-grade security, privacy, and functionality while maintaining the core principle of "Don't Trust, Verify it." These features enable users to maintain complete control over their funds while benefiting from sophisticated security and privacy protections.

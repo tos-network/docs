@@ -1,0 +1,1285 @@
+---
+title: "Client Protocol"
+description: "Comprehensive guide to the TOS Network client protocol, including JSON-RPC API, WebSocket connections, and secure communication standards."
+---
+
+# Client Protocol
+
+The TOS Network client protocol defines how applications, wallets, and services interact with TOS nodes. Built on the principle of **"Don't Trust, Verify it"**, the protocol ensures secure, efficient, and verifiable communication between clients and the network.
+
+## Protocol Overview
+
+### Core Components
+
+- **JSON-RPC 2.0**: Primary API protocol for client-server communication
+- **WebSocket**: Real-time event streaming and subscriptions
+- **REST API**: HTTP-based endpoints for simple queries
+- **Authentication**: Secure access control and API key management
+- **Encryption**: End-to-end encryption for sensitive operations
+
+### Transport Layers
+
+| Protocol | Port | Purpose | Security |
+|----------|------|---------|----------|
+| HTTP/HTTPS | 8080/8443 | JSON-RPC API | TLS 1.3 |
+| WebSocket | 8081 | Real-time events | WSS (WebSocket Secure) |
+| gRPC | 8082 | High-performance API | mTLS |
+| TCP Raw | 2080 | P2P communication | Custom encryption |
+
+## JSON-RPC API
+
+### Basic Structure
+
+All JSON-RPC requests follow the standard format:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "method_name",
+  "params": {
+    "parameter1": "value1",
+    "parameter2": "value2"
+  },
+  "id": 1
+}
+```
+
+Response format:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "data": "response_data"
+  },
+  "id": 1
+}
+```
+
+Error response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -32000,
+    "message": "Error description",
+    "data": "Additional error information"
+  },
+  "id": 1
+}
+```
+
+### Core API Methods
+
+#### Network Information
+
+```javascript
+// Get network information
+const networkInfo = await client.request({
+  method: 'get_network_info',
+  params: {}
+});
+
+// Response
+{
+  "network_id": "mainnet",
+  "version": "1.0.0",
+  "block_height": 1250000,
+  "difficulty": 15000000,
+  "hash_rate": "125.5 TH/s",
+  "peer_count": 45,
+  "ai_mining_ratio": 0.42,
+  "energy_efficiency": 0.85
+}
+```
+
+#### Block Operations
+
+```javascript
+// Get block by height
+const block = await client.request({
+  method: 'get_block',
+  params: {
+    height: 1250000,
+    include_transactions: true
+  }
+});
+
+// Get block by hash
+const blockByHash = await client.request({
+  method: 'get_block',
+  params: {
+    hash: "0x1234567890abcdef...",
+    include_transactions: false
+  }
+});
+
+// Get latest block
+const latestBlock = await client.request({
+  method: 'get_latest_block',
+  params: {
+    include_transactions: true
+  }
+});
+```
+
+#### Transaction Operations
+
+```javascript
+// Send transaction
+const txResult = await client.request({
+  method: 'send_transaction',
+  params: {
+    from: "tos1sender-address...",
+    to: "tos1recipient-address...",
+    amount: 100.5,
+    fee: 0.01,
+    privacy_level: "high",
+    use_energy: true,
+    smart_contract: {
+      code: "contract_bytecode",
+      parameters: ["param1", "param2"]
+    }
+  }
+});
+
+// Get transaction
+const transaction = await client.request({
+  method: 'get_transaction',
+  params: {
+    hash: "0xabcdef1234567890..."
+  }
+});
+
+// Get transaction history
+const history = await client.request({
+  method: 'get_transaction_history',
+  params: {
+    address: "tos1address...",
+    limit: 50,
+    offset: 0,
+    include_pending: true
+  }
+});
+```
+
+#### Wallet Operations
+
+```javascript
+// Get balance
+const balance = await client.request({
+  method: 'get_balance',
+  params: {
+    address: "tos1address...",
+    include_pending: true,
+    privacy_view: "owner"  // owner, public, encrypted
+  }
+});
+
+// Create new address
+const newAddress = await client.request({
+  method: 'create_address',
+  params: {
+    wallet_name: "main_wallet",
+    address_type: "stealth",  // standard, stealth, multisig
+    privacy_level: "high"
+  }
+});
+
+// Sign message
+const signature = await client.request({
+  method: 'sign_message',
+  params: {
+    address: "tos1address...",
+    message: "Message to sign",
+    signature_type: "ecdsa"  // ecdsa, schnorr, ring
+  }
+});
+```
+
+#### Mining Operations
+
+```javascript
+// Get mining info
+const miningInfo = await client.request({
+  method: 'get_mining_info',
+  params: {}
+});
+
+// Start mining
+const miningResult = await client.request({
+  method: 'start_mining',
+  params: {
+    miner_address: "tos1miner-address...",
+    threads: 4,
+    ai_mining: true,
+    gpu_devices: [0, 1]
+  }
+});
+
+// Stop mining
+await client.request({
+  method: 'stop_mining',
+  params: {}
+});
+
+// Get mining statistics
+const miningStats = await client.request({
+  method: 'get_mining_stats',
+  params: {
+    period: "24h"  // 1h, 24h, 7d, 30d
+  }
+});
+```
+
+### Advanced API Methods
+
+#### Privacy Operations
+
+```javascript
+// Create confidential transaction
+const confidentialTx = await client.request({
+  method: 'create_confidential_transaction',
+  params: {
+    inputs: [
+      {
+        address: "tos1input-address...",
+        amount: 50.0,
+        privacy_proof: "zero_knowledge_proof_data"
+      }
+    ],
+    outputs: [
+      {
+        address: "tos1output-address...",
+        amount: 49.5,
+        stealth_payment: true
+      }
+    ],
+    ring_size: 11,  // For ring signatures
+    mixnet_hops: 3
+  }
+});
+
+// Generate stealth address
+const stealthAddress = await client.request({
+  method: 'generate_stealth_address',
+  params: {
+    public_spend_key: "spend_key_data",
+    public_view_key: "view_key_data",
+    payment_id: "optional_payment_id"
+  }
+});
+```
+
+#### Smart Contract Operations
+
+```javascript
+// Deploy smart contract
+const deployment = await client.request({
+  method: 'deploy_smart_contract',
+  params: {
+    bytecode: "compiled_contract_bytecode",
+    constructor_params: ["param1", "param2"],
+    gas_limit: 1000000,
+    gas_price: 0.001,
+    deployer_address: "tos1deployer-address..."
+  }
+});
+
+// Call smart contract
+const contractResult = await client.request({
+  method: 'call_smart_contract',
+  params: {
+    contract_address: "tos1contract-address...",
+    method: "transfer",
+    parameters: ["tos1recipient...", 100],
+    caller_address: "tos1caller-address...",
+    gas_limit: 500000
+  }
+});
+
+// Get contract state
+const contractState = await client.request({
+  method: 'get_contract_state',
+  params: {
+    contract_address: "tos1contract-address...",
+    variable_name: "balances",
+    key: "tos1address..."
+  }
+});
+```
+
+## WebSocket API
+
+### Connection Setup
+
+```javascript
+const WebSocket = require('ws');
+
+class TOSWebSocketClient {
+  constructor(url) {
+    this.ws = new WebSocket(url);
+    this.subscriptions = new Map();
+    this.requestId = 0;
+
+    this.ws.on('message', this.handleMessage.bind(this));
+    this.ws.on('open', this.handleOpen.bind(this));
+    this.ws.on('error', this.handleError.bind(this));
+  }
+
+  handleMessage(data) {
+    const message = JSON.parse(data);
+
+    if (message.method === 'subscription') {
+      // Handle subscription notification
+      const callback = this.subscriptions.get(message.params.subscription);
+      if (callback) {
+        callback(message.params.result);
+      }
+    } else if (message.id) {
+      // Handle response to request
+      this.handleResponse(message);
+    }
+  }
+
+  subscribe(topic, callback) {
+    const id = ++this.requestId;
+
+    this.ws.send(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'subscribe',
+      params: {
+        topic: topic
+      },
+      id: id
+    }));
+
+    this.subscriptions.set(id, callback);
+    return id;
+  }
+
+  unsubscribe(subscriptionId) {
+    this.ws.send(JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'unsubscribe',
+      params: {
+        subscription: subscriptionId
+      },
+      id: ++this.requestId
+    }));
+
+    this.subscriptions.delete(subscriptionId);
+  }
+}
+```
+
+### Subscription Topics
+
+#### Block Notifications
+
+```javascript
+const client = new TOSWebSocketClient('wss://node.tos.network:8081');
+
+// Subscribe to new blocks
+const blockSubscription = client.subscribe('new_blocks', (block) => {
+  console.log('New block:', block);
+  console.log('Height:', block.height);
+  console.log('Hash:', block.hash);
+  console.log('Transactions:', block.transactions.length);
+});
+
+// Subscribe to block confirmations
+const confirmationSubscription = client.subscribe('block_confirmations', (confirmation) => {
+  console.log('Block confirmed:', confirmation.block_hash);
+  console.log('Confirmations:', confirmation.confirmations);
+});
+```
+
+#### Transaction Notifications
+
+```javascript
+// Subscribe to pending transactions
+const pendingTxSubscription = client.subscribe('pending_transactions', (tx) => {
+  console.log('Pending transaction:', tx.hash);
+  console.log('From:', tx.from);
+  console.log('To:', tx.to);
+  console.log('Amount:', tx.amount);
+});
+
+// Subscribe to confirmed transactions
+const confirmedTxSubscription = client.subscribe('confirmed_transactions', (tx) => {
+  console.log('Transaction confirmed:', tx.hash);
+  console.log('Block height:', tx.block_height);
+  console.log('Confirmations:', tx.confirmations);
+});
+
+// Subscribe to transactions for specific address
+const addressTxSubscription = client.subscribe('address_transactions', (tx) => {
+  console.log('Transaction for address:', tx.address);
+  console.log('Transaction hash:', tx.hash);
+  console.log('Type:', tx.type); // incoming, outgoing
+}, {
+  address: 'tos1your-address...'
+});
+```
+
+#### Mining Notifications
+
+```javascript
+// Subscribe to mining events
+const miningSubscription = client.subscribe('mining_events', (event) => {
+  switch (event.type) {
+    case 'block_found':
+      console.log('Block found!', event.block_hash);
+      break;
+    case 'difficulty_adjustment':
+      console.log('Difficulty adjusted:', event.new_difficulty);
+      break;
+    case 'ai_mining_reward':
+      console.log('AI mining reward:', event.reward_amount);
+      break;
+  }
+});
+```
+
+## REST API
+
+### HTTP Endpoints
+
+#### Basic Information
+
+```http
+GET /api/v1/network/info
+Content-Type: application/json
+
+Response:
+{
+  "network_id": "mainnet",
+  "version": "1.0.0",
+  "block_height": 1250000,
+  "difficulty": 15000000,
+  "total_supply": "21000000",
+  "circulating_supply": "15750000"
+}
+```
+
+#### Block Data
+
+```http
+GET /api/v1/blocks/latest
+GET /api/v1/blocks/1250000
+GET /api/v1/blocks/0x1234567890abcdef...
+
+Response:
+{
+  "height": 1250000,
+  "hash": "0x1234567890abcdef...",
+  "previous_hash": "0xfedcba0987654321...",
+  "timestamp": 1672531200,
+  "difficulty": 15000000,
+  "nonce": 4294967295,
+  "merkle_root": "0xabcdef1234567890...",
+  "transaction_count": 156,
+  "size": 1048576,
+  "miner": "tos1miner-address...",
+  "ai_mining": true
+}
+```
+
+#### Transaction Data
+
+```http
+GET /api/v1/transactions/0xabcdef1234567890...
+
+Response:
+{
+  "hash": "0xabcdef1234567890...",
+  "from": "tos1sender-address...",
+  "to": "tos1recipient-address...",
+  "amount": 100.5,
+  "fee": 0.01,
+  "block_height": 1250000,
+  "block_hash": "0x1234567890abcdef...",
+  "confirmations": 6,
+  "timestamp": 1672531200,
+  "privacy_level": "high",
+  "energy_used": 50
+}
+```
+
+#### Address Information
+
+```http
+GET /api/v1/addresses/tos1address.../balance
+GET /api/v1/addresses/tos1address.../transactions?limit=50&offset=0
+
+Balance Response:
+{
+  "address": "tos1address...",
+  "balance": 1000.5,
+  "pending_balance": 50.25,
+  "energy": 500,
+  "nonce": 42
+}
+```
+
+## Authentication and Security
+
+### API Key Authentication
+
+```javascript
+class AuthenticatedTOSClient {
+  constructor(apiKey, baseUrl) {
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl;
+  }
+
+  async request(method, params) {
+    const timestamp = Date.now();
+    const signature = this.signRequest(method, params, timestamp);
+
+    const response = await fetch(`${this.baseUrl}/api/v1/rpc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.apiKey,
+        'X-Timestamp': timestamp.toString(),
+        'X-Signature': signature
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: method,
+        params: params,
+        id: 1
+      })
+    });
+
+    return response.json();
+  }
+
+  signRequest(method, params, timestamp) {
+    const payload = JSON.stringify({ method, params, timestamp });
+    return crypto
+      .createHmac('sha256', this.apiKey)
+      .update(payload)
+      .digest('hex');
+  }
+}
+```
+
+### OAuth 2.0 Integration
+
+```javascript
+class OAuth2TOSClient {
+  constructor(clientId, clientSecret, redirectUri) {
+    this.clientId = clientId;
+    this.clientSecret = clientSecret;
+    this.redirectUri = redirectUri;
+    this.accessToken = null;
+  }
+
+  getAuthorizationUrl() {
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: this.clientId,
+      redirect_uri: this.redirectUri,
+      scope: 'read_balance send_transactions mine_blocks',
+      state: crypto.randomBytes(16).toString('hex')
+    });
+
+    return `https://auth.tos.network/oauth/authorize?${params}`;
+  }
+
+  async exchangeCodeForToken(code) {
+    const response = await fetch('https://auth.tos.network/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        client_id: this.clientId,
+        client_secret: this.clientSecret,
+        redirect_uri: this.redirectUri
+      })
+    });
+
+    const tokenData = await response.json();
+    this.accessToken = tokenData.access_token;
+    return tokenData;
+  }
+
+  async authenticatedRequest(method, params) {
+    if (!this.accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const response = await fetch('https://node.tos.network/api/v1/rpc', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: method,
+        params: params,
+        id: 1
+      })
+    });
+
+    return response.json();
+  }
+}
+```
+
+## Client Implementation Examples
+
+### Python Client
+
+```python
+import requests
+import json
+import websocket
+import threading
+from typing import Dict, Any, Callable
+
+class TOSNetworkClient:
+    def __init__(self, node_url: str, api_key: str = None):
+        self.node_url = node_url.rstrip('/')
+        self.api_key = api_key
+        self.request_id = 0
+
+    def _get_headers(self) -> Dict[str, str]:
+        headers = {'Content-Type': 'application/json'}
+        if self.api_key:
+            headers['X-API-Key'] = self.api_key
+        return headers
+
+    def _next_id(self) -> int:
+        self.request_id += 1
+        return self.request_id
+
+    def call(self, method: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Make JSON-RPC call to TOS node"""
+        payload = {
+            'jsonrpc': '2.0',
+            'method': method,
+            'params': params or {},
+            'id': self._next_id()
+        }
+
+        response = requests.post(
+            f'{self.node_url}/api/v1/rpc',
+            headers=self._get_headers(),
+            data=json.dumps(payload)
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            if 'error' in result:
+                raise Exception(f"RPC Error: {result['error']}")
+            return result.get('result', {})
+        else:
+            raise Exception(f"HTTP Error: {response.status_code}")
+
+    # Network methods
+    def get_network_info(self) -> Dict[str, Any]:
+        return self.call('get_network_info')
+
+    def get_block_height(self) -> int:
+        return self.call('get_block_height')['height']
+
+    # Block methods
+    def get_block(self, height_or_hash: Any, include_transactions: bool = True) -> Dict[str, Any]:
+        if isinstance(height_or_hash, int):
+            params = {'height': height_or_hash}
+        else:
+            params = {'hash': height_or_hash}
+        params['include_transactions'] = include_transactions
+        return self.call('get_block', params)
+
+    def get_latest_block(self, include_transactions: bool = True) -> Dict[str, Any]:
+        return self.call('get_latest_block', {'include_transactions': include_transactions})
+
+    # Transaction methods
+    def send_transaction(self, from_addr: str, to_addr: str, amount: float,
+                        fee: float = 0.01, privacy_level: str = 'medium') -> Dict[str, Any]:
+        return self.call('send_transaction', {
+            'from': from_addr,
+            'to': to_addr,
+            'amount': amount,
+            'fee': fee,
+            'privacy_level': privacy_level
+        })
+
+    def get_transaction(self, tx_hash: str) -> Dict[str, Any]:
+        return self.call('get_transaction', {'hash': tx_hash})
+
+    # Wallet methods
+    def get_balance(self, address: str) -> Dict[str, Any]:
+        return self.call('get_balance', {'address': address})
+
+    def create_address(self, wallet_name: str = 'default') -> Dict[str, Any]:
+        return self.call('create_address', {'wallet_name': wallet_name})
+
+    # Mining methods
+    def start_mining(self, miner_address: str, threads: int = 4, ai_mining: bool = True) -> Dict[str, Any]:
+        return self.call('start_mining', {
+            'miner_address': miner_address,
+            'threads': threads,
+            'ai_mining': ai_mining
+        })
+
+    def stop_mining(self) -> Dict[str, Any]:
+        return self.call('stop_mining')
+
+    def get_mining_info(self) -> Dict[str, Any]:
+        return self.call('get_mining_info')
+
+class TOSWebSocketClient:
+    def __init__(self, ws_url: str):
+        self.ws_url = ws_url
+        self.ws = None
+        self.subscriptions = {}
+        self.request_id = 0
+
+    def connect(self):
+        """Connect to WebSocket"""
+        self.ws = websocket.WebSocketApp(
+            self.ws_url,
+            on_message=self._on_message,
+            on_error=self._on_error,
+            on_close=self._on_close
+        )
+
+        # Run in separate thread
+        wst = threading.Thread(target=self.ws.run_forever)
+        wst.daemon = True
+        wst.start()
+
+    def _on_message(self, ws, message):
+        data = json.loads(message)
+
+        if 'method' in data and data['method'] == 'subscription':
+            # Handle subscription notification
+            sub_id = data['params']['subscription']
+            if sub_id in self.subscriptions:
+                callback = self.subscriptions[sub_id]
+                callback(data['params']['result'])
+
+    def _on_error(self, ws, error):
+        print(f"WebSocket error: {error}")
+
+    def _on_close(self, ws, close_status_code, close_msg):
+        print("WebSocket connection closed")
+
+    def subscribe(self, topic: str, callback: Callable) -> int:
+        """Subscribe to topic and return subscription ID"""
+        sub_id = self._next_id()
+
+        request = {
+            'jsonrpc': '2.0',
+            'method': 'subscribe',
+            'params': {'topic': topic},
+            'id': sub_id
+        }
+
+        self.ws.send(json.dumps(request))
+        self.subscriptions[sub_id] = callback
+        return sub_id
+
+    def unsubscribe(self, sub_id: int):
+        """Unsubscribe from topic"""
+        request = {
+            'jsonrpc': '2.0',
+            'method': 'unsubscribe',
+            'params': {'subscription': sub_id},
+            'id': self._next_id()
+        }
+
+        self.ws.send(json.dumps(request))
+        if sub_id in self.subscriptions:
+            del self.subscriptions[sub_id]
+
+    def _next_id(self) -> int:
+        self.request_id += 1
+        return self.request_id
+
+# Usage example
+if __name__ == '__main__':
+    # Create client
+    client = TOSNetworkClient('https://node.tos.network', api_key='your-api-key')
+
+    # Get network info
+    network_info = client.get_network_info()
+    print(f"Network: {network_info['network_id']}")
+    print(f"Block height: {network_info['block_height']}")
+
+    # Get latest block
+    latest_block = client.get_latest_block()
+    print(f"Latest block hash: {latest_block['hash']}")
+
+    # WebSocket example
+    ws_client = TOSWebSocketClient('wss://node.tos.network:8081')
+    ws_client.connect()
+
+    # Subscribe to new blocks
+    def on_new_block(block):
+        print(f"New block: {block['height']} - {block['hash']}")
+
+    ws_client.subscribe('new_blocks', on_new_block)
+```
+
+### Go Client
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "sync"
+    "time"
+
+    "github.com/gorilla/websocket"
+)
+
+type TOSClient struct {
+    nodeURL   string
+    apiKey    string
+    client    *http.Client
+    requestID int64
+    mutex     sync.Mutex
+}
+
+type JSONRPCRequest struct {
+    JSONRPC string      `json:"jsonrpc"`
+    Method  string      `json:"method"`
+    Params  interface{} `json:"params"`
+    ID      int64       `json:"id"`
+}
+
+type JSONRPCResponse struct {
+    JSONRPC string          `json:"jsonrpc"`
+    Result  json.RawMessage `json:"result,omitempty"`
+    Error   *JSONRPCError   `json:"error,omitempty"`
+    ID      int64           `json:"id"`
+}
+
+type JSONRPCError struct {
+    Code    int         `json:"code"`
+    Message string      `json:"message"`
+    Data    interface{} `json:"data,omitempty"`
+}
+
+func NewTOSClient(nodeURL, apiKey string) *TOSClient {
+    return &TOSClient{
+        nodeURL: nodeURL,
+        apiKey:  apiKey,
+        client: &http.Client{
+            Timeout: 30 * time.Second,
+        },
+    }
+}
+
+func (c *TOSClient) nextID() int64 {
+    c.mutex.Lock()
+    defer c.mutex.Unlock()
+    c.requestID++
+    return c.requestID
+}
+
+func (c *TOSClient) Call(method string, params interface{}) (json.RawMessage, error) {
+    request := JSONRPCRequest{
+        JSONRPC: "2.0",
+        Method:  method,
+        Params:  params,
+        ID:      c.nextID(),
+    }
+
+    requestBody, err := json.Marshal(request)
+    if err != nil {
+        return nil, fmt.Errorf("failed to marshal request: %v", err)
+    }
+
+    req, err := http.NewRequest("POST", c.nodeURL+"/api/v1/rpc", bytes.NewBuffer(requestBody))
+    if err != nil {
+        return nil, fmt.Errorf("failed to create request: %v", err)
+    }
+
+    req.Header.Set("Content-Type", "application/json")
+    if c.apiKey != "" {
+        req.Header.Set("X-API-Key", c.apiKey)
+    }
+
+    resp, err := c.client.Do(req)
+    if err != nil {
+        return nil, fmt.Errorf("failed to send request: %v", err)
+    }
+    defer resp.Body.Close()
+
+    responseBody, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return nil, fmt.Errorf("failed to read response: %v", err)
+    }
+
+    var jsonRPCResp JSONRPCResponse
+    if err := json.Unmarshal(responseBody, &jsonRPCResp); err != nil {
+        return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+    }
+
+    if jsonRPCResp.Error != nil {
+        return nil, fmt.Errorf("RPC error %d: %s", jsonRPCResp.Error.Code, jsonRPCResp.Error.Message)
+    }
+
+    return jsonRPCResp.Result, nil
+}
+
+// Network methods
+func (c *TOSClient) GetNetworkInfo() (map[string]interface{}, error) {
+    result, err := c.Call("get_network_info", nil)
+    if err != nil {
+        return nil, err
+    }
+
+    var networkInfo map[string]interface{}
+    if err := json.Unmarshal(result, &networkInfo); err != nil {
+        return nil, err
+    }
+
+    return networkInfo, nil
+}
+
+// Block methods
+func (c *TOSClient) GetBlock(heightOrHash interface{}, includeTransactions bool) (map[string]interface{}, error) {
+    params := map[string]interface{}{
+        "include_transactions": includeTransactions,
+    }
+
+    switch v := heightOrHash.(type) {
+    case int, int64:
+        params["height"] = v
+    case string:
+        params["hash"] = v
+    default:
+        return nil, fmt.Errorf("invalid heightOrHash type")
+    }
+
+    result, err := c.Call("get_block", params)
+    if err != nil {
+        return nil, err
+    }
+
+    var block map[string]interface{}
+    if err := json.Unmarshal(result, &block); err != nil {
+        return nil, err
+    }
+
+    return block, nil
+}
+
+// Transaction methods
+func (c *TOSClient) SendTransaction(from, to string, amount, fee float64) (map[string]interface{}, error) {
+    params := map[string]interface{}{
+        "from":   from,
+        "to":     to,
+        "amount": amount,
+        "fee":    fee,
+    }
+
+    result, err := c.Call("send_transaction", params)
+    if err != nil {
+        return nil, err
+    }
+
+    var txResult map[string]interface{}
+    if err := json.Unmarshal(result, &txResult); err != nil {
+        return nil, err
+    }
+
+    return txResult, nil
+}
+
+// WebSocket client
+type TOSWebSocketClient struct {
+    conn          *websocket.Conn
+    subscriptions map[int64]func(interface{})
+    requestID     int64
+    mutex         sync.RWMutex
+}
+
+func NewTOSWebSocketClient(wsURL string) (*TOSWebSocketClient, error) {
+    conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+    if err != nil {
+        return nil, fmt.Errorf("failed to connect to WebSocket: %v", err)
+    }
+
+    client := &TOSWebSocketClient{
+        conn:          conn,
+        subscriptions: make(map[int64]func(interface{})),
+    }
+
+    go client.readMessages()
+
+    return client, nil
+}
+
+func (c *TOSWebSocketClient) readMessages() {
+    for {
+        _, message, err := c.conn.ReadMessage()
+        if err != nil {
+            fmt.Printf("WebSocket read error: %v\n", err)
+            return
+        }
+
+        var response map[string]interface{}
+        if err := json.Unmarshal(message, &response); err != nil {
+            fmt.Printf("Failed to unmarshal WebSocket message: %v\n", err)
+            continue
+        }
+
+        if method, ok := response["method"].(string); ok && method == "subscription" {
+            if params, ok := response["params"].(map[string]interface{}); ok {
+                if subID, ok := params["subscription"].(float64); ok {
+                    c.mutex.RLock()
+                    if callback, exists := c.subscriptions[int64(subID)]; exists {
+                        callback(params["result"])
+                    }
+                    c.mutex.RUnlock()
+                }
+            }
+        }
+    }
+}
+
+func (c *TOSWebSocketClient) Subscribe(topic string, callback func(interface{})) (int64, error) {
+    c.mutex.Lock()
+    c.requestID++
+    subID := c.requestID
+    c.subscriptions[subID] = callback
+    c.mutex.Unlock()
+
+    request := map[string]interface{}{
+        "jsonrpc": "2.0",
+        "method":  "subscribe",
+        "params":  map[string]string{"topic": topic},
+        "id":      subID,
+    }
+
+    if err := c.conn.WriteJSON(request); err != nil {
+        c.mutex.Lock()
+        delete(c.subscriptions, subID)
+        c.mutex.Unlock()
+        return 0, fmt.Errorf("failed to send subscription request: %v", err)
+    }
+
+    return subID, nil
+}
+
+func (c *TOSWebSocketClient) Unsubscribe(subID int64) error {
+    request := map[string]interface{}{
+        "jsonrpc": "2.0",
+        "method":  "unsubscribe",
+        "params":  map[string]int64{"subscription": subID},
+        "id":      c.requestID + 1,
+    }
+
+    if err := c.conn.WriteJSON(request); err != nil {
+        return fmt.Errorf("failed to send unsubscription request: %v", err)
+    }
+
+    c.mutex.Lock()
+    delete(c.subscriptions, subID)
+    c.mutex.Unlock()
+
+    return nil
+}
+
+func (c *TOSWebSocketClient) Close() error {
+    return c.conn.Close()
+}
+
+// Example usage
+func main() {
+    // Create HTTP client
+    client := NewTOSClient("https://node.tos.network", "your-api-key")
+
+    // Get network info
+    networkInfo, err := client.GetNetworkInfo()
+    if err != nil {
+        fmt.Printf("Error getting network info: %v\n", err)
+        return
+    }
+
+    fmt.Printf("Network ID: %v\n", networkInfo["network_id"])
+    fmt.Printf("Block Height: %v\n", networkInfo["block_height"])
+
+    // WebSocket example
+    wsClient, err := NewTOSWebSocketClient("wss://node.tos.network:8081")
+    if err != nil {
+        fmt.Printf("Error creating WebSocket client: %v\n", err)
+        return
+    }
+    defer wsClient.Close()
+
+    // Subscribe to new blocks
+    subID, err := wsClient.Subscribe("new_blocks", func(data interface{}) {
+        if block, ok := data.(map[string]interface{}); ok {
+            fmt.Printf("New block: %v - %v\n", block["height"], block["hash"])
+        }
+    })
+    if err != nil {
+        fmt.Printf("Error subscribing to new blocks: %v\n", err)
+        return
+    }
+
+    // Keep the program running
+    time.Sleep(30 * time.Second)
+
+    // Unsubscribe
+    wsClient.Unsubscribe(subID)
+}
+```
+
+## Error Handling
+
+### Standard Error Codes
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -32700 | Parse error | Invalid JSON received |
+| -32600 | Invalid Request | JSON-RPC request is invalid |
+| -32601 | Method not found | Requested method does not exist |
+| -32602 | Invalid params | Invalid method parameters |
+| -32603 | Internal error | Internal JSON-RPC error |
+| -32000 | Server error | TOS Network specific errors |
+
+### TOS-Specific Error Codes
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -40001 | Insufficient balance | Not enough funds for transaction |
+| -40002 | Invalid address | Address format is incorrect |
+| -40003 | Transaction rejected | Transaction validation failed |
+| -40004 | Block not found | Requested block does not exist |
+| -40005 | Mining error | Mining operation failed |
+| -40006 | Privacy error | Privacy operation failed |
+| -40007 | Smart contract error | Contract execution failed |
+
+### Error Handling Example
+
+```javascript
+class TOSErrorHandler {
+  static handle(error) {
+    switch (error.code) {
+      case -40001:
+        return {
+          type: 'INSUFFICIENT_BALANCE',
+          message: 'Insufficient funds for this transaction',
+          action: 'Please check your balance and try again'
+        };
+
+      case -40002:
+        return {
+          type: 'INVALID_ADDRESS',
+          message: 'The provided address is not valid',
+          action: 'Please verify the address format'
+        };
+
+      case -40003:
+        return {
+          type: 'TRANSACTION_REJECTED',
+          message: 'Transaction was rejected by the network',
+          action: 'Check transaction parameters and network status'
+        };
+
+      default:
+        return {
+          type: 'UNKNOWN_ERROR',
+          message: error.message || 'An unknown error occurred',
+          action: 'Please try again or contact support'
+        };
+    }
+  }
+}
+
+// Usage
+try {
+  const result = await client.sendTransaction(params);
+} catch (error) {
+  const handledError = TOSErrorHandler.handle(error);
+  console.error(handledError.message);
+  // Show user-friendly error message
+}
+```
+
+## Rate Limiting
+
+### Default Limits
+
+- **Unauthenticated**: 100 requests per minute
+- **API Key**: 1,000 requests per minute
+- **OAuth2**: 5,000 requests per minute
+- **WebSocket**: 10 subscriptions per connection
+
+### Rate Limit Headers
+
+```http
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1672531260
+```
+
+### Rate Limiting Implementation
+
+```javascript
+class RateLimiter {
+  constructor(maxRequests, windowMs) {
+    this.maxRequests = maxRequests;
+    this.windowMs = windowMs;
+    this.requests = [];
+  }
+
+  canMakeRequest() {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    // Remove old requests
+    this.requests = this.requests.filter(time => time > windowStart);
+
+    if (this.requests.length < this.maxRequests) {
+      this.requests.push(now);
+      return true;
+    }
+
+    return false;
+  }
+
+  timeUntilReset() {
+    if (this.requests.length === 0) return 0;
+
+    const oldestRequest = Math.min(...this.requests);
+    return Math.max(0, this.windowMs - (Date.now() - oldestRequest));
+  }
+}
+
+// Usage in client
+const rateLimiter = new RateLimiter(1000, 60000); // 1000 requests per minute
+
+async function makeRequest(client, method, params) {
+  if (!rateLimiter.canMakeRequest()) {
+    const waitTime = rateLimiter.timeUntilReset();
+    throw new Error(`Rate limit exceeded. Try again in ${waitTime}ms`);
+  }
+
+  return client.call(method, params);
+}
+```
+
+The TOS Network client protocol provides a robust, secure, and efficient way to interact with the TOS blockchain. By following the "Don't Trust, Verify it" principle, all protocol interactions are transparent and verifiable, ensuring the highest level of security and reliability for applications built on the TOS Network.

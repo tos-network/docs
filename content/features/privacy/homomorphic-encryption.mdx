@@ -1,0 +1,225 @@
+---
+title: Homomorphic Encryption
+description: Privacy-preserving computations on encrypted balances and transaction amounts
+---
+
+# Homomorphic Encryption: Mathematical Privacy Guarantees
+
+Homomorphic Encryption (HE) is a cornerstone of TOS Network's **"Don't Trust, Verify it"** principle, providing cryptographic proof of privacy without requiring trust in any intermediary. This advanced encryption technique allows computation on encrypted data without ever decrypting it, ensuring that your financial information remains completely private.
+
+## What is Homomorphic Encryption?
+
+Homomorphic Encryption is a form of encryption that enables computation on ciphertexts, generating an encrypted result which, when decrypted, matches the result of operations performed on the plaintext. This means:
+
+- **Complete Privacy**: All balances and transaction amounts remain encrypted at all times
+- **Verifiable Computation**: Network nodes can verify transactions without seeing actual amounts
+- **Mathematical Guarantees**: Privacy is ensured through cryptographic proofs, not institutional promises
+- **Zero Trust Required**: No central authority needs to be trusted with your financial data
+
+## TOS Implementation: Twisted ElGamal
+
+TOS Network uses an advanced **Twisted ElGamal** implementation specifically optimized for blockchain operations. This choice provides the perfect balance of security, performance, and privacy features required for a trustless financial system.
+
+### Why Twisted ElGamal?
+
+**Traditional ElGamal Benefits:**
+- Based on the computational difficulty of discrete logarithms
+- Well-established cryptographic foundation (since 1985)
+- Strong homomorphic properties for blockchain operations
+- Compatible with Curve25519 through Ristretto Points
+
+**TOS Enhancements (Twisted ElGamal):**
+- **Bulletproof Integration**: Seamless compatibility with zero-knowledge range proofs
+- **Pedersen Commitments**: Direct integration of commitments in encryption/decryption
+- **Faster Verification**: Optimized verification times for blockchain consensus
+- **Same Security**: Maintains all security guarantees of original ElGamal
+
+## Homomorphic Properties in Action
+
+TOS utilizes three key homomorphic properties to enable private transactions:
+
+### 1. Additive Homomorphism
+```
+Given:
+- Encrypted balance₁ = Encrypt(amount₁)
+- Encrypted balance₂ = Encrypt(amount₂)
+
+Computation:
+- Encrypted result = Encrypted balance₁ + Encrypted balance₂
+- Decrypt(Encrypted result) = amount₁ + amount₂
+```
+
+**Use Case**: Adding received funds to your encrypted balance without revealing the amount.
+
+### 2. Subtractive Homomorphism
+```
+Given:
+- Encrypted balance = Encrypt(current_balance)
+- Encrypted payment = Encrypt(payment_amount)
+
+Computation:
+- New encrypted balance = Encrypted balance - Encrypted payment
+- Decrypt(New encrypted balance) = current_balance - payment_amount
+```
+
+**Use Case**: Deducting sent funds from your encrypted balance during transactions.
+
+### 3. Scalar Multiplication
+```
+Given:
+- Encrypted amount = Encrypt(value)
+- Public scalar = k
+
+Computation:
+- Encrypted result = k × Encrypted amount
+- Decrypt(Encrypted result) = k × value
+```
+
+**Use Case**: Computing fees or splits without revealing the base amount.
+
+## Privacy Guarantees
+
+### What TOS Homomorphic Encryption Protects:
+
+✅ **Account Balances**: Your wallet balance is never visible to anyone except you
+✅ **Transaction Amounts**: Transfer amounts remain encrypted end-to-end
+✅ **Asset Holdings**: Multi-asset balances are individually encrypted
+✅ **Historical Data**: Past transactions remain private even if wallet is compromised
+✅ **Network Analysis**: Prevents chain analysis and balance correlation attacks
+
+### What Remains Public:
+
+- Sender and receiver addresses (but not linked to real identities)
+- Transaction timestamp and block inclusion
+- Asset types being transferred (but not amounts)
+- Network fees (standardized and public)
+
+## Technical Implementation
+
+### Encryption Process
+
+1. **Key Generation**: Each wallet generates a private/public key pair
+2. **Balance Encryption**: All balances stored as ElGamal ciphertexts
+3. **Transaction Creation**: Amounts encrypted with recipient's public key
+4. **Homomorphic Operations**: Network performs encrypted arithmetic
+5. **Decryption**: Only the private key holder can decrypt their data
+
+### Network Verification
+
+TOS nodes can verify transaction validity without seeing amounts through:
+
+- **Range Proofs**: Prove amounts are positive without revealing values
+- **Balance Constraints**: Verify sufficient funds without knowing exact amounts
+- **Cryptographic Commitments**: Mathematical proofs of transaction integrity
+- **Bulletproof Integration**: Efficient zero-knowledge proofs for encrypted amounts
+
+## Comparison with Other Privacy Methods
+
+| Method | Privacy Level | Performance | Trustlessness | TOS Implementation |
+|--------|---------------|-------------|---------------|-------------------|
+| **Homomorphic Encryption** | Complete amount privacy | High | Full | ✅ Core feature |
+| **Zero-Knowledge Proofs** | Complete transaction privacy | Medium | Full | ✅ Bulletproofs |
+| **Ring Signatures** | Sender privacy only | Medium | Full | ❌ Not needed |
+| **Mixers/Tumblers** | Requires trust | Variable | Low | ❌ Trust required |
+| **Stealth Addresses** | Receiver privacy only | High | Full | 🔄 Future consideration |
+
+## Real-World Example
+
+Let's see how Alice sends 100 TOS to Bob privately:
+
+### Traditional Blockchain (Public):
+```
+Alice Balance: 1000 TOS (visible to everyone)
+Transaction: Alice → Bob, 100 TOS (amount visible)
+Bob Balance: 500 + 100 = 600 TOS (new balance visible)
+```
+
+### TOS Network (Private):
+```
+Alice Balance: Encrypt(1000) (only Alice knows it's 1000)
+Transaction: Alice → Bob, Encrypt(100) (amount hidden)
+Network Verification: Proves Alice has sufficient funds without revealing amounts
+Bob Balance: Encrypt(500) + Encrypt(100) = Encrypt(600) (only Bob knows final amount)
+```
+
+### Network View:
+- ✅ Transaction is valid (cryptographically proven)
+- ✅ Alice has sufficient balance (proven with range proofs)
+- ✅ No double spending (verified through commitments)
+- ❌ Actual amounts remain completely hidden
+- ❌ Account balances remain private
+
+## Why Not Fully Homomorphic Encryption (FHE)?
+
+TOS specifically chose **Partially Homomorphic Encryption** over FHE for several technical reasons:
+
+| Aspect | Partially HE (TOS Choice) | Fully HE |
+|--------|---------------------------|-----------|
+| **Performance** | Fast (seconds) | Slow (minutes-hours) |
+| **Ciphertext Size** | Fixed size | Grows with operations |
+| **Complexity** | Simple and proven | Complex and experimental |
+| **Blockchain Suitability** | Perfect fit | Poor fit |
+| **Operations Needed** | Add/Subtract (sufficient) | All operations (overkill) |
+
+## Security Considerations
+
+### Cryptographic Assumptions
+- **Discrete Logarithm Problem**: Security based on well-studied mathematical problem
+- **Curve25519 Security**: Industry-standard elliptic curve cryptography
+- **No Trusted Setup**: No ceremony or trusted parties required
+- **Post-Quantum Consideration**: Monitoring developments in quantum-resistant alternatives
+
+### Attack Resistance
+- **Correlation Attacks**: Prevented through proper key rotation
+- **Amount Inference**: Mitigated through bulletproof range proofs
+- **Metadata Analysis**: Combined with network privacy features
+- **Replay Attacks**: Prevented through nonce mechanisms
+
+## Developer Integration
+
+### Using Homomorphic Encryption in TOS
+
+```javascript
+// Example: Creating a private transaction
+const transaction = {
+  sender: senderAddress,
+  receiver: receiverAddress,
+  encrypted_amount: await encryptAmount(amount, receiverPublicKey),
+  range_proof: await generateRangeProof(amount),
+  balance_proof: await generateBalanceProof(senderBalance, amount)
+}
+
+// Network verifies without decrypting
+const isValid = await verifyEncryptedTransaction(transaction)
+```
+
+### Wallet Integration
+
+```javascript
+// Decrypt balance for display
+const actualBalance = await decryptBalance(encryptedBalance, privateKey)
+
+// Verify incoming transaction
+const receivedAmount = await decryptAmount(encryptedAmount, privateKey)
+```
+
+## Future Enhancements
+
+TOS Network continues to advance homomorphic encryption capabilities:
+
+- **Multi-Asset Privacy**: Enhanced encryption for complex asset portfolios
+- **Confidential Smart Contracts**: Private computation in RVM
+- **Cross-Chain Privacy**: Maintaining privacy across blockchain bridges
+- **Quantum Resistance**: Preparation for post-quantum cryptography
+
+## Conclusion
+
+Homomorphic Encryption in TOS Network represents the state-of-the-art in blockchain privacy technology. By providing **complete mathematical privacy guarantees** without requiring trust in any third party, TOS delivers on its core promise: **"Don't Trust, Verify it"**.
+
+Your financial privacy is protected by mathematics, not promises. Your transaction amounts are your business alone, while the network can still verify the integrity and validity of all operations. This is the future of private, trustless finance.
+
+## Learn More
+
+- [Zero-Knowledge Proofs](/features/privacy/zero-knowledge-proof) - How TOS proves transaction validity
+- [Confidential Assets](/features/privacy/confidential-assets) - Private tokens and assets
+- [Technical Whitepaper](/whitepaper) - Deep dive into cryptographic implementation

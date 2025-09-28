@@ -1,0 +1,713 @@
+---
+title: Installing TOS Network Software
+description: Complete installation guide for TOS Network daemon, wallet, and tools using precompiled binaries, Docker, or building from source
+---
+
+# Installing TOS Network Software
+
+This guide covers all methods to install TOS Network software on your system. Choose the installation method that best fits your needs and technical expertise.
+
+## Installation Methods Overview
+
+| Method | Difficulty | Use Case | Platforms |
+|--------|------------|----------|-----------|
+| **Precompiled Binaries** | Easy | Most users, quick setup | Windows, macOS, Linux |
+| **Docker** | Medium | Containerized deployment | All platforms with Docker |
+| **Build from Source** | Advanced | Developers, custom builds | Linux, macOS |
+| **Package Managers** | Easy | System integration | Linux distributions |
+
+## Precompiled Binaries (Recommended)
+
+### Automatic Installation Script
+
+The easiest way to install TOS Network software:
+
+```bash
+# Download and run the installation script
+curl -fsSL https://install.tos.network | bash
+
+# Reload your shell configuration
+source ~/.bashrc  # For bash users
+source ~/.zshrc   # For zsh users
+
+# Verify installation
+tos-daemon --version
+tos-wallet --version
+tos-miner --version
+```
+
+### Manual Binary Installation
+
+#### Linux Installation
+
+```bash
+# Download latest release for Linux
+LATEST_VERSION=$(curl -s https://api.github.com/repos/tos-network/tos/releases/latest | grep tag_name | cut -d '"' -f 4)
+wget https://github.com/tos-network/tos/releases/download/${LATEST_VERSION}/tos-linux-amd64.tar.gz
+
+# Extract binaries
+tar -xzf tos-linux-amd64.tar.gz
+cd tos-linux-amd64
+
+# Install binaries
+sudo cp tos-daemon /usr/local/bin/
+sudo cp tos-wallet /usr/local/bin/
+sudo cp tos-miner /usr/local/bin/
+sudo chmod +x /usr/local/bin/tos-*
+
+# Create TOS user and directories
+sudo useradd -r -s /bin/false tos
+sudo mkdir -p /etc/tos /var/lib/tos /var/log/tos
+sudo chown tos:tos /var/lib/tos /var/log/tos
+
+# Verify installation
+tos-daemon --version
+```
+
+#### macOS Installation
+
+```bash
+# Using Homebrew (recommended)
+brew tap tos-network/tos
+brew install tos-daemon tos-wallet tos-miner
+
+# Or manual installation
+LATEST_VERSION=$(curl -s https://api.github.com/repos/tos-network/tos/releases/latest | grep tag_name | cut -d '"' -f 4)
+curl -L https://github.com/tos-network/tos/releases/download/${LATEST_VERSION}/tos-macos-universal.tar.gz -o tos-macos.tar.gz
+
+# Extract and install
+tar -xzf tos-macos.tar.gz
+sudo cp tos-macos-universal/* /usr/local/bin/
+sudo chmod +x /usr/local/bin/tos-*
+
+# Verify installation
+tos-daemon --version
+```
+
+#### Windows Installation
+
+```powershell
+# Using PowerShell (run as Administrator)
+# Download latest Windows release
+$LatestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/tos-network/tos/releases/latest"
+$DownloadUrl = $LatestRelease.assets | Where-Object { $_.name -like "*windows-amd64.zip" } | Select-Object -ExpandProperty browser_download_url
+
+# Download and extract
+Invoke-WebRequest -Uri $DownloadUrl -OutFile "tos-windows.zip"
+Expand-Archive -Path "tos-windows.zip" -DestinationPath "C:\TOS"
+
+# Add to PATH
+$env:PATH += ";C:\TOS"
+[Environment]::SetEnvironmentVariable("Path", $env:PATH, [EnvironmentVariableTarget]::Machine)
+
+# Verify installation
+tos-daemon.exe --version
+```
+
+#### Alternative Windows Installation (GUI)
+
+1. **Download Release**:
+   - Visit: https://github.com/tos-network/tos/releases/latest
+   - Download `tos-windows-amd64.zip`
+
+2. **Extract Files**:
+   - Create folder: `C:\TOS`
+   - Extract zip contents to `C:\TOS`
+
+3. **Add to PATH**:
+   - Open System Properties → Environment Variables
+   - Add `C:\TOS` to your PATH variable
+
+4. **Verify Installation**:
+   - Open Command Prompt
+   - Run: `tos-daemon --version`
+
+## Docker Installation
+
+### Quick Start with Docker
+
+```bash
+# Pull the latest TOS Network image
+docker pull tosnetwork/tos-node:latest
+
+# Run TOS daemon
+docker run -d \
+  --name tos-node \
+  -p 2080:2080 \
+  -p 8080:8080 \
+  -v tos-data:/data \
+  -v tos-config:/config \
+  tosnetwork/tos-node:latest
+
+# Check container status
+docker ps
+docker logs tos-node
+
+# Access container shell
+docker exec -it tos-node bash
+```
+
+### Docker Compose Setup
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  tos-daemon:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-daemon
+    restart: unless-stopped
+    ports:
+      - "2080:2080"  # P2P port
+      - "8080:8080"  # RPC port
+    volumes:
+      - tos-data:/data
+      - tos-config:/config
+      - tos-logs:/logs
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_LOG_LEVEL=info
+      - TOS_RPC_ENABLED=true
+    healthcheck:
+      test: ["CMD", "tos-daemon", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  tos-wallet:
+    image: tosnetwork/tos-wallet:latest
+    container_name: tos-wallet
+    restart: unless-stopped
+    ports:
+      - "8081:8081"  # Wallet RPC
+    volumes:
+      - tos-wallet-data:/wallet
+    environment:
+      - TOS_DAEMON_URL=http://tos-daemon:8080
+    depends_on:
+      - tos-daemon
+
+  tos-miner:
+    image: tosnetwork/tos-miner:latest
+    container_name: tos-miner
+    restart: unless-stopped
+    environment:
+      - TOS_DAEMON_URL=http://tos-daemon:8080
+      - TOS_MINING_ADDRESS=tos1your-mining-address...
+      - TOS_MINING_THREADS=4
+    depends_on:
+      - tos-daemon
+
+volumes:
+  tos-data:
+  tos-config:
+  tos-logs:
+  tos-wallet-data:
+```
+
+Start the services:
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f tos-daemon
+
+# Stop services
+docker-compose down
+```
+
+### Custom Docker Configuration
+
+Create custom Dockerfile:
+
+```dockerfile
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install TOS binaries
+RUN curl -fsSL https://install.tos.network | bash
+
+# Create TOS user
+RUN useradd -r -s /bin/false tos
+
+# Copy configuration
+COPY config/config.toml /etc/tos/config.toml
+COPY config/genesis.json /etc/tos/genesis.json
+
+# Set permissions
+RUN chown -R tos:tos /etc/tos
+
+# Expose ports
+EXPOSE 2080 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD tos-daemon status || exit 1
+
+# Switch to TOS user
+USER tos
+
+# Start daemon
+CMD ["tos-daemon", "start", "--config", "/etc/tos/config.toml"]
+```
+
+Build and run:
+
+```bash
+# Build custom image
+docker build -t my-tos-node .
+
+# Run custom container
+docker run -d \
+  --name my-tos-node \
+  -p 2080:2080 \
+  -p 8080:8080 \
+  my-tos-node
+```
+
+## Building from Source
+
+### Prerequisites
+
+Before building from source, ensure you have:
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install -y \
+    build-essential \
+    git \
+    golang-go \
+    rust \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    protobuf-compiler
+
+# macOS
+brew install git go rust cmake protobuf
+
+# Verify Go version (requires Go 1.19+)
+go version
+
+# Verify Rust version (requires Rust 1.70+)
+rustc --version
+```
+
+### Clone and Build
+
+```bash
+# Clone the TOS Network repository
+git clone https://github.com/tos-network/tos.git
+cd tos
+
+# Checkout latest stable release
+git checkout $(git describe --tags --abbrev=0)
+
+# Build all components
+make build
+
+# Or build specific components
+make build-daemon     # Build daemon only
+make build-wallet     # Build wallet only
+make build-miner      # Build miner only
+
+# Install binaries
+sudo make install
+
+# Verify installation
+tos-daemon --version
+tos-wallet --version
+tos-miner --version
+```
+
+### Development Build
+
+For development and testing:
+
+```bash
+# Clone repository
+git clone https://github.com/tos-network/tos.git
+cd tos
+
+# Stay on development branch
+git checkout develop
+
+# Build with debug symbols
+make build-debug
+
+# Run tests
+make test
+
+# Install development binaries
+make install-dev
+```
+
+### Cross-Compilation
+
+Build for different platforms:
+
+```bash
+# Build for Linux ARM64
+make build-linux-arm64
+
+# Build for Windows
+make build-windows
+
+# Build for macOS
+make build-macos
+
+# Build for all platforms
+make build-all
+```
+
+## Package Manager Installation
+
+### Ubuntu/Debian
+
+```bash
+# Add TOS Network repository
+curl -fsSL https://packages.tos.network/gpg | sudo gpg --dearmor -o /usr/share/keyrings/tos-network.gpg
+echo "deb [signed-by=/usr/share/keyrings/tos-network.gpg] https://packages.tos.network/apt stable main" | sudo tee /etc/apt/sources.list.d/tos-network.list
+
+# Update package list
+sudo apt update
+
+# Install TOS Network
+sudo apt install tos-daemon tos-wallet tos-miner
+
+# Enable and start daemon
+sudo systemctl enable tos-daemon
+sudo systemctl start tos-daemon
+```
+
+### CentOS/RHEL/Fedora
+
+```bash
+# Add TOS Network repository
+sudo tee /etc/yum.repos.d/tos-network.repo << EOF
+[tos-network]
+name=TOS Network Repository
+baseurl=https://packages.tos.network/rpm/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.tos.network/gpg
+EOF
+
+# Install TOS Network
+sudo yum install tos-daemon tos-wallet tos-miner
+# Or for Fedora: sudo dnf install tos-daemon tos-wallet tos-miner
+
+# Enable and start daemon
+sudo systemctl enable tos-daemon
+sudo systemctl start tos-daemon
+```
+
+### Arch Linux
+
+```bash
+# Install from AUR
+yay -S tos-daemon tos-wallet tos-miner
+
+# Or using makepkg
+git clone https://aur.archlinux.org/tos-daemon.git
+cd tos-daemon
+makepkg -si
+```
+
+## Verification and Security
+
+### Verify Installation
+
+```bash
+# Check version information
+tos-daemon --version
+tos-wallet --version
+tos-miner --version
+
+# Verify binary integrity
+tos-daemon verify-binary
+tos-wallet verify-binary
+tos-miner verify-binary
+
+# Check available commands
+tos-daemon --help
+tos-wallet --help
+tos-miner --help
+```
+
+### Signature Verification
+
+Always verify release signatures:
+
+```bash
+# Import TOS Network public key
+curl -fsSL https://keys.tos.network/release-signing-key.asc | gpg --import
+
+# Download signature file
+wget https://github.com/tos-network/tos/releases/download/v1.0.0/tos-linux-amd64.tar.gz.sig
+
+# Verify signature
+gpg --verify tos-linux-amd64.tar.gz.sig tos-linux-amd64.tar.gz
+
+# Should show "Good signature from TOS Network Release Team"
+```
+
+### Checksum Verification
+
+```bash
+# Download checksums
+wget https://github.com/tos-network/tos/releases/download/v1.0.0/SHA256SUMS
+
+# Verify checksum
+sha256sum -c SHA256SUMS --ignore-missing
+
+# Should show "tos-linux-amd64.tar.gz: OK"
+```
+
+## Configuration
+
+### Initial Setup
+
+After installation, configure your node:
+
+```bash
+# Initialize node configuration
+tos-daemon init --home ~/.tos
+
+# Edit configuration file
+nano ~/.tos/config/config.toml
+
+# Download genesis file for your network
+wget https://genesis.tos.network/mainnet/genesis.json -O ~/.tos/config/genesis.json
+```
+
+### Service Configuration
+
+#### Linux SystemD Service
+
+Create service file `/etc/systemd/system/tos-daemon.service`:
+
+```ini
+[Unit]
+Description=TOS Network Daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=tos
+Group=tos
+ExecStart=/usr/local/bin/tos-daemon start --home /var/lib/tos
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable tos-daemon
+sudo systemctl start tos-daemon
+sudo systemctl status tos-daemon
+```
+
+#### macOS LaunchDaemon
+
+Create `/Library/LaunchDaemons/network.tos.daemon.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>network.tos.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/tos-daemon</string>
+        <string>start</string>
+        <string>--home</string>
+        <string>/usr/local/var/tos</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/usr/local/var/log/tos-daemon.log</string>
+    <key>StandardErrorPath</key>
+    <string>/usr/local/var/log/tos-daemon.error.log</string>
+</dict>
+</plist>
+```
+
+Load and start:
+
+```bash
+sudo launchctl load /Library/LaunchDaemons/network.tos.daemon.plist
+sudo launchctl start network.tos.daemon
+```
+
+## Updating TOS Network Software
+
+### Automatic Updates
+
+```bash
+# Update using installation script
+curl -fsSL https://install.tos.network | bash -s -- --update
+
+# Update using package manager (Ubuntu/Debian)
+sudo apt update && sudo apt upgrade tos-daemon tos-wallet tos-miner
+
+# Update using Homebrew (macOS)
+brew update && brew upgrade tos-daemon tos-wallet tos-miner
+```
+
+### Manual Updates
+
+```bash
+# Check current version
+tos-daemon --version
+
+# Check latest version
+curl -s https://api.github.com/repos/tos-network/tos/releases/latest | grep tag_name
+
+# Download and install new version
+# (Follow the same installation steps as above)
+
+# Restart services
+sudo systemctl restart tos-daemon
+```
+
+### Backup Before Update
+
+```bash
+# Backup configuration and data
+tar -czf tos-backup-$(date +%Y%m%d).tar.gz ~/.tos/
+
+# Backup wallet (if using file-based wallet)
+cp ~/.tos/wallet/wallet.dat ~/wallet-backup-$(date +%Y%m%d).dat
+
+# Store backup in secure location
+```
+
+## Troubleshooting Installation
+
+### Common Issues
+
+#### Permission Denied
+```bash
+# Fix binary permissions
+sudo chmod +x /usr/local/bin/tos-*
+
+# Fix data directory permissions
+sudo chown -R tos:tos /var/lib/tos
+```
+
+#### Missing Dependencies
+```bash
+# Ubuntu/Debian
+sudo apt install -y libc6-dev build-essential
+
+# CentOS/RHEL
+sudo yum groupinstall "Development Tools"
+
+# macOS
+xcode-select --install
+```
+
+#### Port Already in Use
+```bash
+# Check what's using the port
+sudo netstat -tulpn | grep :2080
+
+# Kill the process or change port in config
+nano ~/.tos/config/config.toml
+# Change listen_addr to different port
+```
+
+#### Firewall Issues
+```bash
+# Ubuntu/Debian
+sudo ufw allow 2080/tcp
+sudo ufw allow 8080/tcp
+
+# CentOS/RHEL
+sudo firewall-cmd --permanent --add-port=2080/tcp
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+```
+
+### Log Analysis
+
+```bash
+# View daemon logs
+journalctl -u tos-daemon -f
+
+# View logs in file
+tail -f ~/.tos/logs/tos.log
+
+# Check for specific errors
+grep ERROR ~/.tos/logs/tos.log
+
+# Increase log verbosity
+tos-daemon start --log-level debug
+```
+
+### Getting Help
+
+If you encounter issues:
+
+1. **Check Documentation**: Review relevant guides in this documentation
+2. **Search Issues**: Look for similar issues on GitHub
+3. **Community Support**: Ask in Discord or Telegram
+4. **Report Bugs**: Create detailed issue reports on GitHub
+
+## Platform-Specific Notes
+
+### Windows Considerations
+
+- **Windows Defender**: May flag binaries as suspicious (add exception)
+- **Antivirus Software**: Some antivirus may block network connections
+- **User Account Control**: Run as administrator for initial setup
+- **Path Spaces**: Avoid spaces in installation path
+
+### macOS Considerations
+
+- **Gatekeeper**: May prevent unsigned binaries from running
+- **Security Settings**: Allow apps from identified developers
+- **Homebrew**: Recommended package manager for easy installation
+- **Apple Silicon**: Use universal binaries for M1/M2 Macs
+
+### Linux Considerations
+
+- **SELinux**: May block daemon execution (check SELinux logs)
+- **AppArmor**: May restrict file access (create profiles if needed)
+- **systemd**: Preferred service manager for most distributions
+- **Permissions**: Ensure proper user/group permissions
+
+## Next Steps
+
+After successful installation:
+
+1. **Configure Your Node**: Follow the [Network Configuration Guide](/getting-started/network-config)
+2. **Set Up Wallet**: Read the [Wallet Setup Guide](/getting-started/wallet-setup)
+3. **Start Mining**: Learn about [AI-Mining](/getting-started/ai-mining)
+4. **Join Network**: Connect to TOS Network and synchronize
+
+**"Don't Trust, Verify it"** - Always verify signatures and checksums before installation!

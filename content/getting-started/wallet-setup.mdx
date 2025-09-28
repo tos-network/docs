@@ -1,0 +1,469 @@
+---
+title: Wallet Setup Guide
+description: Complete guide to setting up your first TOS Network wallet with privacy and security features
+---
+
+# Setting Up Your TOS Wallet
+
+Your TOS wallet is your gateway to the world's most private and advanced blockchain network. This guide will walk you through setting up your wallet, securing your funds, and understanding the unique privacy features that make TOS Network special.
+
+## What Makes TOS Wallets Different?
+
+TOS wallets provide **complete financial privacy** through advanced cryptography:
+
+- 🔒 **Encrypted Balances**: Your balance is never visible to anyone except you
+- 🕵️ **Private Transactions**: Transaction amounts remain hidden
+- 🔐 **Zero-Knowledge Security**: Mathematical proofs protect your privacy
+- ⚡ **Energy Integration**: Stake TOS for gas-free transactions
+- 🧠 **AI-Mining Ready**: Participate in AI-Mining directly from your wallet
+
+## Wallet Options
+
+### Desktop Wallet (Recommended)
+
+The TOS Desktop Wallet provides the most comprehensive features:
+
+**Download Links:**
+- Windows: [Download .exe](https://releases.tos.network/wallet/windows)
+- macOS: [Download .dmg](https://releases.tos.network/wallet/macos)
+- Linux: [Download .AppImage](https://releases.tos.network/wallet/linux)
+
+**Features:**
+- ✅ Full privacy features
+- ✅ AI-Mining integration
+- ✅ Smart contract interaction
+- ✅ Energy staking management
+- ✅ Multi-asset support
+- ✅ Advanced transaction options
+
+### Mobile Wallet
+
+For on-the-go transactions with privacy:
+
+- **iOS**: Available on App Store
+- **Android**: Available on Google Play Store
+
+**Features:**
+- ✅ Core privacy features
+- ✅ Quick transactions
+- ✅ QR code scanning
+- ✅ Biometric security
+- ✅ Push notifications
+
+### Web Wallet
+
+Browser-based wallet for quick access:
+
+- **URL**: https://wallet.tos.network
+- **Compatible**: Chrome, Firefox, Safari, Edge
+
+**Features:**
+- ✅ No download required
+- ✅ Basic privacy features
+- ✅ Cross-platform access
+- ⚠️ Limited advanced features
+
+## Step 1: Download and Install
+
+### Desktop Installation
+
+1. **Download the Wallet**
+   ```bash
+   # For Linux users, you can also use:
+   wget https://releases.tos.network/wallet/linux/tos-wallet-latest.AppImage
+   chmod +x tos-wallet-latest.AppImage
+   ./tos-wallet-latest.AppImage
+   ```
+
+2. **Verify the Download** (Recommended)
+   ```bash
+   # Verify the cryptographic signature
+   gpg --verify tos-wallet-latest.AppImage.sig tos-wallet-latest.AppImage
+
+   # Check SHA256 hash
+   sha256sum tos-wallet-latest.AppImage
+   # Compare with published hash on releases page
+   ```
+
+3. **Install and Launch**
+   - Run the installer
+   - Follow the setup wizard
+   - Launch TOS Wallet
+
+### Mobile Installation
+
+1. Search for "TOS Wallet" in your app store
+2. Verify the publisher: "TOS Network Foundation"
+3. Download and install
+4. Open the app
+
+## Step 2: Create Your First Wallet
+
+### New Wallet Creation
+
+1. **Launch TOS Wallet**
+2. **Select "Create New Wallet"**
+3. **Choose Wallet Type:**
+   - **Standard Wallet**: Full privacy features (recommended)
+   - **Watching Wallet**: View-only for monitoring
+   - **Multi-Signature Wallet**: Enhanced security for organizations
+
+4. **Set Wallet Name**
+   ```
+   Example: "My TOS Wallet"
+   ```
+
+5. **Create Strong Password**
+   - Minimum 12 characters
+   - Include uppercase, lowercase, numbers, symbols
+   - Use a password manager
+   - Write it down securely
+
+### Seed Phrase Generation
+
+**Critical Security Step: Your seed phrase is the master key to your wallet**
+
+1. **Generate Seed Phrase**
+   - Wallet will generate 24-word recovery phrase
+   - Each word is from the BIP39 standard wordlist
+   - Example: `abandon ability able about above absent absorb abstract...`
+
+2. **Write Down Your Seed Phrase**
+   ```
+   🚨 CRITICAL: Write this down on paper, never store digitally
+
+   Word 1:  _________    Word 13: _________
+   Word 2:  _________    Word 14: _________
+   Word 3:  _________    Word 15: _________
+   ...and so on for all 24 words
+   ```
+
+3. **Verify Your Seed Phrase**
+   - Wallet will ask you to confirm words in random order
+   - This ensures you wrote them down correctly
+
+4. **Store Securely**
+   - Keep in fireproof safe
+   - Consider multiple copies in different locations
+   - Never photograph or store digitally
+   - Consider metal backup plates for long-term storage
+
+## Step 3: Understanding Your Wallet
+
+### Wallet Interface Overview
+
+```
+TOS Wallet Interface:
+├── Balance Section (Encrypted Display)
+├── Transaction History (Private)
+├── Send/Receive Options
+├── Energy Management
+├── AI-Mining Panel
+├── Privacy Settings
+└── Security Features
+```
+
+### Key Components
+
+#### 1. Encrypted Balance Display
+
+```
+Your Balance: ██████ TOS
+└── Only you can see the actual amount
+└── Network nodes cannot determine your balance
+└── Uses homomorphic encryption for privacy
+```
+
+#### 2. Address Generation
+
+- **Receiving Address**: `tos1abc123def456ghi789...`
+- **One-time Use**: Generate new address for each transaction
+- **Privacy Protection**: Prevents address correlation
+
+#### 3. Privacy Keys
+
+```
+Key Types in TOS Wallet:
+├── Private Key: Controls your funds
+├── View Key: Allows viewing encrypted data
+├── Spend Key: Authorizes transactions
+└── Proof Key: Generates zero-knowledge proofs
+```
+
+## Step 4: Secure Your Wallet
+
+### Essential Security Measures
+
+#### 1. Backup Verification
+
+```bash
+# Test your backup by restoring in a separate wallet
+1. Create test wallet with same seed phrase
+2. Verify it shows same addresses
+3. Verify it can access same funds (view-only)
+4. Delete test wallet
+```
+
+#### 2. Enable Additional Security
+
+- **Two-Factor Authentication**: Link with authenticator app
+- **Biometric Lock**: Fingerprint/Face ID on mobile
+- **Auto-Lock**: Set timeout for wallet inactivity
+- **Transaction Confirmation**: Require password for sends
+
+#### 3. Network Security
+
+```
+Connection Security:
+├── Use official TOS nodes only
+├── Verify SSL certificates
+├── Avoid public WiFi for transactions
+└── Consider VPN for additional privacy
+```
+
+## Step 5: Getting Your First TOS
+
+### Receiving TOS
+
+1. **Generate Receiving Address**
+   ```bash
+   # In wallet interface:
+   Click "Receive" → "Generate New Address"
+
+   # Your address will look like:
+   tos1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w4x5y6z7
+   ```
+
+2. **Share Your Address**
+   - Copy the address exactly
+   - Use QR code for mobile transactions
+   - Verify recipient has correct address
+
+### Acquiring TOS Tokens
+
+#### Option 1: Exchanges
+
+```
+Supported Exchanges:
+├── Binance (TOS/USDT, TOS/BTC)
+├── Coinbase (TOS/USD)
+├── KuCoin (TOS/USDT)
+├── Kraken (TOS/EUR, TOS/USD)
+└── DEX platforms (Uniswap, SushiSwap)
+```
+
+#### Option 2: AI-Mining
+
+```bash
+# Earn TOS by contributing AI services
+1. Enable AI-Mining in wallet
+2. Configure your hardware
+3. Start contributing AI work
+4. Receive TOS rewards automatically
+```
+
+#### Option 3: Staking Rewards
+
+```bash
+# Stake TOS to earn energy and rewards
+1. Navigate to "Energy" tab
+2. Choose staking amount and duration
+3. Earn energy for gas-free transactions
+4. Receive staking rewards
+```
+
+## Step 6: Making Your First Transaction
+
+### Understanding TOS Transactions
+
+TOS transactions are **completely private**:
+
+- ✅ Amounts are encrypted
+- ✅ Balances remain hidden
+- ✅ Zero-knowledge proofs validate without revealing
+- ✅ Network cannot see transaction values
+
+### Sending TOS
+
+1. **Click "Send"**
+2. **Enter Recipient Address**
+   ```
+   Recipient: tos1def456ghi789jkl012mno345pqr678stu901vwx234...
+   ```
+
+3. **Enter Amount**
+   ```
+   Amount: 100 TOS
+   Note: This amount will be encrypted before sending
+   ```
+
+4. **Choose Fee Payment Method**
+   - **Gas Fees**: Pay with TOS (traditional)
+   - **Energy**: Use staked TOS energy (gas-free)
+
+5. **Review and Confirm**
+   ```
+   Transaction Summary:
+   ├── To: tos1def456ghi789jkl012mno345pqr678stu901vwx234...
+   ├── Amount: ██████ TOS (encrypted)
+   ├── Fee: 0.0001 TOS (or Energy)
+   └── Privacy: Maximum (default)
+   ```
+
+6. **Authorize Transaction**
+   - Enter wallet password
+   - Confirm with 2FA if enabled
+   - Transaction is broadcast privately
+
+### Transaction Confirmation
+
+```
+Transaction Status:
+├── Broadcasting... (0/6 confirmations)
+├── Confirmed (1/6 confirmations)
+├── Secure (6/6 confirmations)
+└── Final (>10 confirmations)
+```
+
+## Step 7: Advanced Wallet Features
+
+### Energy Management
+
+The TOS Energy Model allows gas-free transactions:
+
+```javascript
+// Stake TOS for energy
+Stake Amount: 1000 TOS
+Duration: 30 days
+Generated Energy: ~500 units/day
+
+// Use energy for transactions
+Transaction Cost: 10 energy units
+vs Gas Cost: 0.001 TOS
+```
+
+### Multi-Asset Support
+
+TOS Wallet supports confidential assets:
+
+```
+Supported Assets:
+├── TOS (native token)
+├── pUSDT (private USDT)
+├── pETH (private Ethereum)
+├── Custom tokens
+└── NFTs (coming soon)
+```
+
+### AI-Mining Integration
+
+Enable AI-Mining directly from your wallet:
+
+1. **Navigate to "AI-Mining" tab**
+2. **Configure hardware capabilities**
+3. **Register as AI miner**
+4. **Start earning TOS rewards**
+
+## Troubleshooting
+
+### Common Issues
+
+#### Wallet Won't Sync
+
+```bash
+# Check network connection
+ping explorer.tos.network
+
+# Reset wallet sync
+Settings → Advanced → Reset Sync
+
+# Check firewall settings
+Allow port 2080 for TOS Network
+```
+
+#### Transaction Stuck
+
+```bash
+# Check transaction status
+View transaction in explorer: https://explorer.tos.network
+
+# Increase fee if necessary
+Create new transaction with higher fee
+
+# Contact support if issue persists
+Email: support@tos.network
+```
+
+#### Lost Access
+
+```bash
+# Restore from seed phrase
+1. Install wallet on new device
+2. Select "Restore Wallet"
+3. Enter 24-word seed phrase
+4. Set new password
+5. Wait for sync completion
+```
+
+### Security Checklist
+
+- [ ] Seed phrase written down and stored securely
+- [ ] Wallet password is strong and unique
+- [ ] Two-factor authentication enabled
+- [ ] Auto-lock timeout configured
+- [ ] Backup tested and verified
+- [ ] Only official wallet software installed
+- [ ] Network connections verified as secure
+
+## Best Practices
+
+### Privacy Best Practices
+
+1. **Address Management**
+   - Use new address for each transaction
+   - Don't reuse addresses
+   - Share addresses securely
+
+2. **Transaction Privacy**
+   - Understand what information is public vs private
+   - Use mixing techniques if additional privacy needed
+   - Monitor for privacy leaks
+
+3. **Operational Security**
+   - Keep wallet software updated
+   - Use secure networks
+   - Regular security audits
+
+### Performance Optimization
+
+1. **Sync Optimization**
+   - Keep wallet running for faster sync
+   - Use SSD storage for better performance
+   - Ensure stable internet connection
+
+2. **Transaction Efficiency**
+   - Batch multiple operations
+   - Use energy for frequent transactions
+   - Plan transactions during low network usage
+
+## Next Steps
+
+Now that your wallet is set up:
+
+1. **[Make Your First Transaction](/getting-started/first-transaction)**
+2. **[Explore Privacy Features](/features/privacy)**
+3. **[Learn About AI-Mining](/getting-started/ai-mining)**
+4. **[Understand Energy Model](/features/energy-model)**
+
+## Need Help?
+
+If you encounter any issues:
+
+- 📖 Check [FAQ](/support/faq)
+- 💬 Join [Discord community](https://discord.gg/tos-network)
+- 📧 Email [support@tos.network](mailto:support@tos.network)
+- 🐛 Report bugs on [GitHub](https://github.com/tos-network/wallet/issues)
+
+**Congratulations!** You now have a secure, private TOS wallet ready to use. Your financial privacy is protected by mathematics, not promises.
+
+**"Don't Trust, Verify it"** - Your wallet provides cryptographic proof of every operation.

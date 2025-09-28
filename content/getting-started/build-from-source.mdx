@@ -1,0 +1,936 @@
+---
+title: Building TOS Network from Source
+description: Complete guide to building TOS Network software from source code for development, customization, and advanced deployment
+---
+
+# Building TOS Network from Source
+
+This comprehensive guide covers building TOS Network software from source code. Building from source gives you access to the latest features, allows customization, and provides deeper understanding of the TOS Network architecture.
+
+## Why Build from Source?
+
+### Benefits
+- 🚀 **Latest Features**: Access cutting-edge developments before official releases
+- 🔧 **Customization**: Modify code for specific requirements
+- 🐛 **Bug Fixes**: Apply patches and fixes immediately
+- 📚 **Learning**: Understand TOS Network internals
+- ⚡ **Performance**: Optimize builds for your specific hardware
+- 🔒 **Security**: Verify code integrity and build reproducibly
+
+### When to Build from Source
+- **Development**: Contributing to TOS Network or building applications
+- **Research**: Academic or commercial research projects
+- **Custom Features**: Need modifications not available in releases
+- **Latest Updates**: Want immediate access to new features
+- **Security Auditing**: Need to verify every line of code
+
+## Prerequisites
+
+### System Requirements
+
+#### Minimum Requirements
+- **CPU**: 4 cores, 2.4GHz
+- **RAM**: 8GB (16GB recommended for parallel builds)
+- **Storage**: 20GB free space for build artifacts
+- **Network**: Stable internet connection for dependencies
+
+#### Recommended Requirements
+- **CPU**: 8+ cores, 3.0GHz+
+- **RAM**: 16GB+ for faster compilation
+- **Storage**: 50GB+ SSD for optimal build speed
+- **Network**: High-speed connection for large repositories
+
+### Development Tools
+
+#### Linux (Ubuntu/Debian)
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install build essentials
+sudo apt install -y \
+    build-essential \
+    git \
+    curl \
+    wget \
+    cmake \
+    pkg-config \
+    libssl-dev \
+    libclang-dev \
+    protobuf-compiler
+
+# Install Go (latest version)
+GO_VERSION="1.21.0"
+wget https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Install Rust (latest stable)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source ~/.cargo/env
+
+# Install Node.js (for frontend tools)
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify installations
+go version      # Should show Go 1.21+
+rustc --version # Should show Rust 1.70+
+node --version  # Should show Node 20+
+npm --version   # Should show npm 10+
+```
+
+#### macOS
+```bash
+# Install Xcode command line tools
+xcode-select --install
+
+# Install Homebrew if not already installed
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install development tools
+brew install \
+    git \
+    cmake \
+    pkg-config \
+    openssl \
+    protobuf \
+    go \
+    rust \
+    node
+
+# Verify installations
+go version
+rustc --version
+node --version
+```
+
+#### Windows (WSL2 Recommended)
+```powershell
+# Enable WSL2 and install Ubuntu
+wsl --install -d Ubuntu-22.04
+
+# Then follow Linux instructions inside WSL2
+
+# Alternative: Native Windows build (advanced)
+# Install Visual Studio 2022 with C++ workload
+# Install Git for Windows
+# Install Go from https://golang.org/
+# Install Rust from https://rustup.rs/
+# Install Node.js from https://nodejs.org/
+```
+
+## Repository Structure
+
+### TOS Network Repositories
+
+```bash
+# Main repositories
+tos-network/
+├── tos-core/           # Core blockchain implementation
+├── tos-wallet/         # Wallet implementation
+├── tos-miner/          # Mining software
+├── tos-rvm/           # Rust Virtual Machine
+├── tos-sdk/           # Software Development Kit
+├── tos-tools/         # Development and admin tools
+└── tos-docs/          # Documentation (this site)
+```
+
+### Clone Repositories
+
+```bash
+# Create workspace directory
+mkdir -p ~/tos-workspace
+cd ~/tos-workspace
+
+# Clone main repositories
+git clone https://github.com/tos-network/tos-core.git
+git clone https://github.com/tos-network/tos-wallet.git
+git clone https://github.com/tos-network/tos-miner.git
+git clone https://github.com/tos-network/tos-rvm.git
+git clone https://github.com/tos-network/tos-sdk.git
+git clone https://github.com/tos-network/tos-tools.git
+
+# Check repository status
+for repo in tos-*; do
+    echo "=== $repo ==="
+    cd $repo
+    git status
+    git log --oneline -5
+    cd ..
+done
+```
+
+## Building TOS Core
+
+### Core Daemon Build
+
+```bash
+cd ~/tos-workspace/tos-core
+
+# Check dependencies
+make check-deps
+
+# Download Go dependencies
+go mod download
+go mod verify
+
+# Build daemon
+make build-daemon
+
+# Or build with optimizations
+make build-daemon-optimized
+
+# Build output
+ls -la build/
+# Should show: tos-daemon, tos-daemon-debug
+
+# Install locally
+sudo make install-daemon
+
+# Verify build
+./build/tos-daemon --version
+./build/tos-daemon --help
+```
+
+### Advanced Build Options
+
+```bash
+# Development build with debug symbols
+make build-daemon-debug
+
+# Static build (no dynamic dependencies)
+make build-daemon-static
+
+# Cross-compilation builds
+make build-daemon-linux-amd64
+make build-daemon-linux-arm64
+make build-daemon-darwin-amd64
+make build-daemon-darwin-arm64
+make build-daemon-windows-amd64
+
+# Experimental features
+make build-daemon-experimental
+
+# Custom build with specific tags
+go build -tags "jsoniter,opencensus" \
+    -ldflags "-X main.version=custom-build" \
+    -o tos-daemon-custom \
+    ./cmd/daemon
+```
+
+### Build Configuration
+
+Create `build.config`:
+
+```bash
+# Build configuration file
+export CGO_ENABLED=1
+export GOOS=linux
+export GOARCH=amd64
+export GO111MODULE=on
+
+# Optimization flags
+export GOFLAGS="-mod=readonly"
+export LDFLAGS="-s -w -extldflags '-static'"
+
+# Feature flags
+export BUILD_TAGS="jsoniter,opencensus,netgo"
+
+# Performance tuning
+export GOMAXPROCS=8
+export GOCACHE="/tmp/go-build-cache"
+```
+
+Source configuration:
+```bash
+source build.config
+make build-daemon
+```
+
+## Building TOS Wallet
+
+### Wallet Core Build
+
+```bash
+cd ~/tos-workspace/tos-wallet
+
+# Install Rust dependencies
+cargo fetch
+
+# Build wallet core (Rust)
+cargo build --release
+
+# Build wallet CLI
+make build-cli
+
+# Build wallet GUI (if available)
+make build-gui
+
+# Build wallet library
+cargo build --release --lib
+
+# Check build artifacts
+ls -la target/release/
+# Should show: tos-wallet, libtos_wallet.so
+```
+
+### Frontend Build (GUI Wallet)
+
+```bash
+# Install Node.js dependencies
+npm install
+
+# Build frontend assets
+npm run build
+
+# Build desktop application (Electron)
+npm run build:desktop
+
+# Build web application
+npm run build:web
+
+# Development server
+npm run dev
+```
+
+### Mobile Wallet Build
+
+```bash
+# iOS build (requires macOS and Xcode)
+cd mobile/ios
+pod install
+xcodebuild -workspace TOSWallet.xcworkspace \
+    -scheme TOSWallet \
+    -configuration Release \
+    -destination 'platform=iOS Simulator,name=iPhone 14' \
+    build
+
+# Android build (requires Android SDK)
+cd mobile/android
+./gradlew assembleRelease
+
+# React Native build
+cd mobile
+npx react-native run-ios --configuration Release
+npx react-native run-android --variant=release
+```
+
+## Building TOS Miner
+
+### Traditional Miner Build
+
+```bash
+cd ~/tos-workspace/tos-miner
+
+# Build CPU miner
+make build-cpu-miner
+
+# Build GPU miner (CUDA)
+make build-gpu-miner-cuda
+
+# Build GPU miner (OpenCL)
+make build-gpu-miner-opencl
+
+# Build ASIC miner interface
+make build-asic-miner
+
+# Build all miners
+make build-all
+
+# Check build artifacts
+ls -la build/
+# Should show: tos-cpu-miner, tos-gpu-miner, etc.
+```
+
+### AI-Miner Build
+
+```bash
+# Build AI-Mining component
+cd src/ai-mining
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Build AI processing modules
+python setup.py build_ext --inplace
+
+# Build AI-Miner binary
+make build-ai-miner
+
+# Build with machine learning optimizations
+make build-ai-miner-ml
+
+# Build with CUDA support for AI tasks
+make build-ai-miner-cuda
+
+# Test AI-Miner
+./build/tos-ai-miner --test
+```
+
+## Building Rust Virtual Machine (RVM)
+
+### RVM Core Build
+
+```bash
+cd ~/tos-workspace/tos-rvm
+
+# Build RVM runtime
+cargo build --release --bin rvm
+
+# Build Java bytecode compiler
+cargo build --release --bin java-to-rvm
+
+# Build RVM tools
+cargo build --release --bin rvm-tools
+
+# Run tests
+cargo test --release
+
+# Build with WASM support
+cargo build --release --features wasm
+
+# Build debug version
+cargo build --bin rvm-debug
+```
+
+### Smart Contract Tools
+
+```bash
+# Build contract compiler
+make build-contract-compiler
+
+# Build contract debugger
+make build-contract-debugger
+
+# Build contract analyzer
+make build-contract-analyzer
+
+# Build development tools
+make build-dev-tools
+
+# Test contract execution
+make test-contracts
+```
+
+## Building SDK and Tools
+
+### Go SDK Build
+
+```bash
+cd ~/tos-workspace/tos-sdk/go
+
+# Build Go SDK
+go build ./...
+
+# Run tests
+go test ./...
+
+# Build examples
+cd examples
+go build ./wallet-example
+go build ./mining-example
+go build ./contract-example
+
+# Install SDK
+go install ./...
+```
+
+### Python SDK Build
+
+```bash
+cd ~/tos-workspace/tos-sdk/python
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install build dependencies
+pip install build setuptools wheel
+
+# Build wheel
+python -m build
+
+# Install locally
+pip install -e .
+
+# Run tests
+python -m pytest tests/
+```
+
+### JavaScript SDK Build
+
+```bash
+cd ~/tos-workspace/tos-sdk/javascript
+
+# Install dependencies
+npm install
+
+# Build TypeScript
+npm run build
+
+# Run tests
+npm test
+
+# Build for browser
+npm run build:browser
+
+# Build for Node.js
+npm run build:node
+
+# Publish to npm (maintainers only)
+npm publish
+```
+
+## Build Optimization
+
+### Parallel Builds
+
+```bash
+# Set build parallelism
+export MAKEFLAGS="-j$(nproc)"  # Linux
+export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"  # macOS
+
+# Rust parallel compilation
+export CARGO_BUILD_JOBS=$(nproc)
+
+# Go parallel compilation
+export GOMAXPROCS=$(nproc)
+
+# Build all components in parallel
+make -j$(nproc) all
+```
+
+### Build Caching
+
+```bash
+# Enable Go build cache
+export GOCACHE="$HOME/.cache/go-build"
+
+# Enable Rust incremental compilation
+export CARGO_INCREMENTAL=1
+export CARGO_TARGET_DIR="$HOME/.cache/cargo-target"
+
+# Enable ccache for C/C++ compilation
+export CC="ccache gcc"
+export CXX="ccache g++"
+```
+
+### Memory Optimization
+
+```bash
+# Limit memory usage for large builds
+export GOGC=50  # More aggressive Go garbage collection
+export CARGO_BUILD_JOBS=4  # Limit Rust parallel jobs
+
+# Use swap for large builds
+sudo swapon --show
+sudo fallocate -l 8G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+## Testing Builds
+
+### Unit Tests
+
+```bash
+# Run all unit tests
+make test
+
+# Run specific component tests
+make test-daemon
+make test-wallet
+make test-miner
+make test-rvm
+
+# Run tests with coverage
+make test-coverage
+
+# Run benchmarks
+make benchmark
+```
+
+### Integration Tests
+
+```bash
+# Start test network
+make start-testnet
+
+# Run integration tests
+make test-integration
+
+# Test P2P networking
+make test-p2p
+
+# Test consensus
+make test-consensus
+
+# Test smart contracts
+make test-contracts
+
+# Clean up test environment
+make stop-testnet
+```
+
+### Performance Tests
+
+```bash
+# Build performance test suite
+make build-perf-tests
+
+# Run performance benchmarks
+make benchmark-daemon
+make benchmark-wallet
+make benchmark-rvm
+
+# Profile builds
+make profile-cpu
+make profile-memory
+
+# Load testing
+make load-test
+```
+
+## Custom Builds
+
+### Feature Flags
+
+```bash
+# Build with specific features
+go build -tags "jsoniter,netgo,osusergo" ./cmd/daemon
+
+# Rust feature flags
+cargo build --features "gpu-mining,ai-processing,experimental"
+
+# Conditional compilation
+#[cfg(feature = "gpu-mining")]
+fn enable_gpu_mining() {
+    // GPU mining code
+}
+```
+
+### Build Scripts
+
+Create `custom-build.sh`:
+
+```bash
+#!/bin/bash
+# Custom build script
+
+set -e
+
+echo "Starting custom TOS Network build..."
+
+# Configuration
+export BUILD_VERSION="custom-$(date +%Y%m%d)"
+export BUILD_FEATURES="gpu-mining,ai-processing"
+export OPTIMIZATION_LEVEL="3"
+
+# Clean previous builds
+make clean
+
+# Build components
+echo "Building daemon..."
+make build-daemon FEATURES="$BUILD_FEATURES" VERSION="$BUILD_VERSION"
+
+echo "Building wallet..."
+make build-wallet FEATURES="$BUILD_FEATURES" VERSION="$BUILD_VERSION"
+
+echo "Building miner..."
+make build-miner FEATURES="$BUILD_FEATURES" VERSION="$BUILD_VERSION"
+
+# Run tests
+echo "Running tests..."
+make test-quick
+
+# Package builds
+echo "Packaging builds..."
+tar -czf "tos-custom-${BUILD_VERSION}.tar.gz" build/
+
+echo "Custom build completed: tos-custom-${BUILD_VERSION}.tar.gz"
+```
+
+### Cross-Platform Builds
+
+```bash
+# Build for multiple platforms
+#!/bin/bash
+
+PLATFORMS=(
+    "linux/amd64"
+    "linux/arm64"
+    "darwin/amd64"
+    "darwin/arm64"
+    "windows/amd64"
+)
+
+for platform in "${PLATFORMS[@]}"; do
+    GOOS=${platform%/*}
+    GOARCH=${platform#*/}
+
+    echo "Building for $GOOS/$GOARCH..."
+
+    GOOS=$GOOS GOARCH=$GOARCH go build \
+        -o "build/tos-daemon-$GOOS-$GOARCH" \
+        ./cmd/daemon
+done
+```
+
+## Troubleshooting Build Issues
+
+### Common Build Errors
+
+#### Go Module Issues
+```bash
+# Clean module cache
+go clean -modcache
+
+# Download fresh dependencies
+go mod download
+go mod verify
+
+# Update dependencies
+go get -u ./...
+go mod tidy
+```
+
+#### Rust Compilation Issues
+```bash
+# Clean Rust cache
+cargo clean
+
+# Update Rust toolchain
+rustup update
+
+# Check for missing system dependencies
+cargo check
+
+# Force rebuild
+cargo build --release --force-rebuild
+```
+
+#### Memory Issues
+```bash
+# Reduce parallel jobs
+export MAKEFLAGS="-j2"
+export CARGO_BUILD_JOBS=2
+
+# Increase swap space
+sudo fallocate -l 4G /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+```
+
+#### Permission Issues
+```bash
+# Fix ownership
+sudo chown -R $USER:$USER ~/tos-workspace
+
+# Fix permissions
+chmod -R 755 ~/tos-workspace
+
+# Use proper directories
+export GOPATH="$HOME/go"
+export CARGO_HOME="$HOME/.cargo"
+```
+
+### Debugging Build Issues
+
+```bash
+# Verbose build output
+make build-daemon VERBOSE=1
+
+# Go build with verbose output
+go build -v -x ./cmd/daemon
+
+# Rust build with verbose output
+cargo build --verbose
+
+# Check system dependencies
+ldd build/tos-daemon  # Linux
+otool -L build/tos-daemon  # macOS
+
+# Check for missing libraries
+ldconfig -p | grep ssl
+pkg-config --list-all
+```
+
+## Build Verification
+
+### Binary Verification
+
+```bash
+# Check binary integrity
+sha256sum build/tos-daemon
+file build/tos-daemon
+
+# Check dependencies
+ldd build/tos-daemon
+
+# Test basic functionality
+./build/tos-daemon version
+./build/tos-daemon help
+
+# Run minimal tests
+./build/tos-daemon test-config
+```
+
+### Security Verification
+
+```bash
+# Check for hardening features
+hardening-check build/tos-daemon  # Ubuntu
+checksec build/tos-daemon  # General tool
+
+# Scan for vulnerabilities
+clair-scanner build/tos-daemon
+
+# Static analysis
+golangci-lint run ./...
+cargo clippy --all-targets --all-features
+```
+
+## Development Workflow
+
+### Git Workflow
+
+```bash
+# Fork repository
+git clone https://github.com/YOUR-USERNAME/tos-core.git
+cd tos-core
+
+# Add upstream remote
+git remote add upstream https://github.com/tos-network/tos-core.git
+
+# Create feature branch
+git checkout -b feature/my-improvement
+
+# Make changes and commit
+git add .
+git commit -m "Add new feature: my improvement"
+
+# Push and create pull request
+git push origin feature/my-improvement
+```
+
+### Continuous Development
+
+```bash
+# Watch for changes and rebuild
+while inotifywait -e modify src/; do
+    make build-daemon-debug
+done
+
+# Auto-restart during development
+while true; do
+    ./build/tos-daemon-debug --dev &
+    PID=$!
+    inotifywait -e modify build/tos-daemon-debug
+    kill $PID
+    make build-daemon-debug
+done
+```
+
+### IDE Integration
+
+#### VS Code Configuration
+
+Create `.vscode/settings.json`:
+
+```json
+{
+    "go.toolsManagement.checkForUpdates": "local",
+    "go.useLanguageServer": true,
+    "go.formatTool": "goimports",
+    "go.lintTool": "golangci-lint",
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.cargo.features": "all"
+}
+```
+
+#### GoLand/IntelliJ Configuration
+
+```bash
+# Install Go plugin
+# Set GOROOT and GOPATH
+# Enable Go modules support
+# Configure build tags: jsoniter,netgo
+```
+
+## Contributing to TOS Network
+
+### Development Setup
+
+```bash
+# Complete development environment
+git clone --recursive https://github.com/tos-network/tos-core.git
+cd tos-core
+
+# Install development tools
+make install-dev-tools
+
+# Set up pre-commit hooks
+make install-hooks
+
+# Run development checks
+make check-all
+```
+
+### Code Quality
+
+```bash
+# Format code
+make format
+
+# Run linters
+make lint
+
+# Run security checks
+make security-check
+
+# Run all checks
+make check-all
+```
+
+### Testing Your Changes
+
+```bash
+# Run tests before committing
+make test-all
+
+# Test specific components
+make test-daemon
+make test-wallet
+make test-p2p
+
+# Integration testing
+make test-integration
+
+# Performance regression testing
+make benchmark-compare
+```
+
+## Conclusion
+
+Building TOS Network from source provides you with:
+
+- **Latest Features**: Access to cutting-edge developments
+- **Customization**: Ability to modify and optimize for your needs
+- **Understanding**: Deep knowledge of TOS Network architecture
+- **Security**: Ability to verify every line of code
+- **Performance**: Optimized builds for your specific hardware
+
+Whether you're contributing to TOS Network development, conducting research, or deploying custom solutions, building from source gives you complete control over your TOS Network installation.
+
+**"Don't Trust, Verify it"** - Building from source allows you to verify every aspect of the TOS Network software stack!
+
+## Next Steps
+
+- [Development Environment Setup](/getting-started/dev-environment) - Set up your development workflow
+- [Contributing Guide](/community/contributing) - Contribute to TOS Network
+- [Network Configuration](/getting-started/network-config) - Configure your custom build
+- [Testing Guide](/guides/testing) - Comprehensive testing strategies

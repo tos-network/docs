@@ -1,0 +1,994 @@
+---
+title: TOS Network Developer API
+description: Complete API documentation for building applications on TOS Network with privacy, smart contracts, and AI-Mining
+---
+
+import { Callout } from 'nextra/components'
+
+# TOS Network Developer API
+
+Welcome to the TOS Network Developer API documentation. This comprehensive guide provides everything you need to build privacy-focused, scalable applications on TOS Network using our extensive APIs, SDKs, and development tools.
+
+## Overview
+
+The TOS Network API provides access to:
+
+- 🔒 **Privacy-First Transactions**: Complete financial privacy with encrypted balances
+- 🧠 **AI-Mining Integration**: Participate in or publish AI tasks
+- ⚡ **Energy Management**: Gas-free transactions through staking
+- 🚀 **Smart Contracts**: Java 8 compatible smart contracts with RVM
+- 📊 **BlockDAG Data**: Access to parallel blockchain structure
+- 🔐 **Zero-Knowledge Proofs**: Advanced cryptographic operations
+
+## Quick Start
+
+### Installation
+
+```bash
+# Node.js / JavaScript
+npm install @tos-network/sdk
+
+# Python
+pip install tos-network-python
+
+# Java
+maven install com.tosnetwork:tos-sdk:1.0.0
+
+# Rust
+cargo add tos-network-sdk
+```
+
+### Basic Setup
+
+```javascript
+import { TOSNetwork, PrivacyLevel } from '@tos-network/sdk';
+
+// Initialize TOS Network connection
+const tos = new TOSNetwork({
+    network: 'mainnet', // 'mainnet', 'testnet', or custom RPC
+    apiKey: 'your-api-key', // Optional for rate limit increases
+    privacy: PrivacyLevel.MAXIMUM
+});
+
+await tos.connect();
+
+// Get basic network info
+const networkInfo = await tos.getNetworkInfo();
+console.log('Connected to TOS Network:', networkInfo);
+```
+
+## Authentication and API Keys
+
+### Public API Access
+
+Most read-only operations are available without authentication:
+
+```javascript
+// No API key required for basic operations
+const balance = await tos.getEncryptedBalance(address);
+const blockHeight = await tos.getBlockHeight();
+const networkStats = await tos.getNetworkStatistics();
+```
+
+### Authenticated API Access
+
+Enhanced features require API key registration:
+
+```javascript
+const tosAuth = new TOSNetwork({
+    apiKey: 'your-api-key-here',
+    network: 'mainnet'
+});
+
+// Enhanced features with API key
+const detailedHistory = await tosAuth.getDetailedTransactionHistory(address);
+const analyticsData = await tosAuth.getNetworkAnalytics();
+const premiumEndpoints = await tosAuth.accessPremiumFeatures();
+```
+
+### Rate Limits
+
+| Tier | Requests/Hour | Features |
+|------|---------------|----------|
+| **Public** | 1,000 | Basic read operations |
+| **Developer** | 10,000 | Full API access |
+| **Enterprise** | 100,000 | Premium features + support |
+
+## Core API Reference
+
+### Network Information
+
+#### Get Network Status
+
+```javascript
+// Get current network status
+const status = await tos.network.getStatus();
+
+/* Returns:
+{
+  "block_height": 234567,
+  "network_hashrate": "1.2 TH/s",
+  "avg_block_time": 15.2,
+  "active_validators": 127,
+  "total_supply": "21000000000000000", // In nanoTOS
+  "circulating_supply": "8400000000000000",
+  "staked_supply": "2100000000000000",
+  "energy_generation_rate": "500.5",
+  "network_difficulty": {
+    "ai_mining": "0x1a2b3c4d",
+    "traditional": "0x5e6f7a8b"
+  }
+}
+*/
+```
+
+#### Get Block Information
+
+```javascript
+// Get block by height
+const block = await tos.blocks.getByHeight(234567);
+
+// Get block by hash
+const block = await tos.blocks.getByHash('0xabc123...');
+
+// Get latest blocks
+const latestBlocks = await tos.blocks.getLatest(10);
+
+/* Block structure:
+{
+  "hash": "0xabc123...",
+  "height": 234567,
+  "topoheight": 234590, // Position in topological order
+  "timestamp": 1640995200,
+  "difficulty": "0x1a2b3c4d",
+  "block_type": "normal", // "normal", "side", "sync", "orphaned"
+  "tips": ["0xdef456...", "0xghi789..."], // Previous blocks (up to 3)
+  "miner": "tos1miner-address...",
+  "reward": "5000000000", // In nanoTOS
+  "transactions": [...], // Array of transaction hashes
+  "size": 1024,
+  "cumulative_difficulty": "0x9f8e7d6c5b4a"
+}
+*/
+```
+
+### Transaction API
+
+#### Send Private Transaction
+
+```javascript
+async function sendPrivateTransaction() {
+    const transaction = {
+        to: 'tos1recipient-address...',
+        amount: '1000000000000', // 1000 TOS in nanoTOS
+        privacy_level: PrivacyLevel.MAXIMUM,
+        fee_payment: 'energy', // 'energy' or 'gas'
+        memo: 'Private payment' // Optional encrypted memo
+    };
+
+    // Create and sign transaction
+    const signedTx = await tos.transactions.create(transaction);
+
+    // Broadcast to network
+    const txHash = await tos.transactions.broadcast(signedTx);
+
+    return txHash;
+}
+```
+
+#### Get Transaction Details
+
+```javascript
+// Get transaction by hash
+const tx = await tos.transactions.getByHash('0xtxhash...');
+
+/* Private transaction structure:
+{
+  "hash": "0xtxhash...",
+  "block_hash": "0xblockhash...",
+  "block_height": 234567,
+  "from": "tos1sender...",
+  "to": "tos1recipient...",
+  "amount_commitment": "0xcommitment...", // Encrypted amount
+  "fee_commitment": "0xfeecommit...",     // Encrypted fee
+  "proof": "0xzkproof...",                // Zero-knowledge proof
+  "nonce": 42,
+  "timestamp": 1640995200,
+  "confirmations": 6,
+  "status": "confirmed", // "pending", "confirmed", "failed"
+  "privacy_level": "maximum",
+  "memo_encrypted": "0xmemo..." // Encrypted memo if present
+}
+*/
+```
+
+#### Transaction History
+
+```javascript
+// Get transaction history for address
+const history = await tos.transactions.getHistory({
+    address: 'tos1your-address...',
+    limit: 50,
+    offset: 0,
+    include_pending: true
+});
+
+// Get transactions by block range
+const txs = await tos.transactions.getByBlockRange(234500, 234600);
+```
+
+### Wallet Management API
+
+#### Create Wallet
+
+```javascript
+// Create new wallet
+const wallet = await tos.wallet.create({
+    type: 'standard', // 'standard', 'multisig', 'watching'
+    password: 'secure-password',
+    name: 'My TOS Wallet'
+});
+
+/* Returns:
+{
+  "wallet_id": "wallet_uuid",
+  "address": "tos1new-address...",
+  "viewing_key": "viewing_key_hex",
+  "encrypted_seed": "encrypted_seed_phrase",
+  "public_key": "public_key_hex"
+}
+*/
+```
+
+#### Wallet Operations
+
+```javascript
+// Unlock wallet for operations
+await tos.wallet.unlock('wallet_uuid', 'password');
+
+// Get wallet balance (decrypted for owner)
+const balance = await tos.wallet.getBalance('wallet_uuid');
+
+// Get receiving address
+const address = await tos.wallet.getReceivingAddress('wallet_uuid');
+
+// Generate new receiving address
+const newAddress = await tos.wallet.generateAddress('wallet_uuid');
+
+// Export wallet data
+const walletData = await tos.wallet.export('wallet_uuid', 'password');
+```
+
+### Privacy API
+
+#### Homomorphic Encryption
+
+```javascript
+// Encrypt amount for transaction
+const encryptedAmount = await tos.privacy.encryptAmount(
+    '1000000000000', // Amount in nanoTOS
+    'recipient_public_key'
+);
+
+// Create Pedersen commitment
+const commitment = await tos.privacy.createCommitment(
+    '1000000000000', // Amount
+    'blinding_factor' // Random blinding factor
+);
+
+// Verify commitment
+const isValid = await tos.privacy.verifyCommitment(
+    commitment,
+    'encrypted_amount',
+    'blinding_factor'
+);
+```
+
+#### Zero-Knowledge Proofs
+
+```javascript
+// Generate range proof (proves amount is within valid range)
+const rangeProof = await tos.privacy.generateRangeProof({
+    amount: '1000000000000',
+    commitment: commitment,
+    blinding_factor: 'blinding_factor'
+});
+
+// Verify range proof
+const proofValid = await tos.privacy.verifyRangeProof(rangeProof);
+
+// Generate balance proof (proves sufficient balance without revealing amount)
+const balanceProof = await tos.privacy.generateBalanceProof({
+    available_balance: '5000000000000',
+    spending_amount: '1000000000000',
+    wallet_id: 'wallet_uuid'
+});
+```
+
+### Energy Management API
+
+#### Staking Operations
+
+```javascript
+// Stake TOS for energy
+const stakeResult = await tos.energy.stake({
+    amount: '10000000000000', // 10,000 TOS in nanoTOS
+    duration: 30, // Days
+    wallet_id: 'wallet_uuid'
+});
+
+/* Returns:
+{
+  "stake_id": "stake_uuid",
+  "amount_staked": "10000000000000",
+  "duration_days": 30,
+  "energy_generation_rate": "500.5", // Energy per day
+  "unlock_timestamp": 1643587200,
+  "total_energy_to_generate": "15015"
+}
+*/
+
+// Get staking information
+const stakingInfo = await tos.energy.getStakingInfo('wallet_uuid');
+
+// Unstake after lock period
+const unstakeResult = await tos.energy.unstake('stake_id');
+```
+
+#### Energy Usage
+
+```javascript
+// Get current energy balance
+const energyBalance = await tos.energy.getBalance('wallet_uuid');
+
+/* Returns:
+{
+  "available_energy": "2500.5",
+  "generating_energy": "500.5", // Per day
+  "staked_amount": "10000000000000",
+  "stakes": [
+    {
+      "stake_id": "stake_uuid",
+      "amount": "10000000000000",
+      "daily_generation": "500.5",
+      "unlock_time": 1643587200
+    }
+  ]
+}
+*/
+
+// Estimate energy cost for transaction
+const energyCost = await tos.energy.estimateCost({
+    to: 'tos1recipient...',
+    amount: '1000000000000',
+    transaction_type: 'transfer'
+});
+
+// Use energy for transaction
+const txWithEnergy = await tos.transactions.createWithEnergy({
+    to: 'tos1recipient...',
+    amount: '1000000000000',
+    energy_amount: energyCost.estimated_cost,
+    wallet_id: 'wallet_uuid'
+});
+```
+
+### Smart Contracts API
+
+#### Deploy Contract
+
+```javascript
+// Deploy Java smart contract
+const deployResult = await tos.contracts.deploy({
+    bytecode: contractBytecode, // Compiled Java bytecode
+    constructor_args: ['arg1', 'arg2'],
+    energy_limit: 1000000,
+    wallet_id: 'wallet_uuid'
+});
+
+/* Returns:
+{
+  "contract_address": "tos1contract-address...",
+  "transaction_hash": "0xtxhash...",
+  "bytecode_hash": "0xcodehash...",
+  "deployment_cost": "500.5", // Energy units used
+  "gas_used": "250000"
+}
+*/
+```
+
+#### Contract Interaction
+
+```javascript
+// Call contract method (read-only)
+const result = await tos.contracts.call({
+    contract_address: 'tos1contract-address...',
+    method: 'getBalance',
+    args: ['tos1user-address...'],
+    caller: 'tos1caller-address...'
+});
+
+// Execute contract method (state-changing)
+const execution = await tos.contracts.execute({
+    contract_address: 'tos1contract-address...',
+    method: 'transfer',
+    args: ['tos1recipient...', '1000000000000'],
+    energy_limit: 500000,
+    wallet_id: 'wallet_uuid'
+});
+
+// Get contract information
+const contractInfo = await tos.contracts.getInfo('tos1contract-address...');
+
+/* Returns:
+{
+  "address": "tos1contract-address...",
+  "bytecode_hash": "0xcodehash...",
+  "creator": "tos1creator-address...",
+  "creation_block": 234567,
+  "total_calls": 1543,
+  "total_energy_consumed": "125000.5",
+  "is_active": true
+}
+*/
+```
+
+#### Contract Events
+
+```javascript
+// Subscribe to contract events
+const subscription = await tos.contracts.subscribeToEvents({
+    contract_address: 'tos1contract-address...',
+    event_filter: {
+        method: 'Transfer',
+        from_block: 234567
+    }
+});
+
+subscription.on('event', (event) => {
+    console.log('Contract event:', event);
+});
+
+// Get historical events
+const events = await tos.contracts.getEvents({
+    contract_address: 'tos1contract-address...',
+    event_name: 'Transfer',
+    from_block: 234000,
+    to_block: 235000
+});
+```
+
+### AI-Mining API
+
+#### Task Publication
+
+```javascript
+// Publish AI task for miners
+const task = await tos.aiMining.publishTask({
+    title: 'Code Security Audit',
+    description: 'Audit smart contract for vulnerabilities',
+    task_type: 'code_analysis',
+    difficulty: 'intermediate',
+    reward: '50000000000000', // 50,000 TOS in nanoTOS
+    deadline: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+    requirements: {
+        reputation_minimum: 3.0,
+        specialized_skills: ['security', 'smart_contracts']
+    },
+    task_data: {
+        contract_code: contractSource,
+        focus_areas: ['reentrancy', 'overflow', 'access_control']
+    }
+});
+
+/* Returns:
+{
+  "task_id": "task_uuid",
+  "status": "published",
+  "reward_pool": "50000000000000",
+  "deadline": 1640995200,
+  "estimated_miners": 15,
+  "publication_fee": "1000000000" // In nanoTOS
+}
+*/
+```
+
+#### Miner Registration
+
+```javascript
+// Register as AI miner
+const minerRegistration = await tos.aiMining.registerMiner({
+    miner_address: 'tos1miner-address...',
+    capabilities: ['code_analysis', 'data_processing', 'optimization'],
+    hardware_profile: {
+        cpu_cores: 8,
+        ram_gb: 32,
+        gpu_available: false
+    },
+    availability: {
+        hours_per_day: 12,
+        timezone: 'UTC'
+    }
+});
+
+// Get available tasks for miner
+const availableTasks = await tos.aiMining.getAvailableTasks({
+    miner_address: 'tos1miner-address...',
+    difficulty_preference: 'intermediate',
+    task_type_filter: ['code_analysis']
+});
+
+// Submit solution
+const submission = await tos.aiMining.submitSolution({
+    task_id: 'task_uuid',
+    solution_data: {
+        analysis_report: analysisResults,
+        vulnerabilities_found: vulnList,
+        recommendations: recommendations
+    },
+    miner_address: 'tos1miner-address...',
+    stake_amount: '10000000000000' // Stake for solution quality
+});
+```
+
+#### Mining Statistics
+
+```javascript
+// Get miner performance statistics
+const minerStats = await tos.aiMining.getMinerStats('tos1miner-address...');
+
+/* Returns:
+{
+  "miner_address": "tos1miner-address...",
+  "reputation_score": 4.2,
+  "total_tasks_completed": 127,
+  "total_earnings": "2500000000000000",
+  "success_rate": 0.94,
+  "average_quality_score": 87.5,
+  "specializations": ["code_analysis", "security_audit"],
+  "performance_trend": "improving",
+  "rank": 23 // Global ranking
+}
+*/
+
+// Get network-wide AI mining statistics
+const networkStats = await tos.aiMining.getNetworkStats();
+
+/* Returns:
+{
+  "total_active_miners": 1247,
+  "total_published_tasks": 5671,
+  "total_completed_tasks": 4892,
+  "average_task_completion_time": "4.2 hours",
+  "total_rewards_distributed": "12500000000000000",
+  "quality_score_average": 84.2,
+  "categories": {
+    "code_analysis": 1432,
+    "data_processing": 1876,
+    "optimization": 891,
+    "security_audit": 693
+  }
+}
+*/
+```
+
+## Advanced Features
+
+### WebSocket API
+
+#### Real-time Updates
+
+```javascript
+// Connect to WebSocket for real-time updates
+const ws = tos.websocket.connect();
+
+// Subscribe to new blocks
+ws.subscribe('blocks', (block) => {
+    console.log('New block:', block);
+});
+
+// Subscribe to transactions for specific address
+ws.subscribe('transactions', {
+    address: 'tos1your-address...'
+}, (transaction) => {
+    console.log('New transaction:', transaction);
+});
+
+// Subscribe to AI mining events
+ws.subscribe('ai_mining', {
+    event_types: ['task_published', 'solution_submitted', 'task_completed']
+}, (event) => {
+    console.log('AI Mining event:', event);
+});
+
+// Subscribe to energy events
+ws.subscribe('energy', {
+    address: 'tos1your-address...'
+}, (energyEvent) => {
+    console.log('Energy update:', energyEvent);
+});
+```
+
+### Batch Operations
+
+#### Batch Transactions
+
+```javascript
+// Create multiple transactions in a batch for efficiency
+const batch = await tos.transactions.createBatch([
+    {
+        to: 'tos1recipient1...',
+        amount: '1000000000000',
+        privacy_level: PrivacyLevel.MAXIMUM
+    },
+    {
+        to: 'tos1recipient2...',
+        amount: '2000000000000',
+        privacy_level: PrivacyLevel.MAXIMUM
+    },
+    {
+        to: 'tos1recipient3...',
+        amount: '3000000000000',
+        privacy_level: PrivacyLevel.MAXIMUM
+    }
+]);
+
+// Get batch savings report
+const savings = batch.getSavingsReport();
+/* Returns:
+{
+  "individual_cost": "45.5", // Energy units if done separately
+  "batch_cost": "32.1",      // Energy units for batch
+  "savings": "13.4",         // Energy units saved
+  "efficiency_gain": "29.5%" // Percentage improvement
+}
+*/
+
+// Broadcast batch
+const batchResult = await tos.transactions.broadcastBatch(batch);
+```
+
+### Analytics API
+
+#### Network Analytics
+
+```javascript
+// Get comprehensive network analytics
+const analytics = await tos.analytics.getNetworkMetrics({
+    timeframe: '7d', // '1h', '24h', '7d', '30d'
+    metrics: ['transactions', 'blocks', 'mining', 'energy']
+});
+
+/* Returns:
+{
+  "timeframe": "7d",
+  "transactions": {
+    "total_count": 45672,
+    "private_percentage": 89.4,
+    "average_fee": "0.001",
+    "energy_usage_percentage": 67.2
+  },
+  "blocks": {
+    "total_blocks": 40320,
+    "average_block_time": 15.1,
+    "orphan_rate": 8.3,
+    "side_block_percentage": 12.7
+  },
+  "mining": {
+    "ai_mining_percentage": 12.0,
+    "traditional_mining_percentage": 88.0,
+    "total_hashrate": "1.5 TH/s",
+    "difficulty_adjustment": "+2.3%"
+  },
+  "energy": {
+    "total_staked": "2100000000000000",
+    "average_generation_rate": "450.2",
+    "energy_transactions_percentage": 67.2
+  }
+}
+*/
+```
+
+## SDK Examples
+
+### Python SDK
+
+```python
+from tos_network import TOSNetwork, PrivacyLevel
+
+# Initialize connection
+tos = TOSNetwork(
+    network='mainnet',
+    api_key='your-api-key'
+)
+
+# Create private transaction
+async def send_private_payment():
+    transaction = await tos.transactions.create({
+        'to': 'tos1recipient...',
+        'amount': '1000000000000',  # 1000 TOS
+        'privacy_level': PrivacyLevel.MAXIMUM,
+        'memo': 'Private payment'
+    })
+
+    # Sign and broadcast
+    signed_tx = await tos.wallet.sign_transaction(transaction)
+    tx_hash = await tos.transactions.broadcast(signed_tx)
+
+    return tx_hash
+
+# AI Mining integration
+async def start_ai_mining():
+    # Register as miner
+    await tos.ai_mining.register_miner({
+        'capabilities': ['code_analysis', 'data_processing'],
+        'hardware_profile': {
+            'cpu_cores': 8,
+            'ram_gb': 16
+        }
+    })
+
+    # Get and process tasks
+    while True:
+        tasks = await tos.ai_mining.get_available_tasks()
+
+        for task in tasks:
+            if task['difficulty'] == 'beginner':
+                solution = process_ai_task(task)
+                await tos.ai_mining.submit_solution(task['id'], solution)
+```
+
+### Java SDK
+
+```java
+import com.tosnetwork.sdk.*;
+
+public class TOSIntegration {
+    private TOSNetwork tos;
+
+    public TOSIntegration() {
+        this.tos = new TOSNetwork.Builder()
+            .network("mainnet")
+            .apiKey("your-api-key")
+            .privacyLevel(PrivacyLevel.MAXIMUM)
+            .build();
+    }
+
+    // Deploy smart contract
+    public String deployContract(String bytecode, String[] args) throws Exception {
+        ContractDeployment deployment = new ContractDeployment.Builder()
+            .bytecode(bytecode)
+            .constructorArgs(args)
+            .energyLimit(1000000)
+            .build();
+
+        DeploymentResult result = tos.contracts().deploy(deployment);
+        return result.getContractAddress();
+    }
+
+    // Energy staking
+    public StakeResult stakeForEnergy(String amount, int durationDays) throws Exception {
+        EnergyStaking staking = new EnergyStaking.Builder()
+            .amount(amount)
+            .durationDays(durationDays)
+            .build();
+
+        return tos.energy().stake(staking);
+    }
+}
+```
+
+## Error Handling
+
+### Common Error Codes
+
+```javascript
+// Error handling example
+try {
+    const transaction = await tos.transactions.create(txData);
+} catch (error) {
+    switch (error.code) {
+        case 'INSUFFICIENT_BALANCE':
+            console.error('Not enough TOS balance');
+            break;
+        case 'INSUFFICIENT_ENERGY':
+            console.error('Not enough energy for gas-free transaction');
+            break;
+        case 'INVALID_ADDRESS':
+            console.error('Invalid recipient address format');
+            break;
+        case 'PRIVACY_LEVEL_NOT_SUPPORTED':
+            console.error('Requested privacy level not available');
+            break;
+        case 'NETWORK_CONGESTION':
+            console.error('Network is congested, try again later');
+            break;
+        default:
+            console.error('Unknown error:', error.message);
+    }
+}
+```
+
+### Error Code Reference
+
+| Code | Description | Solution |
+|------|-------------|----------|
+| `INSUFFICIENT_BALANCE` | Not enough TOS tokens | Add funds to wallet |
+| `INSUFFICIENT_ENERGY` | Not enough energy units | Stake more TOS or use gas |
+| `INVALID_ADDRESS` | Address format incorrect | Verify address format |
+| `PRIVACY_LEVEL_NOT_SUPPORTED` | Privacy feature unavailable | Use supported privacy level |
+| `NETWORK_CONGESTION` | Network overloaded | Retry with higher fee/energy |
+| `CONTRACT_EXECUTION_FAILED` | Smart contract error | Check contract parameters |
+| `AI_TASK_TIMEOUT` | AI mining task expired | Submit solutions faster |
+| `REPUTATION_TOO_LOW` | Insufficient miner reputation | Complete more tasks successfully |
+
+## Testing and Development
+
+### Testnet Configuration
+
+```javascript
+// Connect to testnet for development
+const tosTestnet = new TOSNetwork({
+    network: 'testnet',
+    apiKey: 'your-testnet-api-key'
+});
+
+// Get testnet faucet tokens
+const faucetResult = await tosTestnet.faucet.requestTokens({
+    address: 'tst1your-testnet-address...',
+    amount: '10000000000000' // 10,000 test TOS
+});
+
+// Deploy contracts on testnet
+const testContract = await tosTestnet.contracts.deploy({
+    bytecode: contractBytecode,
+    constructor_args: [],
+    energy_limit: 1000000
+});
+```
+
+### Local Development Node
+
+```bash
+# Start local TOS node for development
+tos-node --dev --port 8080 --enable-mining --ai-mining-tasks
+
+# Connect SDK to local node
+const tosLocal = new TOSNetwork({
+    rpcUrl: 'http://localhost:8080',
+    network: 'development'
+});
+```
+
+## Performance and Optimization
+
+### Caching Best Practices
+
+```javascript
+// Implement caching for better performance
+const cache = new Map();
+
+async function getCachedBalance(address) {
+    const cacheKey = `balance_${address}`;
+
+    if (cache.has(cacheKey)) {
+        const cached = cache.get(cacheKey);
+        if (Date.now() - cached.timestamp < 30000) { // 30 second cache
+            return cached.balance;
+        }
+    }
+
+    const balance = await tos.wallet.getBalance(address);
+    cache.set(cacheKey, {
+        balance: balance,
+        timestamp: Date.now()
+    });
+
+    return balance;
+}
+```
+
+### Batch Processing
+
+```javascript
+// Process multiple operations efficiently
+async function batchProcessAddresses(addresses) {
+    // Batch balance queries
+    const balancePromises = addresses.map(addr =>
+        tos.wallet.getBalance(addr)
+    );
+
+    const balances = await Promise.all(balancePromises);
+
+    // Process results
+    return addresses.map((addr, index) => ({
+        address: addr,
+        balance: balances[index]
+    }));
+}
+```
+
+## Rate Limiting and Quotas
+
+### Managing API Limits
+
+```javascript
+// Implement rate limiting
+class RateLimitedTOSAPI {
+    constructor(apiKey, requestsPerHour = 10000) {
+        this.tos = new TOSNetwork({ apiKey });
+        this.requestsPerHour = requestsPerHour;
+        this.requests = [];
+    }
+
+    async makeRequest(operation) {
+        // Remove requests older than 1 hour
+        const oneHourAgo = Date.now() - (60 * 60 * 1000);
+        this.requests = this.requests.filter(time => time > oneHourAgo);
+
+        // Check if under limit
+        if (this.requests.length >= this.requestsPerHour) {
+            throw new Error('Rate limit exceeded');
+        }
+
+        // Make request
+        this.requests.push(Date.now());
+        return await operation();
+    }
+}
+```
+
+## Migration and Upgrades
+
+### API Version Management
+
+```javascript
+// Handle API versioning
+const tos = new TOSNetwork({
+    apiVersion: 'v1.2', // Specify API version
+    network: 'mainnet',
+    fallbackVersions: ['v1.1', 'v1.0'] // Fallback compatibility
+});
+
+// Check for deprecated features
+const deprecations = await tos.getDeprecationWarnings();
+if (deprecations.length > 0) {
+    console.warn('Deprecated features in use:', deprecations);
+}
+```
+
+## Support and Resources
+
+### Getting Help
+
+- 📖 **API Documentation**: Complete reference at [docs.tos.network/api](https://docs.tos.network/api)
+- 💬 **Developer Discord**: Real-time help from TOS developers
+- 📧 **Developer Support**: api-support@tos.network
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/tos-network/sdk/issues)
+- 📚 **Code Examples**: [GitHub Examples Repository](https://github.com/tos-network/examples)
+
+### SDK Updates
+
+```bash
+# Check for SDK updates
+npm outdated @tos-network/sdk
+
+# Update to latest version
+npm update @tos-network/sdk
+
+# Subscribe to update notifications
+npm config set update-notifier true
+```
+
+## Conclusion
+
+The TOS Network Developer API provides comprehensive access to all network features while maintaining the core principle of **"Don't Trust, Verify it"**. Every operation is cryptographically verifiable, ensuring your applications can provide users with mathematical guarantees of privacy and security.
+
+Whether you're building a simple wallet application or a complex DeFi protocol, the TOS Network API gives you the tools to create the next generation of private, scalable blockchain applications.
+
+## Next Steps
+
+- [Smart Contract Development](/getting-started/smart-contract-development) - Build Java smart contracts
+- [Privacy Integration Guide](/developers-api/privacy-integration) - Implement privacy features
+- [AI-Mining API Reference](/developers-api/ai-mining) - Complete AI-Mining integration
+- [Energy Management Guide](/developers-api/energy-management) - Optimize transaction costs

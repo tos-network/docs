@@ -1,0 +1,1020 @@
+---
+title: TOS Network Transaction Fees
+description: Comprehensive guide to TOS Network's innovative dual fee system with traditional gas fees and revolutionary energy-based transactions
+---
+
+# TOS Network Transaction Fees
+
+TOS Network revolutionizes blockchain economics with an innovative **dual fee system** that provides users with unprecedented flexibility. Choose between traditional gas fees or use the revolutionary **Energy Model** for gas-free transactions through staking, embodying TOS's principle of **"Don't Trust, Verify it"** while maximizing user choice and network efficiency.
+
+## Dual Fee System Overview
+
+### The Innovation
+
+TOS Network is the first blockchain to offer users complete choice in how they pay for transactions:
+
+```
+Traditional Gas Fees
+├── Pay with TOS tokens
+├── Dynamic pricing based on network demand
+├── Immediate execution
+└── Familiar to all blockchain users
+
+Energy-Based Transactions (Gas-Free)
+├── Use energy generated from staked TOS
+├── Predictable costs independent of network congestion
+├── Sustainable transaction model
+└── Innovative approach to blockchain economics
+```
+
+### Fee Structure Comparison
+
+| Fee Type | Payment Method | Cost Predictability | Network Congestion Impact | User Experience |
+|----------|----------------|---------------------|---------------------------|-----------------|
+| **Gas Fees** | TOS tokens | Variable | High impact | Traditional |
+| **Energy** | Staked TOS energy | Predictable | No impact | Innovative |
+
+## Traditional Gas Fees
+
+### Fee Calculation
+
+TOS Network uses an **improved EIP-1559 model** with enhanced predictability:
+
+```rust
+pub struct GasFeeCalculation {
+    pub base_fee: u64,           // Base fee per gas unit (adjusted by network)
+    pub priority_fee: u64,       // Optional tip for faster processing
+    pub gas_limit: u64,          // Maximum gas willing to consume
+    pub gas_used: u64,           // Actual gas consumed
+}
+
+impl GasFeeCalculation {
+    pub fn calculate_total_fee(&self) -> u64 {
+        let total_fee_per_gas = self.base_fee + self.priority_fee;
+        let total_fee = self.gas_used * total_fee_per_gas;
+
+        // Refund unused gas
+        let refund = (self.gas_limit - self.gas_used) * total_fee_per_gas;
+
+        total_fee // Refund is automatically returned
+    }
+
+    pub fn estimate_cost_range(&self) -> (u64, u64) {
+        let min_cost = self.gas_limit * self.base_fee;
+        let max_cost = self.gas_limit * (self.base_fee + self.priority_fee);
+
+        (min_cost, max_cost)
+    }
+}
+```
+
+### Dynamic Fee Adjustment
+
+The network automatically adjusts fees based on demand:
+
+```rust
+pub struct DynamicFeeAdjustment {
+    pub target_block_utilization: f64, // 50% target utilization
+    pub adjustment_speed: f64,          // How quickly fees adjust
+    pub max_fee_increase: f64,          // Maximum fee increase per block
+    pub max_fee_decrease: f64,          // Maximum fee decrease per block
+}
+
+impl DynamicFeeAdjustment {
+    pub fn calculate_next_base_fee(&self, current_base_fee: u64, block_utilization: f64) -> u64 {
+        let utilization_delta = block_utilization - self.target_block_utilization;
+        let adjustment_factor = utilization_delta * self.adjustment_speed;
+
+        // Apply bounds to prevent extreme changes
+        let bounded_adjustment = self.apply_bounds(adjustment_factor);
+
+        let new_base_fee = current_base_fee as f64 * (1.0 + bounded_adjustment);
+        new_base_fee as u64
+    }
+
+    fn apply_bounds(&self, adjustment: f64) -> f64 {
+        if adjustment > 0.0 {
+            adjustment.min(self.max_fee_increase)
+        } else {
+            adjustment.max(-self.max_fee_decrease)
+        }
+    }
+}
+```
+
+### Gas Price Prediction
+
+```javascript
+// Gas price prediction and optimization
+class GasPricePredictor {
+    constructor(tosNetwork) {
+        this.network = tosNetwork;
+        this.historicalData = new HistoricalGasData();
+        this.networkMonitor = new NetworkMonitor();
+    }
+
+    async predictOptimalGasPrice(urgency = 'standard') {
+        const currentBaseFee = await this.network.getCurrentBaseFee();
+        const networkCongestion = await this.networkMonitor.getCongestionLevel();
+        const historicalTrends = await this.historicalData.getRecentTrends();
+
+        const basePrediction = this.calculateBasePrediction(
+            currentBaseFee,
+            networkCongestion,
+            historicalTrends
+        );
+
+        const urgencyMultipliers = {
+            'slow': 1.0,        // Next few blocks
+            'standard': 1.25,   // Next block
+            'fast': 1.5,        // Priority inclusion
+            'instant': 2.0      // Immediate inclusion
+        };
+
+        return {
+            baseFee: currentBaseFee,
+            recommendedPriorityFee: basePrediction * urgencyMultipliers[urgency],
+            totalEstimatedFee: currentBaseFee + (basePrediction * urgencyMultipliers[urgency]),
+            confidenceLevel: this.calculateConfidenceLevel(networkCongestion),
+            alternativeOptions: {
+                energy: await this.calculateEnergyAlternative(),
+                delayedExecution: await this.calculateDelayedBenefit()
+            }
+        };
+    }
+
+    async calculateEnergyAlternative() {
+        const energyCost = await this.network.estimateEnergyConsumption();
+        const stakingRequirement = await this.network.calculateStakingNeeded(energyCost);
+
+        return {
+            energyRequired: energyCost,
+            stakingRequired: stakingRequirement,
+            timeToGenerate: stakingRequirement.estimatedTime,
+            costComparison: await this.compareWithGasCost(energyCost)
+        };
+    }
+}
+```
+
+### Transaction Types and Gas Consumption
+
+Different transaction types consume different amounts of gas:
+
+```rust
+pub enum TransactionType {
+    Transfer {
+        gas_base: 21000,
+        gas_per_byte: 16,
+        privacy_overhead: 15000, // Additional gas for privacy features
+    },
+    SmartContractCall {
+        gas_base: 25000,
+        gas_per_operation: OperationGasCosts,
+        storage_gas: StorageGasCosts,
+    },
+    ContractDeployment {
+        gas_base: 53000,
+        gas_per_byte: 200,
+        initialization_gas: InitializationCosts,
+    },
+    EnergyStaking {
+        gas_base: 30000,
+        complexity_modifier: ComplexityModifier,
+    },
+    AIMiningTask {
+        gas_base: 40000,
+        task_complexity_gas: TaskComplexityGas,
+    },
+}
+
+pub struct OperationGasCosts {
+    pub arithmetic: u64,     // 3 gas
+    pub comparison: u64,     // 3 gas
+    pub memory_access: u64,  // 3 gas
+    pub storage_read: u64,   // 800 gas
+    pub storage_write: u64,  // 20000 gas
+    pub external_call: u64,  // 2300 gas
+}
+
+impl TransactionType {
+    pub fn estimate_gas_consumption(&self, transaction_data: &TransactionData) -> u64 {
+        match self {
+            TransactionType::Transfer { gas_base, gas_per_byte, privacy_overhead } => {
+                let data_size = transaction_data.size();
+                let privacy_gas = if transaction_data.is_private() { *privacy_overhead } else { 0 };
+
+                gas_base + (data_size * gas_per_byte) + privacy_gas
+            },
+            TransactionType::SmartContractCall { gas_base, gas_per_operation, .. } => {
+                let estimated_operations = transaction_data.estimate_operations();
+                gas_base + self.calculate_operation_gas(estimated_operations, gas_per_operation)
+            },
+            // ... other transaction types
+        }
+    }
+}
+```
+
+## Energy-Based Transactions
+
+### The Energy Model
+
+TOS Network's revolutionary energy system allows gas-free transactions:
+
+```rust
+pub struct EnergySystem {
+    pub staking_pools: Vec<StakingPool>,
+    pub energy_generation: EnergyGeneration,
+    pub energy_consumption: EnergyConsumption,
+    pub conversion_rates: ConversionRates,
+}
+
+pub struct StakingPool {
+    pub stake_amount: u64,        // TOS tokens staked
+    pub stake_duration: Duration, // Staking period
+    pub energy_rate: f64,         // Energy generation per day
+    pub unlock_time: Timestamp,   // When stake can be withdrawn
+}
+
+impl EnergySystem {
+    pub fn calculate_energy_generation(&self, stake: &StakingPool) -> f64 {
+        let base_rate = 0.5; // Base energy per TOS per day
+        let duration_bonus = self.calculate_duration_bonus(stake.stake_duration);
+        let amount_bonus = self.calculate_amount_bonus(stake.stake_amount);
+
+        let total_rate = base_rate * (1.0 + duration_bonus + amount_bonus);
+        (stake.stake_amount as f64) * total_rate
+    }
+
+    fn calculate_duration_bonus(&self, duration: Duration) -> f64 {
+        // Longer stakes get bonus energy generation
+        let days = duration.as_secs() / (24 * 60 * 60);
+        match days {
+            0..=7 => 0.0,           // No bonus for short stakes
+            8..=30 => 0.1,          // 10% bonus for monthly stakes
+            31..=90 => 0.25,        // 25% bonus for quarterly stakes
+            91..=365 => 0.5,        // 50% bonus for yearly stakes
+            _ => 0.75,              // 75% bonus for multi-year stakes
+        }
+    }
+
+    fn calculate_amount_bonus(&self, amount: u64) -> f64 {
+        // Larger stakes get slight efficiency bonus
+        let tos_amount = amount / 1_000_000_000_000; // Convert from nanoTOS
+        match tos_amount {
+            0..=1000 => 0.0,        // No bonus for small stakes
+            1001..=10000 => 0.05,   // 5% bonus for medium stakes
+            10001..=100000 => 0.1,  // 10% bonus for large stakes
+            _ => 0.15,              // 15% bonus for whale stakes
+        }
+    }
+}
+```
+
+### Energy Consumption by Transaction Type
+
+```rust
+pub struct EnergyConsumption {
+    pub base_costs: BaseCosts,
+    pub privacy_costs: PrivacyCosts,
+    pub complexity_modifiers: ComplexityModifiers,
+}
+
+pub struct BaseCosts {
+    pub simple_transfer: f64,           // 10 energy units
+    pub private_transfer: f64,          // 15 energy units
+    pub smart_contract_call: f64,       // 20 energy units
+    pub contract_deployment: f64,       // 50 energy units
+    pub energy_staking: f64,           // 25 energy units
+    pub ai_task_submission: f64,       // 30 energy units
+}
+
+pub struct PrivacyCosts {
+    pub homomorphic_encryption: f64,   // +5 energy units
+    pub zero_knowledge_proof: f64,     // +8 energy units
+    pub range_proof: f64,              // +3 energy units
+    pub confidential_assets: f64,      // +7 energy units
+}
+
+impl EnergyConsumption {
+    pub fn calculate_transaction_energy_cost(
+        &self,
+        tx_type: &TransactionType,
+        privacy_features: &[PrivacyFeature],
+        complexity: ComplexityLevel
+    ) -> f64 {
+        let base_cost = self.get_base_cost(tx_type);
+        let privacy_cost = self.calculate_privacy_cost(privacy_features);
+        let complexity_modifier = self.get_complexity_modifier(complexity);
+
+        (base_cost + privacy_cost) * complexity_modifier
+    }
+
+    fn get_base_cost(&self, tx_type: &TransactionType) -> f64 {
+        match tx_type {
+            TransactionType::Transfer { .. } => self.base_costs.simple_transfer,
+            TransactionType::SmartContractCall { .. } => self.base_costs.smart_contract_call,
+            TransactionType::ContractDeployment { .. } => self.base_costs.contract_deployment,
+            TransactionType::EnergyStaking { .. } => self.base_costs.energy_staking,
+            TransactionType::AIMiningTask { .. } => self.base_costs.ai_task_submission,
+        }
+    }
+}
+```
+
+### Energy vs Gas Cost Comparison
+
+```javascript
+// Real-time cost comparison system
+class CostComparisonCalculator {
+    constructor(tosNetwork) {
+        this.network = tosNetwork;
+    }
+
+    async compareTransactionCosts(transactionData) {
+        const gasEstimate = await this.estimateGasCosts(transactionData);
+        const energyEstimate = await this.estimateEnergyCosts(transactionData);
+
+        return {
+            gas_option: {
+                total_cost_tos: gasEstimate.totalFee,
+                usd_equivalent: await this.convertToUSD(gasEstimate.totalFee),
+                execution_time: gasEstimate.estimatedTime,
+                certainty: gasEstimate.priceStability,
+                pros: [
+                    'Immediate execution',
+                    'No staking required',
+                    'Works during network congestion'
+                ],
+                cons: [
+                    'Variable costs',
+                    'Higher during network congestion',
+                    'Ongoing expense'
+                ]
+            },
+            energy_option: {
+                energy_cost: energyEstimate.energyRequired,
+                staking_requirement: energyEstimate.stakingNeeded,
+                time_to_generate: energyEstimate.generationTime,
+                long_term_savings: energyEstimate.savings,
+                pros: [
+                    'Predictable costs',
+                    'No congestion impact',
+                    'Long-term cost savings',
+                    'Sustainable model'
+                ],
+                cons: [
+                    'Requires initial staking',
+                    'Energy generation takes time',
+                    'Capital lockup period'
+                ]
+            },
+            recommendation: this.generateRecommendation(gasEstimate, energyEstimate)
+        };
+    }
+
+    generateRecommendation(gasEstimate, energyEstimate) {
+        const factors = {
+            networkCongestion: this.network.getCurrentCongestion(),
+            userStakingStatus: this.network.getUserStakingStatus(),
+            transactionUrgency: this.assessTransactionUrgency(),
+            longTermUsage: this.assessLongTermUsage()
+        };
+
+        if (factors.transactionUrgency === 'high' && factors.userStakingStatus.availableEnergy < energyEstimate.energyRequired) {
+            return {
+                choice: 'gas',
+                reason: 'Urgent transaction with insufficient energy balance'
+            };
+        }
+
+        if (factors.longTermUsage === 'frequent' && !factors.userStakingStatus.hasStake) {
+            return {
+                choice: 'start_staking',
+                reason: 'Frequent usage would benefit from energy model'
+            };
+        }
+
+        if (factors.networkCongestion === 'high') {
+            return {
+                choice: 'energy',
+                reason: 'Network congestion makes energy more cost-effective'
+            };
+        }
+
+        return {
+            choice: 'hybrid',
+            reason: 'Use energy when available, gas for urgent transactions'
+        };
+    }
+}
+```
+
+## Fee Optimization Strategies
+
+### Automatic Fee Optimization
+
+```rust
+pub struct FeeOptimizationEngine {
+    pub user_preferences: UserPreferences,
+    pub cost_history: CostHistory,
+    pub prediction_model: CostPredictionModel,
+    pub optimization_strategies: Vec<OptimizationStrategy>,
+}
+
+pub struct UserPreferences {
+    pub cost_priority: CostPriority,     // Minimize cost vs. maximize speed
+    pub staking_willingness: bool,       // Willing to stake for energy
+    pub transaction_patterns: TransactionPatterns,
+    pub risk_tolerance: RiskTolerance,
+}
+
+pub enum OptimizationStrategy {
+    MinimizeCost,           // Always choose cheapest option
+    MaximizeSpeed,          // Always choose fastest option
+    BalancedApproach,       // Balance cost and speed
+    LongTermOptimal,        // Optimize for long-term usage
+    NetworkAware,           // Adapt to network conditions
+}
+
+impl FeeOptimizationEngine {
+    pub fn recommend_payment_method(
+        &self,
+        transaction: &Transaction,
+        current_conditions: &NetworkConditions
+    ) -> PaymentRecommendation {
+        let strategies = self.evaluate_all_strategies(transaction, current_conditions);
+        let best_strategy = self.select_best_strategy(strategies);
+
+        PaymentRecommendation {
+            payment_method: best_strategy.payment_method,
+            estimated_cost: best_strategy.cost,
+            estimated_time: best_strategy.execution_time,
+            confidence: best_strategy.confidence,
+            alternatives: strategies,
+            reasoning: best_strategy.explanation,
+        }
+    }
+
+    fn evaluate_all_strategies(
+        &self,
+        transaction: &Transaction,
+        conditions: &NetworkConditions
+    ) -> Vec<StrategyEvaluation> {
+        self.optimization_strategies.iter().map(|strategy| {
+            self.evaluate_strategy(strategy, transaction, conditions)
+        }).collect()
+    }
+
+    fn evaluate_strategy(
+        &self,
+        strategy: &OptimizationStrategy,
+        transaction: &Transaction,
+        conditions: &NetworkConditions
+    ) -> StrategyEvaluation {
+        match strategy {
+            OptimizationStrategy::MinimizeCost => {
+                self.evaluate_minimum_cost_strategy(transaction, conditions)
+            },
+            OptimizationStrategy::MaximizeSpeed => {
+                self.evaluate_maximum_speed_strategy(transaction, conditions)
+            },
+            OptimizationStrategy::LongTermOptimal => {
+                self.evaluate_long_term_strategy(transaction, conditions)
+            },
+            // ... other strategies
+        }
+    }
+}
+```
+
+### Batch Transaction Optimization
+
+```javascript
+// Optimize multiple transactions together
+class BatchTransactionOptimizer {
+    constructor() {
+        this.batchingEngine = new TransactionBatchingEngine();
+        this.costOptimizer = new CostOptimizationEngine();
+    }
+
+    async optimizeBatch(transactions) {
+        // Analyze transaction compatibility for batching
+        const batchGroups = await this.batchingEngine.groupCompatibleTransactions(transactions);
+
+        const optimizedBatches = [];
+        for (const group of batchGroups) {
+            const optimization = await this.optimizeBatchGroup(group);
+            optimizedBatches.push(optimization);
+        }
+
+        return {
+            original_cost: await this.calculateOriginalCost(transactions),
+            optimized_cost: await this.calculateOptimizedCost(optimizedBatches),
+            savings: this.calculateSavings(transactions, optimizedBatches),
+            execution_plan: optimizedBatches
+        };
+    }
+
+    async optimizeBatchGroup(transactionGroup) {
+        const gasApproach = await this.calculateBatchGasCost(transactionGroup);
+        const energyApproach = await this.calculateBatchEnergyCost(transactionGroup);
+        const hybridApproach = await this.calculateHybridApproach(transactionGroup);
+
+        const approaches = [gasApproach, energyApproach, hybridApproach];
+        const bestApproach = approaches.reduce((best, current) =>
+            current.totalCost < best.totalCost ? current : best
+        );
+
+        return {
+            transactions: transactionGroup,
+            recommended_approach: bestApproach,
+            alternatives: approaches.filter(a => a !== bestApproach),
+            optimization_savings: this.calculateBatchSavings(transactionGroup, bestApproach)
+        };
+    }
+
+    async calculateHybridApproach(transactionGroup) {
+        // Use energy where available, gas for remainder
+        const userEnergyBalance = await this.getUserEnergyBalance();
+        let remainingEnergy = userEnergyBalance;
+
+        const optimizedTransactions = transactionGroup.map(tx => {
+            const energyNeeded = this.estimateEnergyNeeded(tx);
+
+            if (remainingEnergy >= energyNeeded) {
+                remainingEnergy -= energyNeeded;
+                return { transaction: tx, payment: 'energy', cost: 0 };
+            } else {
+                const gasCost = this.estimateGasCost(tx);
+                return { transaction: tx, payment: 'gas', cost: gasCost };
+            }
+        });
+
+        return {
+            type: 'hybrid',
+            transactions: optimizedTransactions,
+            totalCost: optimizedTransactions.reduce((sum, tx) => sum + tx.cost, 0),
+            energyUsed: userEnergyBalance - remainingEnergy,
+            gasUsed: optimizedTransactions.filter(tx => tx.payment === 'gas').length
+        };
+    }
+}
+```
+
+## Advanced Fee Features
+
+### Priority Fee Markets
+
+```rust
+pub struct PriorityFeeMarket {
+    pub fee_tiers: Vec<FeeTier>,
+    pub dynamic_pricing: DynamicPricing,
+    pub miner_preferences: MinerPreferences,
+}
+
+pub struct FeeTier {
+    pub tier_name: String,
+    pub priority_multiplier: f64,
+    pub estimated_inclusion_time: Duration,
+    pub success_rate: f64,
+}
+
+impl PriorityFeeMarket {
+    pub fn get_priority_options(&self, base_fee: u64) -> Vec<PriorityOption> {
+        self.fee_tiers.iter().map(|tier| {
+            PriorityOption {
+                tier_name: tier.tier_name.clone(),
+                total_fee: base_fee + (base_fee as f64 * tier.priority_multiplier) as u64,
+                estimated_time: tier.estimated_inclusion_time,
+                success_probability: tier.success_rate,
+                recommendation: self.generate_recommendation(tier),
+            }
+        }).collect()
+    }
+
+    fn generate_recommendation(&self, tier: &FeeTier) -> String {
+        match tier.tier_name.as_str() {
+            "Economy" => "Best for non-urgent transactions".to_string(),
+            "Standard" => "Balanced option for most use cases".to_string(),
+            "Fast" => "Recommended for time-sensitive transactions".to_string(),
+            "Instant" => "Guaranteed next-block inclusion".to_string(),
+            _ => "Custom tier".to_string(),
+        }
+    }
+}
+```
+
+### Fee Subscription Models
+
+```javascript
+// Subscription-based fee models for enterprise users
+class FeeSubscriptionManager {
+    constructor() {
+        this.subscriptionPlans = this.initializeSubscriptionPlans();
+        this.usageTracking = new UsageTrackingSystem();
+    }
+
+    initializeSubscriptionPlans() {
+        return {
+            basic: {
+                monthly_fee: '100', // TOS
+                included_transactions: 1000,
+                energy_generation_bonus: 1.1, // 10% bonus
+                priority_access: false,
+                overage_rate: '0.001' // TOS per transaction
+            },
+            professional: {
+                monthly_fee: '500', // TOS
+                included_transactions: 10000,
+                energy_generation_bonus: 1.25, // 25% bonus
+                priority_access: true,
+                overage_rate: '0.0005' // TOS per transaction
+            },
+            enterprise: {
+                monthly_fee: '2000', // TOS
+                included_transactions: 100000,
+                energy_generation_bonus: 1.5, // 50% bonus
+                priority_access: true,
+                custom_fee_structure: true,
+                dedicated_support: true,
+                overage_rate: '0.0001' // TOS per transaction
+            }
+        };
+    }
+
+    async calculateMonthlyBenefit(userAddress, planType) {
+        const currentUsage = await this.usageTracking.getMonthlyUsage(userAddress);
+        const currentCosts = await this.calculateCurrentMonthlyCosts(currentUsage);
+        const planCosts = await this.calculatePlanCosts(planType, currentUsage);
+
+        return {
+            current_monthly_cost: currentCosts,
+            plan_monthly_cost: planCosts,
+            monthly_savings: currentCosts - planCosts,
+            annual_savings: (currentCosts - planCosts) * 12,
+            break_even_transactions: this.calculateBreakEvenPoint(planType),
+            recommendation: this.generatePlanRecommendation(currentUsage, planType)
+        };
+    }
+}
+```
+
+### Cross-Chain Fee Management
+
+```rust
+pub struct CrossChainFeeManager {
+    pub supported_chains: Vec<SupportedChain>,
+    pub bridge_fees: BridgeFeeStructure,
+    pub conversion_rates: ConversionRates,
+}
+
+pub struct BridgeFeeStructure {
+    pub base_bridge_fee: u64,
+    pub destination_chain_fees: HashMap<ChainId, u64>,
+    pub asset_specific_fees: HashMap<AssetId, u64>,
+    pub speed_tiers: Vec<BridgeSpeedTier>,
+}
+
+impl CrossChainFeeManager {
+    pub fn calculate_cross_chain_transaction_cost(
+        &self,
+        source_chain: ChainId,
+        destination_chain: ChainId,
+        asset: AssetId,
+        amount: u64,
+        speed_tier: BridgeSpeedTier
+    ) -> CrossChainCost {
+        let base_cost = self.bridge_fees.base_bridge_fee;
+        let destination_fee = self.bridge_fees.destination_chain_fees
+            .get(&destination_chain)
+            .unwrap_or(&0);
+        let asset_fee = self.bridge_fees.asset_specific_fees
+            .get(&asset)
+            .unwrap_or(&0);
+        let speed_fee = speed_tier.additional_fee;
+
+        CrossChainCost {
+            bridge_fee: base_cost + destination_fee + asset_fee + speed_fee,
+            source_chain_fee: self.estimate_source_chain_fee(source_chain),
+            destination_chain_fee: self.estimate_destination_chain_fee(destination_chain),
+            total_cost: base_cost + destination_fee + asset_fee + speed_fee,
+            estimated_time: speed_tier.estimated_time,
+            energy_alternative: self.calculate_energy_alternative(
+                base_cost + destination_fee + asset_fee + speed_fee
+            ),
+        }
+    }
+}
+```
+
+## Fee Analytics and Reporting
+
+### Real-Time Fee Analytics
+
+```javascript
+class FeeAnalyticsEngine {
+    constructor() {
+        this.dataCollector = new FeeDataCollector();
+        this.analyzer = new StatisticalAnalyzer();
+        this.reporter = new ReportGenerator();
+    }
+
+    async generateFeeReport(timeframe = '24h') {
+        const data = await this.dataCollector.getFeeData(timeframe);
+
+        return {
+            summary: {
+                total_transactions: data.transactions.length,
+                average_gas_fee: this.analyzer.calculateAverage(data.gasFees),
+                median_gas_fee: this.analyzer.calculateMedian(data.gasFees),
+                energy_transactions_percentage: this.calculateEnergyPercentage(data),
+                cost_savings_from_energy: this.calculateEnergySavings(data)
+            },
+            trends: {
+                fee_trend: this.analyzer.calculateTrend(data.gasFees),
+                network_congestion_correlation: this.analyzer.correlateWithCongestion(data),
+                time_of_day_patterns: this.analyzer.findTimePatterns(data),
+                user_behavior_insights: this.analyzer.analyzeUserBehavior(data)
+            },
+            recommendations: {
+                optimal_transaction_times: this.findOptimalTimes(data),
+                staking_recommendations: this.generateStakingAdvice(data),
+                cost_optimization_tips: this.generateOptimizationTips(data)
+            },
+            predictions: {
+                next_hour_fees: await this.predictNearTermFees(data),
+                next_day_fees: await this.predictDailyFees(data),
+                long_term_trends: await this.predictLongTermTrends(data)
+            }
+        };
+    }
+
+    calculateEnergySavings(data) {
+        const energyTransactions = data.transactions.filter(tx => tx.payment_method === 'energy');
+        const hypotheticalGasCosts = energyTransactions.map(tx =>
+            this.estimateHypotheticalGasCost(tx)
+        );
+
+        const totalSavings = hypotheticalGasCosts.reduce((sum, cost) => sum + cost, 0);
+
+        return {
+            total_savings_tos: totalSavings,
+            average_savings_per_transaction: totalSavings / energyTransactions.length,
+            percentage_cost_reduction: (totalSavings / this.calculateTotalHypotheticalCosts(data)) * 100
+        };
+    }
+}
+```
+
+### Personal Fee Management
+
+```javascript
+class PersonalFeeManager {
+    constructor(userAddress) {
+        this.userAddress = userAddress;
+        this.transactionHistory = new TransactionHistoryManager(userAddress);
+        this.preferences = new UserPreferencesManager(userAddress);
+        this.optimizer = new PersonalOptimizer(userAddress);
+    }
+
+    async getPersonalFeeInsights() {
+        const history = await this.transactionHistory.getHistory('30d');
+        const preferences = await this.preferences.getPreferences();
+
+        return {
+            spending_analysis: {
+                total_fees_paid: this.calculateTotalFees(history),
+                average_fee_per_transaction: this.calculateAverageFee(history),
+                energy_vs_gas_usage: this.analyzePaymentMethods(history),
+                potential_savings: await this.calculatePotentialSavings(history)
+            },
+            optimization_opportunities: {
+                staking_recommendations: await this.generateStakingRecommendations(history),
+                timing_optimizations: this.findOptimalTimingPatterns(history),
+                batching_opportunities: this.identifyBatchingOpportunities(history),
+                subscription_benefits: await this.evaluateSubscriptionBenefits(history)
+            },
+            personalized_settings: {
+                recommended_fee_strategy: this.recommendFeeStrategy(history, preferences),
+                automated_optimization: this.suggestAutomationRules(history),
+                alert_settings: this.suggestAlertSettings(history)
+            },
+            future_projections: {
+                monthly_fee_estimate: this.projectMonthlyFees(history),
+                annual_cost_projection: this.projectAnnualCosts(history),
+                roi_for_staking: await this.calculateStakingROI(history)
+            }
+        };
+    }
+
+    async generateStakingRecommendations(history) {
+        const monthlyTransactions = this.getMonthlyTransactionCount(history);
+        const averageEnergyNeeded = this.calculateAverageEnergyConsumption(history);
+        const currentStaking = await this.getCurrentStakingStatus();
+
+        const recommendations = [];
+
+        if (monthlyTransactions > 100 && !currentStaking.hasStake) {
+            recommendations.push({
+                type: 'start_staking',
+                stake_amount: this.calculateOptimalStakeAmount(averageEnergyNeeded),
+                expected_savings: this.calculateExpectedSavings(averageEnergyNeeded),
+                payback_period: this.calculatePaybackPeriod(averageEnergyNeeded)
+            });
+        }
+
+        if (currentStaking.hasStake && currentStaking.utilization < 0.6) {
+            recommendations.push({
+                type: 'reduce_stake',
+                current_stake: currentStaking.amount,
+                recommended_stake: this.calculateOptimalStakeReduction(currentStaking, history),
+                freed_capital: currentStaking.amount - this.calculateOptimalStakeReduction(currentStaking, history)
+            });
+        }
+
+        return recommendations;
+    }
+}
+```
+
+## Developer Integration
+
+### Fee Management SDK
+
+```javascript
+// Comprehensive fee management for developers
+class TOSFeeManager {
+    constructor(tosNetwork) {
+        this.network = tosNetwork;
+        this.optimizer = new FeeOptimizer();
+        this.predictor = new FeePredictor();
+    }
+
+    async createOptimizedTransaction(transactionData, userPreferences = {}) {
+        // Get current network conditions
+        const networkStatus = await this.network.getNetworkStatus();
+
+        // Analyze user's payment options
+        const paymentOptions = await this.analyzePaymentOptions(transactionData);
+
+        // Apply user preferences and optimization
+        const optimizedOptions = this.optimizer.optimize(paymentOptions, userPreferences);
+
+        // Return transaction with optimal fee structure
+        return {
+            transaction: transactionData,
+            recommended_payment: optimizedOptions.best,
+            alternatives: optimizedOptions.alternatives,
+            cost_analysis: optimizedOptions.analysis,
+            execution_strategy: optimizedOptions.strategy
+        };
+    }
+
+    async analyzePaymentOptions(transactionData) {
+        const gasOption = await this.analyzeGasPayment(transactionData);
+        const energyOption = await this.analyzeEnergyPayment(transactionData);
+
+        return {
+            gas: gasOption,
+            energy: energyOption,
+            hybrid: await this.analyzeHybridPayment(transactionData, gasOption, energyOption)
+        };
+    }
+
+    async monitorTransactionCosts(callback) {
+        // Real-time monitoring of transaction costs
+        this.network.on('networkStatusUpdate', async (status) => {
+            const costUpdate = {
+                timestamp: Date.now(),
+                gas_prices: {
+                    slow: status.gas_prices.slow,
+                    standard: status.gas_prices.standard,
+                    fast: status.gas_prices.fast
+                },
+                energy_efficiency: status.energy_efficiency,
+                network_congestion: status.congestion_level,
+                recommendations: await this.generateCurrentRecommendations(status)
+            };
+
+            callback(costUpdate);
+        });
+    }
+}
+
+// Usage example for developers
+const feeManager = new TOSFeeManager(tosNetwork);
+
+// Create optimized transaction
+const optimizedTx = await feeManager.createOptimizedTransaction({
+    to: 'tos1recipient...',
+    amount: '1000000000000', // 1000 TOS
+    data: contractCallData
+}, {
+    priority: 'cost_optimization', // or 'speed_optimization'
+    max_acceptable_fee: '10000000000', // 10 TOS maximum
+    prefer_energy: true
+});
+
+// Monitor costs in real-time
+feeManager.monitorTransactionCosts((update) => {
+    console.log('Cost update:', update);
+    // Update UI with current cost recommendations
+});
+```
+
+## Fee Structure Governance
+
+### Community-Driven Fee Adjustments
+
+```rust
+pub struct FeeGovernance {
+    pub governance_contract: Address,
+    pub proposal_system: ProposalSystem,
+    pub voting_mechanism: VotingMechanism,
+    pub implementation_system: ImplementationSystem,
+}
+
+pub struct FeeProposal {
+    pub proposal_id: u64,
+    pub proposer: Address,
+    pub proposal_type: ProposalType,
+    pub proposed_changes: FeeChanges,
+    pub rationale: String,
+    pub voting_period: Duration,
+    pub implementation_delay: Duration,
+}
+
+pub enum ProposalType {
+    BaseFeeAdjustment {
+        current_base_fee: u64,
+        proposed_base_fee: u64,
+        adjustment_reason: String,
+    },
+    EnergyConversionRate {
+        current_rate: f64,
+        proposed_rate: f64,
+        economic_justification: String,
+    },
+    NewFeeCategory {
+        category_name: String,
+        fee_structure: FeeStructure,
+        use_cases: Vec<String>,
+    },
+}
+
+impl FeeGovernance {
+    pub fn submit_fee_proposal(&self, proposal: FeeProposal) -> Result<ProposalId, GovernanceError> {
+        // Validate proposal meets minimum requirements
+        self.validate_proposal(&proposal)?;
+
+        // Submit to governance contract
+        let proposal_id = self.governance_contract.submit_proposal(proposal)?;
+
+        // Notify community of new proposal
+        self.notify_community(proposal_id)?;
+
+        Ok(proposal_id)
+    }
+
+    pub fn implement_approved_proposal(&self, proposal_id: ProposalId) -> Result<(), ImplementationError> {
+        let proposal = self.get_proposal(proposal_id)?;
+
+        // Verify proposal was approved and delay period has passed
+        if !self.is_approved_and_ready(proposal_id)? {
+            return Err(ImplementationError::NotReadyForImplementation);
+        }
+
+        // Implement fee changes
+        match proposal.proposal_type {
+            ProposalType::BaseFeeAdjustment { proposed_base_fee, .. } => {
+                self.update_base_fee(proposed_base_fee)?;
+            },
+            ProposalType::EnergyConversionRate { proposed_rate, .. } => {
+                self.update_energy_conversion_rate(proposed_rate)?;
+            },
+            ProposalType::NewFeeCategory { fee_structure, .. } => {
+                self.add_fee_category(fee_structure)?;
+            },
+        }
+
+        Ok(())
+    }
+}
+```
+
+## Conclusion
+
+TOS Network's dual fee system represents a fundamental innovation in blockchain economics, providing users with unprecedented choice and flexibility. Whether you prefer the familiarity of gas fees or the revolutionary efficiency of the energy model, TOS Network ensures that you have options that fit your needs and usage patterns.
+
+The system embodies TOS's core principle of **"Don't Trust, Verify it"** by making all fee calculations transparent, predictable, and mathematically verifiable. Users can always verify that they're getting fair value for their transaction costs, whether paid in TOS tokens or energy units.
+
+As the network evolves, the fee system will continue to adapt through community governance, ensuring that TOS Network remains the most cost-effective and user-friendly blockchain platform available.
+
+## Learn More
+
+- [Energy Model Guide](/features/energy-model) - Deep dive into the revolutionary energy system
+- [Staking Guide](/getting-started/staking) - Learn how to stake TOS for energy generation
+- [Transaction Optimization](/guides/transaction-optimization) - Maximize your transaction efficiency
+- [Developer Fee Integration](/developers-api/fee-management) - Integrate optimal fee management into your applications

@@ -1,0 +1,1029 @@
+---
+title: "Stratum Protocol"
+description: "Complete TOS Network Stratum protocol specification for mining pool integration, AI-mining support, and efficient work distribution."
+---
+
+# Stratum Protocol
+
+The TOS Network Stratum Protocol is an advanced mining communication protocol that enables efficient work distribution between mining pools and miners. Built on the principle of **"Don't Trust, Verify it"**, the protocol supports both traditional mining and AI-mining with enhanced security and performance features.
+
+## Overview
+
+The TOS Stratum Protocol provides:
+
+- **Dual Mining Support**: Traditional hash mining and AI-task mining
+- **Low Latency**: Optimized for real-time mining operations
+- **Efficient Communication**: Minimal bandwidth usage with JSON-RPC 2.0
+- **Security Features**: Work validation and difficulty adjustment
+- **Pool Failover**: Automatic switching between mining pools
+- **Energy Integration**: Support for TOS Energy Model transactions
+
+## Protocol Characteristics
+
+### Communication Method
+
+- **Protocol**: JSON-RPC 2.0 over TCP
+- **Message Format**: Line-delimited JSON (`\n` terminated)
+- **Bidirectional**: Both client and server can initiate requests
+- **Connection**: Persistent TCP connection
+- **Default Port**: 4444 (Traditional), 4445 (AI-Mining)
+
+### Message Structure
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "method_name",
+  "params": {
+    "parameter1": "value1",
+    "parameter2": "value2"
+  },
+  "id": 1
+}
+```
+
+### Response Structure
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "data": "response_data"
+  },
+  "id": 1
+}
+```
+
+### Error Structure
+
+```json
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -1,
+    "message": "Error description"
+  },
+  "id": 1
+}
+```
+
+## Core Protocol Methods
+
+### Connection and Authentication
+
+#### `mining.subscribe`
+
+Initialize mining session and subscribe to work notifications.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "mining.subscribe",
+  "params": {
+    "user_agent": "TOS-Miner/1.2.0",
+    "protocol_version": "1.0",
+    "capabilities": {
+      "traditional_mining": true,
+      "ai_mining": true,
+      "gpu_acceleration": true,
+      "energy_payments": true
+    }
+  },
+  "id": 1
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "session_id": "session_550e8400-e29b-41d4-a716-446655440000",
+    "extranonce1": "08000002",
+    "extranonce2_size": 4,
+    "difficulty": "0x1a2b3c4d",
+    "ai_difficulty": "0x2b3c4d5e",
+    "protocol_version": "1.0",
+    "server_info": {
+      "name": "TOS Mining Pool",
+      "version": "2.1.0",
+      "fee": "1.0%",
+      "payout_scheme": "PPLNS",
+      "supported_algorithms": ["tos-hash", "tos-ai"]
+    }
+  },
+  "id": 1
+}
+```
+
+#### `mining.authorize`
+
+Authenticate worker with pool credentials.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "mining.authorize",
+  "params": {
+    "username": "tos1your_mining_address.worker_name",
+    "password": "optional_worker_password",
+    "worker_info": {
+      "hardware": "RTX 4090",
+      "software": "TOS-Miner/1.2.0",
+      "capabilities": ["traditional", "ai_mining"],
+      "max_ai_threads": 4,
+      "estimated_hashrate": "500000000" // H/s
+    }
+  },
+  "id": 2
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "authorized": true,
+    "worker_id": "worker_123456",
+    "miner_address": "tos1your_mining_address",
+    "worker_name": "worker_name",
+    "assigned_difficulty": "0x1a2b3c4d",
+    "pool_balance": "1250000000000",
+    "last_payout": 1672531200,
+    "worker_stats": {
+      "shares_submitted": 1245,
+      "shares_accepted": 1200,
+      "shares_rejected": 45,
+      "acceptance_rate": "96.4%"
+    }
+  },
+  "id": 2
+}
+```
+
+### Work Distribution
+
+#### `mining.notify`
+
+Server sends new work to miners.
+
+```json
+// Traditional Mining Work
+{
+  "jsonrpc": "2.0",
+  "method": "mining.notify",
+  "params": {
+    "job_id": "job_12345",
+    "work_type": "traditional",
+    "previous_hash": "0xprevious_block_hash_64_chars",
+    "generation_tx_hash": "0xgeneration_transaction_hash",
+    "merkle_branches": [
+      "0xmerkle_branch_1",
+      "0xmerkle_branch_2"
+    ],
+    "block_version": "00000001",
+    "difficulty_bits": "1a2b3c4d",
+    "timestamp": "507c7200",
+    "clean_jobs": true,
+    "height": 1250001,
+    "target": "0x00000000ffff0000000000000000000000000000000000000000000000000000",
+    "algorithm": "tos-hash"
+  }
+}
+
+// AI Mining Work
+{
+  "jsonrpc": "2.0",
+  "method": "mining.notify",
+  "params": {
+    "job_id": "ai_job_67890",
+    "work_type": "ai_mining",
+    "task_id": "task_ai_12345",
+    "task_type": "optimization", // "optimization", "verification", "analysis"
+    "task_data": {
+      "input_data": "0xinput_data_for_ai_processing",
+      "expected_output_format": "json",
+      "quality_threshold": 85.0,
+      "timeout_seconds": 300,
+      "complexity_level": "intermediate"
+    },
+    "reward_multiplier": 1.5,
+    "difficulty": "0x2b3c4d5e",
+    "deadline": 1672531500,
+    "previous_hash": "0xprevious_block_hash",
+    "height": 1250001,
+    "clean_jobs": false
+  }
+}
+```
+
+#### `mining.set_difficulty`
+
+Server adjusts mining difficulty for worker.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mining.set_difficulty",
+  "params": {
+    "difficulty": "0x1e00ffff",
+    "ai_difficulty": "0x2e00ffff",
+    "reason": "hashrate_adjustment", // "hashrate_adjustment", "network_change", "pool_balancing"
+    "effective_immediately": true
+  }
+}
+```
+
+#### `mining.set_extranonce`
+
+Update extra nonce and public key for mining.
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mining.set_extranonce",
+  "params": {
+    "extranonce1": "08000003",
+    "extranonce2_size": 4,
+    "public_key": "0xnew_public_key_for_coinbase",
+    "energy_address": "tos1energy_payment_address" // For energy-based payouts
+  }
+}
+```
+
+### Work Submission
+
+#### `mining.submit`
+
+Submit mining solution to pool.
+
+```json
+// Traditional Mining Submission
+{
+  "jsonrpc": "2.0",
+  "method": "mining.submit",
+  "params": {
+    "worker_name": "worker_name",
+    "job_id": "job_12345",
+    "extranonce2": "00000001",
+    "timestamp": "507c7201",
+    "nonce": "a2b3c4d5",
+    "work_type": "traditional",
+    "solution_hash": "0xresulting_block_hash",
+    "energy_payment": false
+  },
+  "id": 3
+}
+
+// AI Mining Submission
+{
+  "jsonrpc": "2.0",
+  "method": "mining.submit",
+  "params": {
+    "worker_name": "worker_name",
+    "job_id": "ai_job_67890",
+    "task_id": "task_ai_12345",
+    "work_type": "ai_mining",
+    "solution_data": {
+      "output": {
+        "optimized_value": 87.3,
+        "convergence_steps": 1247,
+        "final_parameters": [1.25, 0.83, 2.47]
+      },
+      "quality_score": 91.5,
+      "computation_time": 245,
+      "verification_proof": "0xai_solution_proof"
+    },
+    "nonce": "ai_nonce_12345",
+    "timestamp": "507c7201",
+    "energy_payment": true,
+    "energy_amount": "75.5"
+  },
+  "id": 3
+}
+
+// Success Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "accepted": true,
+    "share_difficulty": "0x1a2b3c4d",
+    "block_found": false,
+    "share_id": "share_789012",
+    "payout_info": {
+      "share_value": "0.0001234",
+      "payment_method": "energy", // "traditional" or "energy"
+      "energy_credited": "75.5"
+    }
+  },
+  "id": 3
+}
+
+// Block Found Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "accepted": true,
+    "share_difficulty": "0x1a2b3c4d",
+    "block_found": true,
+    "block_hash": "0xnew_block_hash",
+    "block_height": 1250001,
+    "block_reward": "5000000000000",
+    "finder_bonus": "250000000000",
+    "share_id": "share_789012"
+  },
+  "id": 3
+}
+```
+
+### Pool Communication
+
+#### `mining.get_transactions`
+
+Request transaction list for block template.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "mining.get_transactions",
+  "params": {
+    "job_id": "job_12345"
+  },
+  "id": 4
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "transactions": [
+      {
+        "hash": "0xtx_hash_1",
+        "data": "0xtx_raw_data_1",
+        "fee": "1000000",
+        "priority": "high"
+      },
+      {
+        "hash": "0xtx_hash_2",
+        "data": "0xtx_raw_data_2",
+        "fee": "1500000",
+        "priority": "medium"
+      }
+    ],
+    "merkle_root": "0xmerkle_root_hash",
+    "total_fees": "2500000",
+    "transaction_count": 2
+  },
+  "id": 4
+}
+```
+
+#### `mining.ping`
+
+Keep-alive and latency measurement.
+
+```json
+// Request
+{
+  "jsonrpc": "2.0",
+  "method": "mining.ping",
+  "params": {
+    "timestamp": 1672531200
+  },
+  "id": 5
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "pong": "alive",
+    "server_timestamp": 1672531201,
+    "latency_ms": 45
+  },
+  "id": 5
+}
+```
+
+## AI Mining Extensions
+
+### AI Task Types
+
+#### Optimization Tasks
+
+```json
+{
+  "task_type": "optimization",
+  "task_data": {
+    "objective_function": "minimize_energy_consumption",
+    "constraints": [
+      {"type": "inequality", "expression": "x1 + x2 <= 100"},
+      {"type": "equality", "expression": "x1 * x2 = 50"}
+    ],
+    "variables": {
+      "x1": {"min": 0, "max": 100, "type": "continuous"},
+      "x2": {"min": 0, "max": 100, "type": "continuous"}
+    },
+    "iterations_limit": 10000,
+    "precision_target": 0.001
+  },
+  "expected_output": {
+    "optimal_values": {"x1": "value", "x2": "value"},
+    "objective_value": "minimized_value",
+    "convergence_info": "details"
+  }
+}
+```
+
+#### Verification Tasks
+
+```json
+{
+  "task_type": "verification",
+  "task_data": {
+    "smart_contract_bytecode": "0xcontract_bytecode",
+    "verification_rules": [
+      "no_reentrancy_vulnerabilities",
+      "integer_overflow_protection",
+      "access_control_validation"
+    ],
+    "test_cases": [
+      {
+        "input": {"amount": "1000", "recipient": "tos1addr..."},
+        "expected_behavior": "transfer_success"
+      }
+    ]
+  },
+  "expected_output": {
+    "verification_result": "pass/fail",
+    "vulnerabilities_found": ["list_of_issues"],
+    "security_score": "0-100",
+    "recommendations": ["improvement_suggestions"]
+  }
+}
+```
+
+#### Analysis Tasks
+
+```json
+{
+  "task_type": "analysis",
+  "task_data": {
+    "dataset": "0xencrypted_dataset",
+    "analysis_type": "pattern_recognition",
+    "parameters": {
+      "algorithm": "clustering",
+      "clusters": 5,
+      "convergence_threshold": 0.95
+    },
+    "privacy_preserving": true
+  },
+  "expected_output": {
+    "patterns_found": "pattern_description",
+    "confidence_score": "0-100",
+    "statistical_summary": "summary_data"
+  }
+}
+```
+
+### AI Solution Format
+
+```json
+{
+  "solution_data": {
+    "task_id": "task_ai_12345",
+    "output": {
+      // Task-specific output structure
+      "result": "computed_result",
+      "metadata": {
+        "computation_time": 245,
+        "iterations_performed": 8743,
+        "convergence_achieved": true
+      }
+    },
+    "quality_metrics": {
+      "accuracy": 91.5,
+      "efficiency": 87.2,
+      "completeness": 95.0,
+      "overall_score": 91.2
+    },
+    "verification_proof": "0xzk_proof_of_computation",
+    "resource_usage": {
+      "cpu_time": 245.7,
+      "memory_peak": "2.3GB",
+      "gpu_utilization": "85%"
+    }
+  }
+}
+```
+
+## Work Data Structures
+
+### Traditional Mining Work
+
+```
+TOS Mining Work Structure (112 bytes total):
+┌─────────────────────────────────────────────────────────────┐
+│                    Header Work Hash (32 bytes)              │
+├─────────────────────────────────────────────────────────────┤
+│                    Timestamp (8 bytes)                      │
+├─────────────────────────────────────────────────────────────┤
+│                    Nonce (8 bytes)                          │
+├─────────────────────────────────────────────────────────────┤
+│                    Extra Nonce (8 bytes)                    │
+├─────────────────────────────────────────────────────────────┤
+│                    Miner Public Key (32 bytes)              │
+├─────────────────────────────────────────────────────────────┤
+│                    Difficulty Target (24 bytes)             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### AI Mining Work
+
+```
+AI Mining Work Structure (Variable length):
+┌─────────────────────────────────────────────────────────────┐
+│                    Task Header (64 bytes)                   │
+├─────────────────────────────────────────────────────────────┤
+│                    Task ID (32 bytes)                       │
+├─────────────────────────────────────────────────────────────┤
+│                    Task Type (4 bytes)                      │
+├─────────────────────────────────────────────────────────────┤
+│                    Difficulty (8 bytes)                     │
+├─────────────────────────────────────────────────────────────┤
+│                    Deadline (8 bytes)                       │
+├─────────────────────────────────────────────────────────────┤
+│                    Quality Threshold (4 bytes)              │
+├─────────────────────────────────────────────────────────────┤
+│                    Reward Multiplier (4 bytes)              │
+├─────────────────────────────────────────────────────────────┤
+│                    Task Data (Variable length)              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Error Codes and Handling
+
+### Standard Error Codes
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -1 | Job not found | Invalid job ID |
+| -2 | Duplicate share | Share already submitted |
+| -3 | Low difficulty share | Share below target difficulty |
+| -4 | Unauthorized worker | Worker not authorized |
+| -5 | Invalid solution | Solution validation failed |
+| -6 | Stale work | Work is too old |
+| -7 | Invalid task | AI task validation failed |
+| -8 | Quality too low | AI solution quality insufficient |
+| -9 | Timeout exceeded | AI task took too long |
+| -10 | Resource limit | Computing resource limit exceeded |
+
+### AI Mining Specific Errors
+
+| Code | Message | Description |
+|------|---------|-------------|
+| -101 | AI capability required | Worker doesn't support AI mining |
+| -102 | Task type unsupported | AI task type not supported |
+| -103 | Verification failed | AI solution verification failed |
+| -104 | Quality threshold not met | Solution quality below threshold |
+| -105 | Computation timeout | AI task exceeded time limit |
+| -106 | Resource exhausted | Insufficient computational resources |
+| -107 | Proof invalid | Zero-knowledge proof validation failed |
+
+### Error Response Examples
+
+```json
+// Traditional mining error
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -2,
+    "message": "Duplicate share",
+    "data": {
+      "job_id": "job_12345",
+      "original_submission": "2024-01-15T10:30:00Z",
+      "share_id": "share_789012"
+    }
+  },
+  "id": 3
+}
+
+// AI mining error
+{
+  "jsonrpc": "2.0",
+  "error": {
+    "code": -104,
+    "message": "Quality threshold not met",
+    "data": {
+      "task_id": "task_ai_12345",
+      "achieved_quality": 82.3,
+      "required_quality": 85.0,
+      "suggestion": "Improve computation accuracy"
+    }
+  },
+  "id": 3
+}
+```
+
+## Pool Failover and Load Balancing
+
+### Pool Configuration
+
+```json
+{
+  "pool_config": {
+    "primary_pools": [
+      {
+        "url": "stratum+tcp://pool1.tos.network:4444",
+        "backup_url": "stratum+tcp://pool1-backup.tos.network:4444",
+        "priority": 1,
+        "weight": 50
+      },
+      {
+        "url": "stratum+tcp://pool2.tos.network:4444",
+        "backup_url": "stratum+tcp://pool2-backup.tos.network:4444",
+        "priority": 2,
+        "weight": 30
+      }
+    ],
+    "ai_pools": [
+      {
+        "url": "stratum+tcp://ai-pool1.tos.network:4445",
+        "priority": 1,
+        "weight": 70,
+        "supported_tasks": ["optimization", "verification"]
+      }
+    ],
+    "failover_strategy": "round_robin", // "priority", "round_robin", "load_balanced"
+    "retry_interval": 30,
+    "max_retries": 3
+  }
+}
+```
+
+### Failover Notifications
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mining.pool_status",
+  "params": {
+    "status": "failover_initiated",
+    "from_pool": "pool1.tos.network:4444",
+    "to_pool": "pool2.tos.network:4444",
+    "reason": "connection_lost",
+    "estimated_downtime": 120
+  }
+}
+```
+
+## Performance Optimization
+
+### Connection Management
+
+```javascript
+class TosStratumClient {
+  constructor(poolUrl, username, password) {
+    this.poolUrl = poolUrl;
+    this.username = username;
+    this.password = password;
+    this.socket = null;
+    this.requestId = 0;
+    this.pendingRequests = new Map();
+    this.subscribed = false;
+  }
+
+  async connect() {
+    return new Promise((resolve, reject) => {
+      this.socket = new net.Socket();
+
+      this.socket.connect(this.getPort(), this.getHost(), () => {
+        console.log('Connected to pool');
+        this.setupMessageHandler();
+        resolve();
+      });
+
+      this.socket.on('error', reject);
+    });
+  }
+
+  setupMessageHandler() {
+    let buffer = '';
+
+    this.socket.on('data', (data) => {
+      buffer += data.toString();
+
+      let lines = buffer.split('\n');
+      buffer = lines.pop(); // Keep incomplete line
+
+      for (let line of lines) {
+        if (line.trim()) {
+          this.handleMessage(JSON.parse(line));
+        }
+      }
+    });
+  }
+
+  async subscribe() {
+    const response = await this.sendRequest('mining.subscribe', {
+      user_agent: 'TOS-Miner/1.2.0',
+      protocol_version: '1.0',
+      capabilities: {
+        traditional_mining: true,
+        ai_mining: true,
+        energy_payments: true
+      }
+    });
+
+    this.extranonce1 = response.extranonce1;
+    this.extranonce2Size = response.extranonce2_size;
+    this.subscribed = true;
+
+    return response;
+  }
+
+  async authorize() {
+    return this.sendRequest('mining.authorize', {
+      username: this.username,
+      password: this.password,
+      worker_info: {
+        hardware: 'RTX 4090',
+        software: 'TOS-Miner/1.2.0',
+        capabilities: ['traditional', 'ai_mining']
+      }
+    });
+  }
+
+  async submitShare(jobId, solution) {
+    return this.sendRequest('mining.submit', {
+      worker_name: this.username.split('.')[1] || 'default',
+      job_id: jobId,
+      ...solution
+    });
+  }
+
+  sendRequest(method, params) {
+    return new Promise((resolve, reject) => {
+      const id = ++this.requestId;
+      const request = {
+        jsonrpc: '2.0',
+        method,
+        params,
+        id
+      };
+
+      this.pendingRequests.set(id, { resolve, reject });
+      this.socket.write(JSON.stringify(request) + '\n');
+
+      // Timeout after 30 seconds
+      setTimeout(() => {
+        if (this.pendingRequests.has(id)) {
+          this.pendingRequests.delete(id);
+          reject(new Error('Request timeout'));
+        }
+      }, 30000);
+    });
+  }
+
+  handleMessage(message) {
+    if (message.id && this.pendingRequests.has(message.id)) {
+      const { resolve, reject } = this.pendingRequests.get(message.id);
+      this.pendingRequests.delete(message.id);
+
+      if (message.error) {
+        reject(new Error(`Pool error ${message.error.code}: ${message.error.message}`));
+      } else {
+        resolve(message.result);
+      }
+    } else if (message.method) {
+      this.handleNotification(message);
+    }
+  }
+
+  handleNotification(message) {
+    switch (message.method) {
+      case 'mining.notify':
+        this.handleNewWork(message.params);
+        break;
+      case 'mining.set_difficulty':
+        this.handleDifficultyChange(message.params);
+        break;
+      case 'mining.set_extranonce':
+        this.handleExtranonceChange(message.params);
+        break;
+    }
+  }
+
+  handleNewWork(work) {
+    if (work.work_type === 'traditional') {
+      this.processTraditionalWork(work);
+    } else if (work.work_type === 'ai_mining') {
+      this.processAIWork(work);
+    }
+  }
+
+  processTraditionalWork(work) {
+    // Implement traditional mining logic
+    console.log('New traditional work:', work.job_id);
+  }
+
+  processAIWork(work) {
+    // Implement AI mining logic
+    console.log('New AI work:', work.job_id, work.task_type);
+  }
+}
+
+// Usage example
+async function startMining() {
+  const client = new TosStratumClient(
+    'stratum+tcp://pool.tos.network:4444',
+    'tos1your_address.worker1',
+    'password'
+  );
+
+  try {
+    await client.connect();
+    await client.subscribe();
+    await client.authorize();
+
+    console.log('Mining started successfully');
+  } catch (error) {
+    console.error('Mining failed:', error.message);
+  }
+}
+```
+
+## Security Considerations
+
+### Work Validation
+
+```python
+import hashlib
+import struct
+
+def validate_traditional_work(work_data, solution):
+    """Validate traditional mining solution"""
+
+    # Reconstruct block header
+    header = bytearray(80)
+
+    # Version (4 bytes)
+    header[0:4] = struct.pack('<I', int(work_data['block_version'], 16))
+
+    # Previous hash (32 bytes)
+    header[4:36] = bytes.fromhex(work_data['previous_hash'])
+
+    # Merkle root (32 bytes)
+    header[36:68] = bytes.fromhex(work_data['merkle_root'])
+
+    # Timestamp (4 bytes)
+    header[68:72] = struct.pack('<I', int(solution['timestamp'], 16))
+
+    # Difficulty bits (4 bytes)
+    header[72:76] = struct.pack('<I', int(work_data['difficulty_bits'], 16))
+
+    # Nonce (4 bytes)
+    header[76:80] = struct.pack('<I', int(solution['nonce'], 16))
+
+    # Calculate hash
+    hash_result = hashlib.sha256(hashlib.sha256(header).digest()).digest()
+
+    # Check if hash meets difficulty target
+    target = int(work_data['target'], 16)
+    hash_int = int.from_bytes(hash_result, 'big')
+
+    return hash_int < target
+
+def validate_ai_solution(task_data, solution):
+    """Validate AI mining solution"""
+
+    # Check quality score
+    if solution['quality_score'] < task_data['quality_threshold']:
+        return False, 'Quality threshold not met'
+
+    # Verify computation proof
+    if not verify_computation_proof(solution['verification_proof'], task_data):
+        return False, 'Computation proof invalid'
+
+    # Check solution format
+    if not validate_solution_format(solution['output'], task_data['expected_output_format']):
+        return False, 'Invalid solution format'
+
+    return True, 'Valid solution'
+
+def verify_computation_proof(proof, task_data):
+    """Verify zero-knowledge proof of computation"""
+    # Implement ZK proof verification
+    # This is a simplified placeholder
+    return len(proof) > 0 and proof.startswith('0x')
+```
+
+### Rate Limiting
+
+```python
+class StratumRateLimiter:
+    def __init__(self):
+        self.client_limits = {}
+        self.default_limits = {
+            'submit_rate': 10,  # shares per minute
+            'request_rate': 60,  # requests per minute
+            'connection_limit': 5  # connections per IP
+        }
+
+    def check_submit_rate(self, client_ip):
+        """Check if client can submit shares"""
+        now = time.time()
+
+        if client_ip not in self.client_limits:
+            self.client_limits[client_ip] = {
+                'submit_times': [],
+                'request_times': []
+            }
+
+        client_data = self.client_limits[client_ip]
+
+        # Remove old submissions (older than 1 minute)
+        client_data['submit_times'] = [
+            t for t in client_data['submit_times']
+            if now - t < 60
+        ]
+
+        if len(client_data['submit_times']) >= self.default_limits['submit_rate']:
+            return False, 'Submit rate limit exceeded'
+
+        client_data['submit_times'].append(now)
+        return True, 'OK'
+
+    def check_request_rate(self, client_ip):
+        """Check if client can make requests"""
+        now = time.time()
+
+        if client_ip not in self.client_limits:
+            self.client_limits[client_ip] = {
+                'submit_times': [],
+                'request_times': []
+            }
+
+        client_data = self.client_limits[client_ip]
+
+        # Remove old requests (older than 1 minute)
+        client_data['request_times'] = [
+            t for t in client_data['request_times']
+            if now - t < 60
+        ]
+
+        if len(client_data['request_times']) >= self.default_limits['request_rate']:
+            return False, 'Request rate limit exceeded'
+
+        client_data['request_times'].append(now)
+        return True, 'OK'
+```
+
+## Monitoring and Analytics
+
+### Pool Statistics
+
+```json
+// Pool statistics request
+{
+  "jsonrpc": "2.0",
+  "method": "mining.get_stats",
+  "params": {
+    "timeframe": "24h"
+  },
+  "id": 6
+}
+
+// Response
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "pool_stats": {
+      "total_hashrate": "125.5 TH/s",
+      "ai_hashrate": "15.5 TH/s",
+      "connected_miners": 2547,
+      "ai_miners": 312,
+      "blocks_found_24h": 28,
+      "shares_submitted_24h": 1547234,
+      "shares_accepted_24h": 1495678,
+      "rejection_rate": "3.3%"
+    },
+    "network_stats": {
+      "network_hashrate": "1.2 PH/s",
+      "difficulty": "0x1a2b3c4d5e6f",
+      "block_height": 1250000,
+      "average_block_time": "15.2s"
+    },
+    "payout_info": {
+      "scheme": "PPLNS",
+      "fee": "1.0%",
+      "minimum_payout": "1000000000000", // 1000 TOS
+      "last_payout": 1672531200,
+      "next_payout": 1672534800
+    }
+  },
+  "id": 6
+}
+```
+
+The TOS Network Stratum Protocol provides efficient, secure, and feature-rich communication between mining pools and miners, supporting both traditional and AI mining while maintaining the core principle of "Don't Trust, Verify it." The protocol ensures optimal performance and fair reward distribution in the decentralized mining ecosystem.

@@ -1,0 +1,35 @@
+{
+  "name": "tos-docs",
+  "version": "1.0.0",
+  "description": "TOS Network Documentation - Trustless Open System",
+  "scripts": {
+    "start": "next dev",
+    "build": "next build",
+    "prod": "next start",
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind && cp -r public/_pagefind out"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "^0.2.6",
+    "next": "^15.5.3",
+    "nextra": "^4.4.0",
+    "nextra-theme-docs": "^4.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "pagefind": "^1.4.0"
+  },
+  "keywords": [
+    "tos",
+    "blockchain",
+    "cryptocurrency",
+    "privacy",
+    "smart-contracts",
+    "documentation"
+  ],
+  "author": "TOS Network Team",
+  "license": "BSD-3-Clause"
+}

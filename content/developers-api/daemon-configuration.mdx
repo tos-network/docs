@@ -1,0 +1,555 @@
+---
+title: "Daemon Configuration"
+description: "Complete guide to configuring and managing the TOS Network daemon for optimal performance, security, and network participation."
+---
+
+# Daemon Configuration
+
+The TOS Network daemon (`tos-daemon`) is the core component that connects your node to the network. This guide covers comprehensive configuration options, performance tuning, and operational best practices.
+
+## Configuration File Structure
+
+The daemon uses a TOML configuration file typically located at:
+- **Linux/macOS**: `~/.tos/daemon.toml`
+- **Windows**: `%APPDATA%\TOS\daemon.toml`
+- **Docker**: `/data/daemon.toml`
+
+```toml
+# TOS Network Daemon Configuration
+# Don't Trust, Verify it - Configure your node for maximum security
+
+[network]
+# Network configuration
+network_id = "mainnet"  # mainnet, testnet, or devnet
+bind_address = "0.0.0.0:2080"
+max_peers = 50
+seed_nodes = [
+    "seed1.tos.network:2080",
+    "seed2.tos.network:2080",
+    "seed3.tos.network:2080"
+]
+
+[rpc]
+# JSON-RPC API configuration
+enable = true
+bind_address = "127.0.0.1:8080"
+cors_origins = ["http://localhost:3000"]
+max_connections = 100
+rate_limit = 1000  # requests per minute
+
+[storage]
+# Database and storage configuration
+data_dir = "~/.tos/data"
+cache_size = 1024  # MB
+sync_mode = "full"  # full, fast, or light
+pruning_enabled = false
+max_log_files = 10
+
+[mining]
+# AI-Mining configuration
+enable = false
+miner_address = "tos1your-mining-address..."
+ai_threads = 4
+gpu_enabled = true
+energy_threshold = 100
+
+[privacy]
+# Privacy and encryption settings
+homomorphic_encryption = true
+zero_knowledge_proofs = true
+mixnet_enabled = true
+tor_proxy = ""  # Optional Tor proxy for enhanced privacy
+
+[logging]
+# Logging configuration
+level = "info"  # trace, debug, info, warn, error
+file_path = "~/.tos/logs/daemon.log"
+max_file_size = "100MB"
+max_files = 5
+console_output = true
+```
+
+## Network Configuration
+
+### Basic Network Settings
+
+Configure your node's network participation:
+
+```toml
+[network]
+# Choose your network
+network_id = "mainnet"  # Production network
+# network_id = "testnet"  # Testing network
+# network_id = "devnet"   # Development network
+
+# Binding configuration
+bind_address = "0.0.0.0:2080"  # Listen on all interfaces
+public_address = "your-public-ip:2080"  # Optional: specify public IP
+
+# Peer management
+max_peers = 50
+target_peers = 25
+min_peers = 5
+peer_timeout = 30  # seconds
+```
+
+### Advanced Network Tuning
+
+For high-performance nodes:
+
+```toml
+[network.advanced]
+# Connection optimization
+tcp_nodelay = true
+tcp_keepalive = true
+buffer_size = 65536
+max_message_size = 16777216  # 16MB
+
+# Bandwidth management
+max_upload_rate = 0    # 0 = unlimited
+max_download_rate = 0  # 0 = unlimited
+connection_pool_size = 100
+
+# Network discovery
+enable_mdns = true
+enable_upnp = true
+bootstrap_timeout = 30
+```
+
+## RPC API Configuration
+
+### Basic RPC Setup
+
+```toml
+[rpc]
+enable = true
+bind_address = "127.0.0.1:8080"  # Local access only
+# bind_address = "0.0.0.0:8080"  # Warning: Allows external access
+
+# Security settings
+require_auth = false  # Set to true for production
+username = "tosuser"
+password = "secure-password-here"
+
+# CORS configuration
+cors_origins = [
+    "http://localhost:3000",
+    "https://wallet.tos.network"
+]
+```
+
+### RPC Performance Tuning
+
+```toml
+[rpc.performance]
+max_connections = 100
+max_request_size = 1048576  # 1MB
+max_response_size = 10485760  # 10MB
+request_timeout = 30
+keep_alive_timeout = 60
+
+# Rate limiting
+rate_limit = 1000  # requests per minute per IP
+burst_limit = 100  # burst allowance
+
+# Caching
+enable_cache = true
+cache_ttl = 60  # seconds
+max_cache_entries = 10000
+```
+
+## Storage and Database
+
+### Storage Configuration
+
+```toml
+[storage]
+# Data directory (ensure sufficient space)
+data_dir = "~/.tos/data"
+temp_dir = "~/.tos/temp"
+
+# Database settings
+db_backend = "rocksdb"  # rocksdb or leveldb
+cache_size = 1024  # MB
+write_buffer_size = 64  # MB
+max_open_files = 1000
+
+# Synchronization
+sync_mode = "full"  # full, fast, or light
+batch_size = 1000
+flush_interval = 5  # seconds
+```
+
+### Pruning and Archival
+
+```toml
+[storage.pruning]
+# Pruning configuration (saves disk space)
+pruning_enabled = false
+keep_blocks = 1000000  # Keep last 1M blocks
+pruning_interval = 100  # Prune every 100 blocks
+
+# Archive settings
+archive_mode = false
+archive_compression = true
+archive_path = "~/.tos/archive"
+```
+
+## AI-Mining Configuration
+
+### Basic Mining Setup
+
+```toml
+[mining]
+enable = true
+miner_address = "tos1your-verified-mining-address..."
+
+# Mining threads
+cpu_threads = 4  # Adjust based on your CPU
+gpu_enabled = true
+gpu_devices = [0, 1]  # GPU device indices
+
+# AI-Mining parameters
+ai_model_cache = 2048  # MB
+ai_batch_size = 32
+difficulty_target = "auto"
+```
+
+### Advanced Mining Options
+
+```toml
+[mining.advanced]
+# Performance tuning
+memory_pool_size = 512  # MB
+work_queue_size = 100
+submission_timeout = 30
+
+# Energy management
+energy_threshold = 100
+energy_regeneration_rate = 1.0
+use_energy_optimization = true
+
+# Mining strategy
+prefer_high_fee_transactions = true
+min_transaction_fee = 0.001
+max_block_size = 2097152  # 2MB
+```
+
+## Privacy and Security
+
+### Encryption Settings
+
+```toml
+[privacy]
+# Core privacy features
+homomorphic_encryption = true
+zero_knowledge_proofs = true
+ring_signatures = true
+
+# Network privacy
+mixnet_enabled = true
+mixnet_hops = 3
+tor_proxy = "127.0.0.1:9050"  # Optional Tor integration
+
+# Transaction privacy
+default_privacy_level = "high"  # low, medium, high, maximum
+stealth_addresses = true
+confidential_amounts = true
+```
+
+### Security Hardening
+
+```toml
+[security]
+# Access control
+whitelist_enabled = false
+whitelist_ips = ["127.0.0.1", "192.168.1.0/24"]
+blacklist_ips = []
+
+# SSL/TLS configuration
+tls_enabled = false
+tls_cert_path = "/path/to/cert.pem"
+tls_key_path = "/path/to/key.pem"
+
+# Security features
+dos_protection = true
+rate_limiting = true
+fail_ban_enabled = true
+max_failed_attempts = 5
+ban_duration = 3600  # seconds
+```
+
+## Logging and Monitoring
+
+### Logging Configuration
+
+```toml
+[logging]
+# Log levels: trace, debug, info, warn, error
+level = "info"
+file_path = "~/.tos/logs/daemon.log"
+
+# File rotation
+max_file_size = "100MB"
+max_files = 5
+compress_rotated = true
+
+# Output targets
+console_output = true
+syslog_enabled = false
+json_format = false
+
+# Component-specific logging
+[logging.components]
+network = "debug"
+mining = "info"
+rpc = "warn"
+storage = "info"
+```
+
+### Metrics and Monitoring
+
+```toml
+[metrics]
+enable = true
+bind_address = "127.0.0.1:9090"
+path = "/metrics"
+
+# Prometheus integration
+prometheus_enabled = true
+collection_interval = 30  # seconds
+
+# Custom metrics
+track_peer_metrics = true
+track_mining_metrics = true
+track_transaction_metrics = true
+```
+
+## Environment-Specific Configurations
+
+### Production Configuration
+
+```toml
+# Production-ready configuration
+[network]
+network_id = "mainnet"
+max_peers = 100
+target_peers = 50
+
+[rpc]
+bind_address = "127.0.0.1:8080"  # Local only
+require_auth = true
+rate_limit = 500
+
+[storage]
+sync_mode = "full"
+cache_size = 4096
+pruning_enabled = true
+
+[logging]
+level = "warn"
+console_output = false
+```
+
+### Development Configuration
+
+```toml
+# Development-friendly configuration
+[network]
+network_id = "devnet"
+max_peers = 10
+
+[rpc]
+bind_address = "0.0.0.0:8080"
+require_auth = false
+cors_origins = ["*"]
+
+[storage]
+sync_mode = "fast"
+cache_size = 512
+
+[logging]
+level = "debug"
+console_output = true
+```
+
+## Configuration Management
+
+### Command Line Options
+
+Override configuration file settings:
+
+```bash
+# Basic daemon startup
+tos-daemon
+
+# Custom configuration file
+tos-daemon --config /path/to/custom.toml
+
+# Override specific settings
+tos-daemon --network testnet --rpc-port 8081
+
+# Mining configuration
+tos-daemon --enable-mining --miner-address tos1...
+
+# Debug mode
+tos-daemon --log-level debug --console-output
+```
+
+### Environment Variables
+
+Use environment variables for sensitive configuration:
+
+```bash
+# Network configuration
+export TOS_NETWORK_ID=mainnet
+export TOS_BIND_ADDRESS=0.0.0.0:2080
+
+# RPC configuration
+export TOS_RPC_USERNAME=admin
+export TOS_RPC_PASSWORD=secure-password
+
+# Mining configuration
+export TOS_MINER_ADDRESS=tos1your-address...
+export TOS_MINING_THREADS=8
+
+# Start daemon with environment variables
+tos-daemon
+```
+
+### Configuration Validation
+
+Validate your configuration:
+
+```bash
+# Check configuration syntax
+tos-daemon --check-config
+
+# Validate and show effective configuration
+tos-daemon --show-config
+
+# Test network connectivity
+tos-daemon --test-network
+```
+
+## Performance Optimization
+
+### Hardware Recommendations
+
+**Minimum Requirements:**
+- CPU: 4+ cores
+- RAM: 8GB
+- Storage: 100GB SSD
+- Network: 10 Mbps
+
+**Recommended Configuration:**
+- CPU: 8+ cores (modern processor)
+- RAM: 16-32GB
+- Storage: 500GB+ NVMe SSD
+- Network: 100+ Mbps
+
+### Optimization Tips
+
+```toml
+# High-performance configuration
+[storage]
+cache_size = 8192  # Use more RAM for caching
+write_buffer_size = 128
+max_open_files = 2000
+
+[network]
+max_peers = 100
+buffer_size = 131072  # 128KB buffers
+
+[rpc]
+max_connections = 200
+enable_cache = true
+cache_ttl = 120
+```
+
+## Troubleshooting
+
+### Common Configuration Issues
+
+1. **Port Binding Errors**
+   ```bash
+   # Check if port is in use
+   netstat -tulpn | grep :2080
+
+   # Use alternative port
+   tos-daemon --port 2081
+   ```
+
+2. **Permission Issues**
+   ```bash
+   # Fix data directory permissions
+   chmod 750 ~/.tos
+   chown $USER ~/.tos -R
+   ```
+
+3. **Network Connectivity**
+   ```bash
+   # Test connectivity to seed nodes
+   tos-daemon --test-network
+
+   # Check firewall settings
+   sudo ufw allow 2080
+   ```
+
+### Configuration Validation
+
+```bash
+# Validate configuration file
+tos-daemon --validate-config ~/.tos/daemon.toml
+
+# Show effective configuration
+tos-daemon --dump-config
+
+# Test configuration without starting
+tos-daemon --dry-run
+```
+
+## Security Best Practices
+
+1. **Access Control**
+   - Use authentication for RPC access
+   - Restrict RPC to localhost in production
+   - Implement IP whitelisting for sensitive operations
+
+2. **Network Security**
+   - Use firewall rules to limit access
+   - Consider VPN for remote management
+   - Enable TLS for external access
+
+3. **Data Protection**
+   - Regular backups of wallet and configuration
+   - Secure storage of private keys
+   - Monitor logs for suspicious activity
+
+4. **Regular Updates**
+   - Keep daemon software updated
+   - Monitor security advisories
+   - Test configuration changes in development
+
+## Docker Configuration
+
+For containerized deployments:
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  tos-daemon:
+    image: tosnetwork/tos-node:latest
+    ports:
+      - "2080:2080"
+      - "8080:8080"
+    volumes:
+      - ./daemon.toml:/data/daemon.toml:ro
+      - tos-data:/data
+    environment:
+      - TOS_CONFIG_FILE=/data/daemon.toml
+    restart: unless-stopped
+```
+
+This comprehensive configuration guide ensures your TOS Network node operates securely, efficiently, and in alignment with the network's "Don't Trust, Verify it" principle.

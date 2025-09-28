@@ -1,0 +1,1069 @@
+---
+title: CLI Wallet Guide
+description: Complete guide to using the TOS Network command-line interface wallet for advanced users and automation
+---
+
+# TOS Network CLI Wallet Guide
+
+The TOS Network CLI (Command-Line Interface) wallet provides powerful, scriptable access to all TOS Network features. This comprehensive guide covers everything from basic operations to advanced automation, perfect for power users, developers, and system administrators.
+
+## Why Use the CLI Wallet?
+
+### Advantages
+- 🖥️ **Server-Friendly**: Perfect for headless servers and automation
+- 🔧 **Scriptable**: Integrate with scripts and applications
+- ⚡ **Performance**: Lightweight and fast operations
+- 🔒 **Security**: No GUI attack surface, better for secure environments
+- 🎯 **Precision**: Exact control over all parameters
+- 📊 **Automation**: Batch operations and scheduled tasks
+
+### Use Cases
+- **Server Management**: Remote server wallet operations
+- **Automation**: Automated transactions and monitoring
+- **Development**: Testing and development workflows
+- **Enterprise**: Large-scale wallet management
+- **Mining Operations**: Automated mining reward collection
+- **Exchanges**: Programmatic transaction processing
+
+## Installation and Setup
+
+### Installation
+
+```bash
+# Option 1: Download precompiled binary
+curl -L https://releases.tos.network/latest/tos-wallet-cli -o tos-wallet
+chmod +x tos-wallet
+sudo mv tos-wallet /usr/local/bin/
+
+# Option 2: Install via package manager
+# Ubuntu/Debian
+sudo apt install tos-wallet-cli
+
+# macOS
+brew install tos-network/tap/tos-wallet-cli
+
+# Option 3: Build from source
+git clone https://github.com/tos-network/tos-wallet.git
+cd tos-wallet
+make build-cli
+sudo cp build/tos-wallet /usr/local/bin/
+
+# Verify installation
+tos-wallet --version
+```
+
+### Initial Configuration
+
+```bash
+# Display help
+tos-wallet help
+
+# Create configuration directory
+mkdir -p ~/.tos-wallet
+
+# Generate default configuration
+tos-wallet config init
+
+# View configuration
+tos-wallet config show
+
+# Edit configuration
+tos-wallet config edit
+```
+
+### Configuration File
+
+The CLI wallet uses `~/.tos-wallet/config.toml`:
+
+```toml
+# TOS CLI Wallet Configuration
+
+[network]
+# Network selection
+network = "mainnet"  # "mainnet", "testnet", "devnet"
+daemon_url = "http://localhost:8080"
+timeout = "30s"
+
+[wallet]
+# Default wallet file
+default_wallet = "main-wallet"
+auto_save = true
+backup_on_save = true
+compression = true
+
+[security]
+# Security settings
+password_prompt = true
+require_confirmation = true
+session_timeout = "1h"
+max_attempts = 3
+
+[display]
+# Output formatting
+format = "table"  # "table", "json", "yaml", "csv"
+colors = true
+timestamps = true
+amounts_precision = 6
+
+[logging]
+# Logging configuration
+level = "info"
+file = "~/.tos-wallet/logs/cli.log"
+rotate_size = "10MB"
+max_files = 5
+```
+
+## Basic Wallet Operations
+
+### Creating Your First Wallet
+
+```bash
+# Create new wallet
+tos-wallet create --name my-wallet
+
+# Create wallet with custom parameters
+tos-wallet create \
+    --name enterprise-wallet \
+    --password-file /secure/password.txt \
+    --mnemonic-length 24 \
+    --language english \
+    --encryption aes256
+
+# Create multisig wallet
+tos-wallet create-multisig \
+    --name multisig-wallet \
+    --threshold 2 \
+    --participants pubkey1,pubkey2,pubkey3
+
+# Create watching wallet (view-only)
+tos-wallet create-watching \
+    --name watch-wallet \
+    --viewing-key your-viewing-key-here
+```
+
+### Wallet Management
+
+```bash
+# List all wallets
+tos-wallet list
+
+# Get wallet information
+tos-wallet info --wallet my-wallet
+
+# Change wallet password
+tos-wallet change-password --wallet my-wallet
+
+# Backup wallet
+tos-wallet backup \
+    --wallet my-wallet \
+    --output ~/backups/my-wallet-backup.json
+
+# Restore wallet from backup
+tos-wallet restore \
+    --backup ~/backups/my-wallet-backup.json \
+    --name restored-wallet
+
+# Delete wallet (use with caution!)
+tos-wallet delete --wallet old-wallet --confirm
+```
+
+### Opening and Closing Wallets
+
+```bash
+# Open wallet for operations
+tos-wallet open --wallet my-wallet
+
+# Open with password file
+tos-wallet open \
+    --wallet my-wallet \
+    --password-file /secure/password.txt
+
+# Check if wallet is open
+tos-wallet status
+
+# Close wallet
+tos-wallet close
+
+# Open wallet with session timeout
+tos-wallet open \
+    --wallet my-wallet \
+    --session-timeout 30m
+```
+
+## Address Management
+
+### Generating Addresses
+
+```bash
+# Generate new receiving address
+tos-wallet generate-address
+
+# Generate address with label
+tos-wallet generate-address --label "Exchange deposit"
+
+# Generate multiple addresses
+tos-wallet generate-addresses --count 10
+
+# Generate address with specific derivation path
+tos-wallet generate-address --path "m/44'/789'/0'/0/5"
+
+# Generate integrated address
+tos-wallet generate-integrated-address \
+    --payment-id 1234567890abcdef
+```
+
+### Address Operations
+
+```bash
+# List all addresses
+tos-wallet list-addresses
+
+# List addresses with balances
+tos-wallet list-addresses --show-balances
+
+# Get specific address info
+tos-wallet address-info tos1your-address-here...
+
+# Set address label
+tos-wallet set-label \
+    --address tos1your-address-here... \
+    --label "Main receiving address"
+
+# Export addresses to file
+tos-wallet export-addresses \
+    --format csv \
+    --output addresses.csv
+
+# Validate address format
+tos-wallet validate-address tos1your-address-here...
+```
+
+## Balance and Transaction History
+
+### Checking Balances
+
+```bash
+# Get total wallet balance
+tos-wallet balance
+
+# Get balance with pending transactions
+tos-wallet balance --include-pending
+
+# Get balance breakdown by address
+tos-wallet balance --by-address
+
+# Get balance in different currencies
+tos-wallet balance --currency usd
+
+# Get encrypted balance (shows commitment)
+tos-wallet balance --show-encrypted
+
+# Export balance report
+tos-wallet balance --export balance-report.json
+```
+
+### Transaction History
+
+```bash
+# Show recent transactions
+tos-wallet history
+
+# Show transactions with details
+tos-wallet history --detailed
+
+# Show specific number of transactions
+tos-wallet history --limit 50
+
+# Filter by date range
+tos-wallet history \
+    --from 2024-01-01 \
+    --to 2024-01-31
+
+# Filter by transaction type
+tos-wallet history --type incoming
+tos-wallet history --type outgoing
+tos-wallet history --type both
+
+# Search transactions
+tos-wallet history --search "payment to alice"
+
+# Export transaction history
+tos-wallet export-history \
+    --format csv \
+    --output transactions.csv
+```
+
+## Sending Transactions
+
+### Basic Transfers
+
+```bash
+# Simple transfer
+tos-wallet transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5
+
+# Transfer with memo
+tos-wallet transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5 \
+    --memo "Payment for services"
+
+# Transfer using energy (gas-free)
+tos-wallet transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5 \
+    --use-energy
+
+# Transfer with custom fee
+tos-wallet transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5 \
+    --fee 0.001
+```
+
+### Advanced Transfer Options
+
+```bash
+# Transfer from specific address
+tos-wallet transfer \
+    --from tos1your-specific-address... \
+    --to tos1recipient-address-here... \
+    --amount 100.5
+
+# Transfer with privacy level
+tos-wallet transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5 \
+    --privacy maximum
+
+# Batch transfers
+tos-wallet batch-transfer \
+    --file transfers.json
+
+# Scheduled transfer
+tos-wallet schedule-transfer \
+    --to tos1recipient-address-here... \
+    --amount 100.5 \
+    --execute-at "2024-02-15 10:00:00"
+
+# Recurring transfer
+tos-wallet recurring-transfer \
+    --to tos1recipient-address-here... \
+    --amount 50 \
+    --frequency monthly \
+    --start-date 2024-02-01
+```
+
+### Batch Transfer File Format
+
+Create `transfers.json`:
+
+```json
+{
+  "transfers": [
+    {
+      "to": "tos1recipient1-address...",
+      "amount": "100.0",
+      "memo": "Payment 1"
+    },
+    {
+      "to": "tos1recipient2-address...",
+      "amount": "200.0",
+      "memo": "Payment 2"
+    },
+    {
+      "to": "tos1recipient3-address...",
+      "amount": "300.0",
+      "memo": "Payment 3"
+    }
+  ],
+  "options": {
+    "use_energy": true,
+    "privacy_level": "maximum",
+    "fee_strategy": "economy"
+  }
+}
+```
+
+Execute batch transfer:
+```bash
+tos-wallet batch-transfer --file transfers.json
+```
+
+## Energy Management
+
+### Energy Operations
+
+```bash
+# Check energy balance
+tos-wallet energy balance
+
+# Check energy generation rate
+tos-wallet energy generation-rate
+
+# Stake TOS for energy
+tos-wallet energy stake \
+    --amount 1000 \
+    --duration 30days
+
+# Check staking information
+tos-wallet energy staking-info
+
+# Unstake after lock period
+tos-wallet energy unstake --stake-id abc123
+
+# Convert energy to TOS (if supported)
+tos-wallet energy convert --amount 100
+
+# Energy usage history
+tos-wallet energy history
+```
+
+### Energy Optimization
+
+```bash
+# Estimate transaction energy cost
+tos-wallet estimate-energy \
+    --to tos1recipient-address... \
+    --amount 100
+
+# Check optimal staking amount
+tos-wallet energy optimize-staking \
+    --monthly-transactions 50
+
+# Energy efficiency report
+tos-wallet energy efficiency-report
+
+# Auto-stake optimization
+tos-wallet energy auto-stake \
+    --target-coverage 90% \
+    --enable
+```
+
+## Smart Contract Interaction
+
+### Contract Operations
+
+```bash
+# Deploy smart contract
+tos-wallet contract deploy \
+    --bytecode contract.jar \
+    --gas-limit 1000000 \
+    --constructor-args "arg1,arg2,arg3"
+
+# Call contract method (read-only)
+tos-wallet contract call \
+    --address tos1contract-address... \
+    --method getBalance \
+    --args "tos1user-address..."
+
+# Execute contract method (state-changing)
+tos-wallet contract execute \
+    --address tos1contract-address... \
+    --method transfer \
+    --args "tos1recipient...,1000" \
+    --gas-limit 500000
+
+# Get contract information
+tos-wallet contract info \
+    --address tos1contract-address...
+
+# Watch contract events
+tos-wallet contract watch-events \
+    --address tos1contract-address... \
+    --event Transfer
+```
+
+### Contract Development Tools
+
+```bash
+# Compile Java contract
+tos-wallet contract compile \
+    --source MyContract.java \
+    --output MyContract.jar
+
+# Test contract locally
+tos-wallet contract test \
+    --bytecode MyContract.jar \
+    --test-cases test-cases.json
+
+# Estimate contract deployment cost
+tos-wallet contract estimate-deploy \
+    --bytecode MyContract.jar
+
+# Contract interaction history
+tos-wallet contract history \
+    --address tos1contract-address...
+```
+
+## AI-Mining Integration
+
+### AI-Mining Operations
+
+```bash
+# Register as AI miner
+tos-wallet ai-mining register \
+    --capabilities "code-analysis,data-processing" \
+    --hardware-profile hardware.json
+
+# Check available tasks
+tos-wallet ai-mining list-tasks
+
+# Accept AI task
+tos-wallet ai-mining accept-task \
+    --task-id task-123 \
+    --stake-amount 10
+
+# Submit solution
+tos-wallet ai-mining submit-solution \
+    --task-id task-123 \
+    --solution solution.json
+
+# Check mining statistics
+tos-wallet ai-mining stats
+
+# Withdraw mining rewards
+tos-wallet ai-mining withdraw-rewards
+```
+
+### AI-Mining Configuration
+
+Create `hardware.json`:
+
+```json
+{
+  "cpu_cores": 8,
+  "ram_gb": 16,
+  "gpu_available": false,
+  "storage_gb": 100,
+  "network_speed_mbps": 100,
+  "specializations": [
+    "security-audit",
+    "code-optimization",
+    "data-analysis"
+  ],
+  "availability": {
+    "hours_per_day": 12,
+    "timezone": "UTC",
+    "max_concurrent_tasks": 2
+  }
+}
+```
+
+## Security Features
+
+### Security Operations
+
+```bash
+# Change wallet password
+tos-wallet security change-password
+
+# Enable two-factor authentication
+tos-wallet security enable-2fa
+
+# Generate backup codes
+tos-wallet security generate-backup-codes
+
+# Check wallet integrity
+tos-wallet security verify-integrity
+
+# Audit wallet security
+tos-wallet security audit
+
+# Lock wallet immediately
+tos-wallet security lock
+
+# Set auto-lock timeout
+tos-wallet security set-timeout 15m
+```
+
+### Key Management
+
+```bash
+# Export private keys (use with extreme caution!)
+tos-wallet keys export \
+    --address tos1your-address... \
+    --output private-key.pem \
+    --password-file secure-password.txt
+
+# Import private key
+tos-wallet keys import \
+    --private-key private-key.pem \
+    --label "Imported key"
+
+# Generate new key pair
+tos-wallet keys generate
+
+# List all keys
+tos-wallet keys list
+
+# Delete key (use with caution!)
+tos-wallet keys delete \
+    --address tos1address-to-delete... \
+    --confirm
+```
+
+## Automation and Scripting
+
+### Automated Operations
+
+```bash
+#!/bin/bash
+# Automated wallet management script
+
+# Set wallet and common parameters
+WALLET_NAME="production-wallet"
+PASSWORD_FILE="/secure/wallet-password.txt"
+
+# Function to safely execute wallet commands
+safe_wallet_cmd() {
+    tos-wallet --wallet "$WALLET_NAME" \
+               --password-file "$PASSWORD_FILE" \
+               --json \
+               "$@"
+}
+
+# Check balance
+echo "Checking wallet balance..."
+BALANCE=$(safe_wallet_cmd balance | jq -r '.total')
+echo "Current balance: $BALANCE TOS"
+
+# Auto-collect mining rewards if balance is low
+if (( $(echo "$BALANCE < 100" | bc -l) )); then
+    echo "Balance low, collecting mining rewards..."
+    safe_wallet_cmd ai-mining withdraw-rewards
+fi
+
+# Auto-stake excess balance for energy
+if (( $(echo "$BALANCE > 10000" | bc -l) )); then
+    STAKE_AMOUNT=$(echo "$BALANCE - 5000" | bc -l)
+    echo "Staking $STAKE_AMOUNT TOS for energy..."
+    safe_wallet_cmd energy stake \
+        --amount "$STAKE_AMOUNT" \
+        --duration 30days
+fi
+```
+
+### Monitoring Script
+
+```bash
+#!/bin/bash
+# Wallet monitoring script
+
+WALLET_NAME="production-wallet"
+ALERT_EMAIL="admin@company.com"
+
+# Check wallet status
+check_wallet_status() {
+    local status=$(tos-wallet --wallet "$WALLET_NAME" status --json)
+    local is_open=$(echo "$status" | jq -r '.is_open')
+    local sync_height=$(echo "$status" | jq -r '.sync_height')
+    local network_height=$(echo "$status" | jq -r '.network_height')
+
+    if [ "$is_open" != "true" ]; then
+        echo "ERROR: Wallet is not open" >&2
+        return 1
+    fi
+
+    if (( sync_height < network_height - 10 )); then
+        echo "WARNING: Wallet not fully synced" >&2
+        return 2
+    fi
+
+    echo "Wallet status: OK"
+    return 0
+}
+
+# Check for pending transactions
+check_pending_transactions() {
+    local pending=$(tos-wallet --wallet "$WALLET_NAME" history --pending --json)
+    local count=$(echo "$pending" | jq length)
+
+    if (( count > 10 )); then
+        echo "WARNING: $count pending transactions" >&2
+        return 1
+    fi
+
+    echo "Pending transactions: $count"
+    return 0
+}
+
+# Main monitoring loop
+while true; do
+    echo "$(date): Checking wallet status..."
+
+    if ! check_wallet_status; then
+        echo "Wallet status check failed!" | mail -s "Wallet Alert" "$ALERT_EMAIL"
+    fi
+
+    if ! check_pending_transactions; then
+        echo "Too many pending transactions!" | mail -s "Wallet Alert" "$ALERT_EMAIL"
+    fi
+
+    sleep 300  # Check every 5 minutes
+done
+```
+
+## Output Formatting
+
+### JSON Output
+
+```bash
+# Get balance as JSON
+tos-wallet balance --json
+
+# Pretty-print JSON output
+tos-wallet balance --json | jq '.'
+
+# Extract specific values
+BALANCE=$(tos-wallet balance --json | jq -r '.total')
+echo "Balance: $BALANCE TOS"
+
+# Process transaction history as JSON
+tos-wallet history --json | jq '.[] | select(.amount > 100)'
+```
+
+### CSV Export
+
+```bash
+# Export addresses to CSV
+tos-wallet list-addresses --format csv > addresses.csv
+
+# Export transaction history to CSV
+tos-wallet history --format csv > transactions.csv
+
+# Custom CSV format
+tos-wallet history --format csv \
+    --fields "date,type,amount,address,memo" \
+    > custom-transactions.csv
+```
+
+### Table Formatting
+
+```bash
+# Default table output
+tos-wallet history
+
+# Wide table format
+tos-wallet history --table-format wide
+
+# Compact table format
+tos-wallet history --table-format compact
+
+# Custom columns
+tos-wallet history --columns "date,amount,address"
+```
+
+## Advanced Features
+
+### Multi-Signature Operations
+
+```bash
+# Create multisig transaction proposal
+tos-wallet multisig propose-transfer \
+    --to tos1recipient... \
+    --amount 1000 \
+    --memo "Board payment approval"
+
+# List pending proposals
+tos-wallet multisig list-proposals
+
+# Sign proposal
+tos-wallet multisig sign-proposal \
+    --proposal-id proposal-123
+
+# Execute approved proposal
+tos-wallet multisig execute-proposal \
+    --proposal-id proposal-123
+
+# Check multisig status
+tos-wallet multisig status
+```
+
+### Hardware Wallet Integration
+
+```bash
+# Connect hardware wallet
+tos-wallet hardware connect --device ledger
+
+# List connected devices
+tos-wallet hardware list-devices
+
+# Sign transaction with hardware wallet
+tos-wallet transfer \
+    --to tos1recipient... \
+    --amount 100 \
+    --hardware-sign
+
+# Verify address on hardware wallet
+tos-wallet hardware verify-address \
+    --address tos1your-address...
+```
+
+### Debugging and Diagnostics
+
+```bash
+# Enable debug logging
+tos-wallet --debug balance
+
+# Verbose transaction details
+tos-wallet transfer \
+    --to tos1recipient... \
+    --amount 100 \
+    --verbose
+
+# Network connectivity test
+tos-wallet network test
+
+# Wallet consistency check
+tos-wallet verify --full-scan
+
+# Performance benchmarks
+tos-wallet benchmark --operations 1000
+```
+
+## Error Handling
+
+### Common Error Scenarios
+
+```bash
+# Handle network errors
+if ! tos-wallet balance >/dev/null 2>&1; then
+    echo "Network error, retrying..."
+    sleep 5
+    tos-wallet balance
+fi
+
+# Handle insufficient balance
+if ! tos-wallet transfer --to tos1recipient... --amount 1000 2>/dev/null; then
+    echo "Transfer failed, checking balance..."
+    tos-wallet balance
+fi
+
+# Handle wallet lock
+if ! tos-wallet status | grep -q "open"; then
+    echo "Wallet locked, opening..."
+    tos-wallet open --wallet "$WALLET_NAME"
+fi
+```
+
+### Error Codes
+
+The CLI wallet returns specific exit codes:
+
+```bash
+# 0: Success
+# 1: General error
+# 2: Network error
+# 3: Wallet locked
+# 4: Insufficient balance
+# 5: Invalid parameters
+# 6: Authentication failure
+
+# Example error handling
+tos-wallet transfer --to tos1recipient... --amount 100
+case $? in
+    0) echo "Transfer successful" ;;
+    1) echo "General error occurred" ;;
+    2) echo "Network error" ;;
+    3) echo "Wallet is locked" ;;
+    4) echo "Insufficient balance" ;;
+    5) echo "Invalid parameters" ;;
+    6) echo "Authentication failed" ;;
+    *) echo "Unknown error" ;;
+esac
+```
+
+## Performance Optimization
+
+### Optimization Tips
+
+```bash
+# Use persistent daemon connection
+export TOS_DAEMON_URL="http://localhost:8080"
+export TOS_DAEMON_TIMEOUT="60s"
+
+# Cache wallet data
+tos-wallet cache enable --size 100MB
+
+# Batch operations when possible
+tos-wallet batch-transfer --file transfers.json
+
+# Use appropriate output format
+tos-wallet balance --format json  # Faster than table
+
+# Optimize sync settings
+tos-wallet config set network.fast_sync true
+```
+
+### Resource Management
+
+```bash
+# Limit memory usage
+tos-wallet --max-memory 512MB balance
+
+# Set operation timeout
+tos-wallet --timeout 30s balance
+
+# Use minimal output
+tos-wallet balance --quiet
+
+# Background operations
+tos-wallet sync &
+SYNC_PID=$!
+# Do other work...
+wait $SYNC_PID
+```
+
+## Integration Examples
+
+### Exchange Integration
+
+```bash
+#!/bin/bash
+# Exchange deposit processing
+
+DEPOSIT_ADDRESS="tos1exchange-deposit..."
+MINIMUM_CONFIRMATIONS=6
+
+# Monitor for new deposits
+tos-wallet history --json --watch | while read -r tx; do
+    TO_ADDRESS=$(echo "$tx" | jq -r '.to')
+    AMOUNT=$(echo "$tx" | jq -r '.amount')
+    CONFIRMATIONS=$(echo "$tx" | jq -r '.confirmations')
+
+    if [ "$TO_ADDRESS" = "$DEPOSIT_ADDRESS" ] &&
+       [ "$CONFIRMATIONS" -ge "$MINIMUM_CONFIRMATIONS" ]; then
+        echo "New confirmed deposit: $AMOUNT TOS"
+        # Process deposit in exchange system
+        process_deposit "$tx"
+    fi
+done
+```
+
+### Payment Gateway Integration
+
+```bash
+#!/bin/bash
+# Payment gateway webhook handler
+
+process_payment() {
+    local invoice_id="$1"
+    local amount="$2"
+    local recipient="$3"
+
+    # Create payment
+    local tx_hash=$(tos-wallet transfer \
+        --to "$recipient" \
+        --amount "$amount" \
+        --memo "Invoice: $invoice_id" \
+        --json | jq -r '.transaction_hash')
+
+    if [ "$tx_hash" != "null" ]; then
+        echo "Payment sent: $tx_hash"
+        # Update invoice status in database
+        update_invoice_status "$invoice_id" "paid" "$tx_hash"
+    else
+        echo "Payment failed for invoice: $invoice_id"
+        update_invoice_status "$invoice_id" "failed"
+    fi
+}
+```
+
+## Backup and Recovery
+
+### Backup Strategies
+
+```bash
+#!/bin/bash
+# Comprehensive wallet backup script
+
+WALLET_NAME="production-wallet"
+BACKUP_DIR="/secure/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+
+# Create backup directory
+mkdir -p "$BACKUP_DIR"
+
+# Backup wallet file
+tos-wallet backup \
+    --wallet "$WALLET_NAME" \
+    --output "$BACKUP_DIR/wallet-$DATE.backup" \
+    --encrypt
+
+# Backup configuration
+cp ~/.tos-wallet/config.toml "$BACKUP_DIR/config-$DATE.toml"
+
+# Export addresses and transaction history
+tos-wallet list-addresses --format json > "$BACKUP_DIR/addresses-$DATE.json"
+tos-wallet history --format json > "$BACKUP_DIR/history-$DATE.json"
+
+# Create secure archive
+tar -czf "$BACKUP_DIR/complete-backup-$DATE.tar.gz" \
+    "$BACKUP_DIR/wallet-$DATE.backup" \
+    "$BACKUP_DIR/config-$DATE.toml" \
+    "$BACKUP_DIR/addresses-$DATE.json" \
+    "$BACKUP_DIR/history-$DATE.json"
+
+# Clean up individual files
+rm "$BACKUP_DIR/wallet-$DATE.backup" \
+   "$BACKUP_DIR/config-$DATE.toml" \
+   "$BACKUP_DIR/addresses-$DATE.json" \
+   "$BACKUP_DIR/history-$DATE.json"
+
+echo "Backup completed: complete-backup-$DATE.tar.gz"
+```
+
+### Recovery Procedures
+
+```bash
+#!/bin/bash
+# Wallet recovery script
+
+BACKUP_FILE="$1"
+NEW_WALLET_NAME="recovered-wallet"
+
+if [ -z "$BACKUP_FILE" ]; then
+    echo "Usage: $0 <backup-file>"
+    exit 1
+fi
+
+# Extract backup
+tar -xzf "$BACKUP_FILE"
+
+# Restore wallet
+tos-wallet restore \
+    --backup wallet-*.backup \
+    --name "$NEW_WALLET_NAME"
+
+# Restore configuration
+cp config-*.toml ~/.tos-wallet/config.toml
+
+# Verify restoration
+tos-wallet open --wallet "$NEW_WALLET_NAME"
+tos-wallet balance
+tos-wallet list-addresses
+
+echo "Wallet recovery completed: $NEW_WALLET_NAME"
+```
+
+## Conclusion
+
+The TOS Network CLI wallet provides comprehensive command-line access to all TOS Network features. Whether you're managing personal finances, running enterprise operations, or building applications, the CLI wallet offers the power, flexibility, and automation capabilities needed for professional use.
+
+Key benefits of the CLI wallet:
+- **Complete Control**: Access to all TOS Network features
+- **Automation Ready**: Perfect for scripts and applications
+- **High Performance**: Efficient operations without GUI overhead
+- **Security Focused**: Minimal attack surface and secure key management
+- **Enterprise Grade**: Suitable for large-scale operations
+
+**"Don't Trust, Verify it"** - The CLI wallet provides transparent, verifiable operations with full cryptographic integrity!
+
+## Next Steps
+
+- [Smart Contract Development](/getting-started/smart-contract-development) - Build applications using CLI tools
+- [AI-Mining Guide](/getting-started/ai-mining) - Integrate AI-Mining operations
+- [Network Configuration](/getting-started/network-config) - Configure CLI for different networks
+- [Automation Examples](/guides/automation) - Advanced automation patterns
