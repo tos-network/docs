@@ -552,4 +552,487 @@ services:
     restart: unless-stopped
 ```
 
-This comprehensive configuration guide ensures your TOS Network node operates securely, efficiently, and in alignment with the network's "Don't Trust, Verify it" principle.
+## Common Use Cases
+
+### Home Node Setup
+
+For personal use with moderate resources:
+
+```toml
+[network]
+network_id = "mainnet"
+bind_address = "0.0.0.0:2080"
+max_peers = 25
+
+[storage]
+sync_mode = "fast"
+cache_size = 1024
+pruning_enabled = true
+max_db_size = "100GB"
+
+[rpc]
+enable = true
+bind_address = "127.0.0.1:8080"
+cors_origins = ["http://localhost:3000"]
+
+[mining]
+enable = false  # Enable only if you want to mine
+```
+
+### Validator Node Setup
+
+For running a validator with maximum reliability:
+
+```toml
+[network]
+network_id = "mainnet"
+bind_address = "0.0.0.0:2080"
+max_peers = 100
+persistent_peers = [
+    "validator1.tos.network:2080",
+    "validator2.tos.network:2080"
+]
+
+[storage]
+sync_mode = "full"
+cache_size = 4096
+pruning_enabled = false
+backup_enabled = true
+backup_interval = 3600  # Hourly backups
+
+[consensus]
+validator_mode = true
+validator_key_file = "~/.tos/validator_key.json"
+double_sign_check = true
+
+[security]
+rate_limiting = true
+max_connections_per_ip = 5
+```
+
+### Development/Testing Setup
+
+For local development and testing:
+
+```toml
+[network]
+network_id = "devnet"
+bind_address = "127.0.0.1:2080"
+max_peers = 10
+
+[storage]
+data_dir = "./devnet_data"
+cache_size = 256
+reset_on_start = true  # Fresh state each restart
+
+[rpc]
+enable = true
+bind_address = "0.0.0.0:8080"
+cors_origins = ["*"]  # Allow all origins for development
+
+[logging]
+level = "debug"
+console_output = true
+
+[mining]
+enable = true
+instant_mining = true  # Mine blocks instantly for testing
+```
+
+### High-Performance Archive Node
+
+For serving historical data and analytics:
+
+```toml
+[network]
+network_id = "mainnet"
+bind_address = "0.0.0.0:2080"
+max_peers = 200
+
+[storage]
+sync_mode = "archive"
+cache_size = 16384  # 16GB cache
+max_open_files = 5000
+compression_enabled = true
+
+[rpc]
+enable = true
+bind_address = "0.0.0.0:8080"
+max_connections = 500
+historical_queries = true
+bulk_query_limit = 10000
+
+[performance]
+sync_threads = 8
+verification_threads = 16
+```
+
+## Advanced Troubleshooting
+
+### Sync Issues
+
+**Problem**: Daemon stuck at specific block height
+
+```bash
+# Check sync status
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_sync_info","id":1}' \
+  http://localhost:8080/json_rpc
+
+# Check peer connectivity
+tos_daemon peer-info
+
+# Force resync from specific height
+tos_daemon resync --from-height 1000000
+
+# Clear corrupted data and restart
+tos_daemon reset-chain --confirm
+```
+
+**Problem**: Slow synchronization
+
+```bash
+# Increase peer connections
+# In config.toml: max_peers = 100
+
+# Use snapshot for faster sync
+curl -L https://snapshots.tos.network/latest/mainnet.tar.gz | tar -xz -C ~/.tos/data/
+
+# Increase cache size
+# In config.toml: cache_size = 4096
+
+# Check network bandwidth
+speedtest-cli
+```
+
+### Memory and Performance Issues
+
+**Problem**: High memory usage
+
+```bash
+# Monitor memory usage
+top -p $(pgrep tos_daemon)
+
+# Reduce cache size
+# In config.toml: cache_size = 512
+
+# Enable pruning
+# In config.toml: pruning_enabled = true
+
+# Check for memory leaks
+valgrind --tool=memcheck tos_daemon start
+```
+
+**Problem**: CPU usage too high
+
+```bash
+# Monitor CPU usage
+htop
+
+# Reduce thread count
+# In config.toml: max_threads = 4
+
+# Lower priority for background tasks
+# In config.toml: background_priority = "low"
+
+# Check for inefficient queries
+tail -f ~/.tos/logs/daemon.log | grep "slow_query"
+```
+
+### Network Connectivity Issues
+
+**Problem**: Cannot connect to peers
+
+```bash
+# Check network connectivity
+ping seed1.tos.network
+
+# Test port accessibility
+telnet seed1.tos.network 2080
+
+# Check NAT/firewall settings
+sudo netstat -tulpn | grep 2080
+
+# Enable UPnP for automatic port forwarding
+# In config.toml: upnp_enabled = true
+
+# Manually add peers
+tos_daemon add-peer 192.168.1.100:2080
+```
+
+**Problem**: Frequent peer disconnections
+
+```bash
+# Check bandwidth limits
+# In config.toml: max_bandwidth_per_peer = "10MB"
+
+# Adjust timeout settings
+# In config.toml: peer_timeout = 60
+
+# Monitor connection quality
+tos_daemon connection-stats
+
+# Check for ISP restrictions
+traceroute seed1.tos.network
+```
+
+### AI-Mining Issues
+
+**Problem**: AI-Mining not earning rewards
+
+```bash
+# Check mining status
+tos_daemon mining-status
+
+# Verify TOS Energy balance
+tos_daemon balance --energy
+
+# Check AI computation logs
+grep "ai_mining" ~/.tos/logs/daemon.log
+
+# Test AI computation capability
+tos_daemon test-ai-mining
+
+# Verify miner address
+tos_daemon verify-address tos1your-address...
+```
+
+**Problem**: GPU not detected for AI-Mining
+
+```bash
+# Check GPU availability
+nvidia-smi  # For NVIDIA GPUs
+rocm-smi    # For AMD GPUs
+
+# Enable GPU in config
+# In config.toml: gpu_enabled = true
+
+# Set GPU device ID
+# In config.toml: gpu_device = 0
+
+# Check OpenCL support
+clinfo
+
+# Install GPU drivers if needed
+# NVIDIA: sudo apt install nvidia-driver-535
+# AMD: sudo apt install rocm-opencl-runtime
+```
+
+### RPC API Issues
+
+**Problem**: RPC requests timing out
+
+```bash
+# Increase timeout settings
+# In config.toml: request_timeout = 60
+
+# Check RPC connection limits
+# In config.toml: max_connections = 200
+
+# Monitor RPC performance
+curl -w "%{time_total}" -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_info","id":1}' \
+  http://localhost:8080/json_rpc
+
+# Enable RPC caching
+# In config.toml: enable_cache = true
+```
+
+**Problem**: CORS errors in web applications
+
+```bash
+# Configure CORS origins
+# In config.toml: cors_origins = ["https://yourapp.com", "http://localhost:3000"]
+
+# Allow all origins (development only)
+# In config.toml: cors_origins = ["*"]
+
+# Check browser console for specific errors
+# Add these headers for debugging
+# In config.toml: additional_headers = { "Access-Control-Allow-Headers" = "*" }
+```
+
+### Database and Storage Issues
+
+**Problem**: Database corruption
+
+```bash
+# Check database integrity
+tos_daemon verify-database
+
+# Repair database
+tos_daemon repair-database --backup-first
+
+# Restore from backup
+tos_daemon restore-backup --file ~/.tos/backups/latest.tar.gz
+
+# Reset database (will resync)
+tos_daemon reset-database --confirm
+```
+
+**Problem**: Disk space running low
+
+```bash
+# Check disk usage
+du -sh ~/.tos/
+
+# Enable log rotation
+# In config.toml: max_log_files = 5, max_log_size = "100MB"
+
+# Enable pruning
+# In config.toml: pruning_enabled = true
+
+# Archive old data
+tos_daemon archive-old-data --before-height 1000000
+
+# Move data directory to larger disk
+tos_daemon migrate-data --new-path /mnt/large-disk/tos-data
+```
+
+## Health Monitoring
+
+### Basic Health Checks
+
+```bash
+# Check overall daemon health
+tos_daemon health-check
+
+# Monitor block production
+tos_daemon block-stats --last 100
+
+# Check transaction pool
+tos_daemon mempool-info
+
+# Monitor peer connections
+tos_daemon peer-stats
+```
+
+### Setting Up Monitoring
+
+Create a monitoring script:
+
+```bash
+#!/bin/bash
+# tos-monitor.sh
+
+DAEMON_HOST="localhost:8080"
+LOG_FILE="/var/log/tos-monitor.log"
+
+check_daemon() {
+    response=$(curl -s -X POST -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"get_info","id":1}' \
+        http://$DAEMON_HOST/json_rpc)
+
+    if echo "$response" | grep -q '"result"'; then
+        echo "$(date): Daemon is healthy" >> $LOG_FILE
+    else
+        echo "$(date): Daemon health check failed" >> $LOG_FILE
+        # Send alert notification
+        # curl -X POST "https://hooks.slack.com/..." -d "{"text": "TOS daemon down!"}"
+    fi
+}
+
+check_sync() {
+    sync_info=$(curl -s -X POST -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"get_sync_info","id":1}' \
+        http://$DAEMON_HOST/json_rpc)
+
+    # Parse and check sync status
+    # Alert if falling behind
+}
+
+# Run checks
+check_daemon
+check_sync
+```
+
+### Performance Metrics
+
+Monitor key performance indicators:
+
+```bash
+# Block processing time
+tos_daemon metrics --block-processing
+
+# Transaction throughput
+tos_daemon metrics --tx-throughput
+
+# Memory usage over time
+tos_daemon metrics --memory --duration 24h
+
+# Network bandwidth usage
+tos_daemon metrics --network --duration 1h
+```
+
+## Migration and Upgrades
+
+### Upgrading Daemon Version
+
+```bash
+# Backup current state
+tos_daemon backup --output ~/.tos/backups/pre-upgrade-$(date +%Y%m%d).tar.gz
+
+# Stop daemon gracefully
+tos_daemon stop --graceful
+
+# Download new version
+curl -L https://github.com/tos-network/tos/releases/latest/download/tos_daemon -o tos_daemon_new
+
+# Replace binary
+sudo mv tos_daemon_new /usr/local/bin/tos_daemon
+sudo chmod +x /usr/local/bin/tos_daemon
+
+# Start with new version
+tos_daemon start
+
+# Verify upgrade
+tos_daemon version
+```
+
+### Migrating Between Servers
+
+```bash
+# On old server - backup everything
+tos_daemon backup --full --output tos-full-backup.tar.gz
+
+# Transfer to new server
+scp tos-full-backup.tar.gz user@newserver:~/
+
+# On new server - restore
+tos_daemon restore --input tos-full-backup.tar.gz
+
+# Update configuration for new environment
+# Edit ~/.tos/config.toml as needed
+
+# Start daemon
+tos_daemon start
+```
+
+## Getting Support
+
+### Collecting Debug Information
+
+When reporting issues, collect comprehensive debug information:
+
+```bash
+# Generate debug report
+tos_daemon debug-report --output debug-$(date +%Y%m%d).tar.gz
+
+# This includes:
+# - Configuration files
+# - Recent logs
+# - System information
+# - Network connectivity tests
+# - Performance metrics
+```
+
+### Community Resources
+
+- **GitHub Issues**: [https://github.com/tos-network/tos/issues](https://github.com/tos-network/tos/issues)
+- **Community Discord**: [https://discord.gg/tos-network](https://discord.gg/tos-network)
+- **Documentation**: [https://docs.tos.network](https://docs.tos.network)
+- **Status Page**: [https://status.tos.network](https://status.tos.network)
+
+---
+
+This comprehensive configuration guide ensures your TOS Network node operates securely, efficiently, and in alignment with the network's "Don't Trust, Verify it" principle. Whether you're running a simple home node or a high-performance validator, these configurations and troubleshooting steps will help you maintain optimal performance.

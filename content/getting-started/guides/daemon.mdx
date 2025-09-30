@@ -1,0 +1,469 @@
+---
+title: "TOS Network Daemon Guide"
+description: "Quick start guide to running a TOS Network daemon node - from installation to configuration and troubleshooting"
+---
+
+# TOS Network Daemon Guide
+
+The **TOS Network Daemon** is a background program that runs continuously and keeps your blockchain node alive. It maintains the TOS ledger, connects to other peers in the network, validates transactions, and participates in the revolutionary **AI-Mining** consensus mechanism.
+
+This guide will help you get your TOS daemon up and running quickly, following the principle of **"Don't Trust, Verify it"**.
+
+## What is a TOS Daemon?
+
+The TOS daemon (`tos_daemon`) is the core software that:
+
+- **Maintains the Blockchain**: Downloads, validates, and stores the TOS blockchain
+- **Network Participation**: Connects to peers across the TOS network
+- **Transaction Processing**: Validates and relays transactions
+- **AI-Mining Support**: Participates in productive AI-Mining consensus
+- **Privacy Protection**: Handles homomorphic encryption and zero-knowledge proofs
+- **API Services**: Provides JSON-RPC and WebSocket APIs for applications
+
+## Node Types
+
+Choose the node type that best fits your needs and resources:
+
+### Full Node
+- **Description**: Downloads and stores the entire blockchain history
+- **Security**: Most secure and trustless option - verify everything yourself
+- **Storage**: ~500GB+ (grows over time)
+- **Use Case**: Maximum security, running services, contributing to network decentralization
+- **AI-Mining**: Full participation in all AI-Mining activities
+
+### Pruned Node
+- **Description**: Validates all blocks but discards old transaction data
+- **Storage**: ~50GB (keeps only recent state)
+- **Security**: Still validates everything, just doesn't store historical data
+- **Use Case**: Personal use with limited storage
+- **AI-Mining**: Can participate in current AI-Mining tasks
+
+### Light Node
+- **Description**: Connects to full nodes for blockchain data
+- **Storage**: ~1GB (minimal local storage)
+- **Speed**: Fastest sync time
+- **Use Case**: Mobile devices, quick access, limited resources
+- **AI-Mining**: Limited participation (depends on connected full nodes)
+
+### Archive Node
+- **Description**: Stores complete blockchain history with all intermediate states
+- **Storage**: 1TB+ (stores everything forever)
+- **Use Case**: Block explorers, analytics, research
+- **AI-Mining**: Full participation with historical data serving
+
+## Quick Installation
+
+### One-Line Install (Recommended)
+
+The fastest way to get started:
+
+```bash
+# Download and install TOS daemon
+curl -fsSL https://install.tos.network | bash
+
+# Verify installation
+tos_daemon --version
+```
+
+This script will:
+- Detect your operating system
+- Download the appropriate binary
+- Install to `/usr/local/bin/`
+- Set up basic configuration
+
+### Manual Installation
+
+#### Download Precompiled Binary
+
+```bash
+# Download latest release
+LATEST_VERSION=$(curl -s https://api.github.com/repos/tos-network/tos/releases/latest | grep tag_name | cut -d '"' -f 4)
+
+# Linux
+wget https://github.com/tos-network/tos/releases/download/${LATEST_VERSION}/tos-linux-amd64.tar.gz
+tar -xzf tos-linux-amd64.tar.gz
+sudo cp tos_daemon /usr/local/bin/
+
+# macOS
+curl -L https://github.com/tos-network/tos/releases/download/${LATEST_VERSION}/tos-macos-universal.tar.gz -o tos-macos.tar.gz
+tar -xzf tos-macos.tar.gz
+sudo cp tos_daemon /usr/local/bin/
+
+# Verify installation
+tos_daemon --version
+```
+
+#### Build from Source
+
+```bash
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source ~/.cargo/env
+
+# Clone and build
+git clone https://github.com/tos-network/tos.git
+cd tos
+cargo build --release --bin tos_daemon
+
+# The binary will be at ./target/release/tos_daemon
+```
+
+## Quick Start
+
+### 1. Initialize Configuration
+
+```bash
+# Create default configuration
+tos_daemon init
+
+# This creates ~/.tos/ with:
+# - config.toml (configuration file)
+# - genesis.json (network genesis state)
+# - node_key.json (your node identity)
+```
+
+### 2. Choose Your Network
+
+Edit `~/.tos/config.toml`:
+
+```toml
+[network]
+# Choose your network
+network_id = "mainnet"    # Production network with real TOS
+# network_id = "testnet"  # Testing network with free test tokens
+# network_id = "devnet"   # Local development
+
+# Node type
+node_type = "full"        # full, pruned, light, or archive
+```
+
+### 3. Start the Daemon
+
+```bash
+# Start daemon (foreground)
+tos_daemon start
+
+# Or start as background service
+tos_daemon start --daemon
+
+# Or using systemd (Linux)
+sudo systemctl start tos-daemon
+```
+
+### 4. Check Node Status
+
+```bash
+# Check if daemon is running
+tos_daemon status
+
+# View node information
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_info","id":1}' \
+  http://localhost:8080/json_rpc
+```
+
+## Configuration
+
+### Basic Configuration
+
+The main configuration file is `~/.tos/config.toml`:
+
+```toml
+[network]
+network_id = "mainnet"
+bind_address = "0.0.0.0:2080"
+max_peers = 50
+
+[rpc]
+enable = true
+bind_address = "127.0.0.1:8080"
+cors_origins = ["http://localhost:3000"]
+
+[storage]
+data_dir = "~/.tos/data"
+node_type = "full"          # full, pruned, light, archive
+cache_size = 1024          # MB
+
+[mining]
+enable = false             # Set to true for AI-Mining
+miner_address = ""         # Your mining address
+ai_threads = 4             # AI computation threads
+
+[logging]
+level = "info"             # trace, debug, info, warn, error
+file_path = "~/.tos/logs/daemon.log"
+```
+
+### AI-Mining Setup
+
+To participate in AI-Mining:
+
+```toml
+[mining]
+enable = true
+miner_address = "tos1your-address-here..."
+ai_threads = 4                    # Adjust based on your CPU
+gpu_enabled = true                # Enable GPU acceleration
+energy_threshold = 100            # Minimum TOS Energy to participate
+```
+
+### Privacy Settings
+
+TOS Network offers enhanced privacy features:
+
+```toml
+[privacy]
+homomorphic_encryption = true     # Enable encrypted balances
+zero_knowledge_proofs = true      # Enable ZK transaction proofs
+mixnet_enabled = true             # Enable transaction mixing
+tor_proxy = ""                    # Optional: "127.0.0.1:9050"
+```
+
+## Bootstrap and Sync
+
+### Fast Sync with Snapshot
+
+For faster initial sync, use a blockchain snapshot:
+
+```bash
+# Download latest snapshot (optional)
+curl -L https://snapshots.tos.network/latest/mainnet-snapshot.tar.gz -o snapshot.tar.gz
+
+# Extract to data directory
+tar -xzf snapshot.tar.gz -C ~/.tos/data/
+
+# Start daemon (will sync remaining blocks)
+tos_daemon start
+```
+
+### Sync Status
+
+Monitor your sync progress:
+
+```bash
+# Check sync status
+tos_daemon sync-status
+
+# Or via RPC
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_sync_info","id":1}' \
+  http://localhost:8080/json_rpc
+```
+
+## Docker Deployment
+
+### Quick Docker Start
+
+```bash
+# Run TOS daemon in Docker
+docker run -d \
+  --name tos-node \
+  --restart unless-stopped \
+  -p 2080:2080 \
+  -p 8080:8080 \
+  -v tos-data:/data \
+  -e TOS_NETWORK=mainnet \
+  tosnetwork/tos-node:latest
+
+# Check logs
+docker logs -f tos-node
+```
+
+### Docker Compose
+
+Create `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  tos-daemon:
+    image: tosnetwork/tos-node:latest
+    container_name: tos-daemon
+    restart: unless-stopped
+    ports:
+      - "2080:2080"  # P2P port
+      - "8080:8080"  # RPC port
+    volumes:
+      - tos-data:/data
+      - ./config:/config
+    environment:
+      - TOS_NETWORK=mainnet
+      - TOS_NODE_TYPE=full
+      - TOS_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "tos_daemon", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  tos-data:
+```
+
+Start with:
+```bash
+docker-compose up -d
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Daemon Won't Start
+
+**Error**: `Failed to bind to port 2080`
+
+**Solution**: Check if port is already in use
+```bash
+sudo netstat -tlnp | grep 2080
+# Kill process using the port, or change port in config
+```
+
+#### 2. Sync Is Slow
+
+**Problem**: Blockchain sync taking too long
+
+**Solutions**:
+```bash
+# Use snapshot for faster sync
+curl -L https://snapshots.tos.network/latest/mainnet-snapshot.tar.gz -o snapshot.tar.gz
+
+# Increase peer connections
+# Edit ~/.tos/config.toml: max_peers = 100
+
+# Check your internet connection
+ping seed1.tos.network
+```
+
+#### 3. High Memory Usage
+
+**Problem**: Daemon using too much RAM
+
+**Solutions**:
+```bash
+# Reduce cache size in config.toml
+cache_size = 512  # Reduce from default 1024 MB
+
+# Switch to pruned node
+node_type = "pruned"
+
+# Restart daemon to apply changes
+tos_daemon restart
+```
+
+#### 4. AI-Mining Not Working
+
+**Problem**: Not earning AI-Mining rewards
+
+**Check**:
+```bash
+# Verify mining is enabled
+tos_daemon mining-status
+
+# Check TOS Energy balance (needed for AI-Mining)
+tos_daemon balance --energy
+
+# Verify miner address is correct
+grep miner_address ~/.tos/config.toml
+```
+
+#### 5. Can't Connect to Peers
+
+**Problem**: Node isolated from network
+
+**Solutions**:
+```bash
+# Check network connectivity
+tos_daemon peer-list
+
+# Try connecting to seed nodes manually
+tos_daemon connect-peer seed1.tos.network:2080
+
+# Check firewall settings
+sudo ufw status
+# Allow TOS ports: sudo ufw allow 2080
+```
+
+### Log Analysis
+
+Check daemon logs for detailed error information:
+
+```bash
+# View recent logs
+tail -f ~/.tos/logs/daemon.log
+
+# Search for errors
+grep ERROR ~/.tos/logs/daemon.log
+
+# Increase log verbosity for debugging
+# Edit config.toml: level = "debug"
+```
+
+### Getting Help
+
+If you're still having issues:
+
+1. **Check Network Status**: Visit [https://status.tos.network](https://status.tos.network)
+2. **Community Discord**: Join our Discord for real-time help
+3. **GitHub Issues**: Report bugs at [https://github.com/tos-network/tos/issues](https://github.com/tos-network/tos/issues)
+4. **Documentation**: Full reference at [https://docs.tos.network](https://docs.tos.network)
+
+## Security Best Practices
+
+### Production Deployment
+
+For production nodes:
+
+```toml
+[network]
+# Bind only to specific interface in production
+bind_address = "10.0.0.5:2080"  # Your server's IP
+
+[rpc]
+# Restrict RPC access
+bind_address = "127.0.0.1:8080"  # Local only
+# Or bind to private network: "10.0.0.5:8080"
+
+[security]
+# Enable additional security features
+rate_limiting = true
+max_connections_per_ip = 10
+```
+
+### Firewall Configuration
+
+```bash
+# Allow only necessary ports
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 2080/tcp          # P2P port
+sudo ufw allow ssh               # SSH access
+# Don't expose RPC port (8080) to internet
+sudo ufw enable
+```
+
+### Backup and Recovery
+
+```bash
+# Backup important files
+tar -czf tos-backup.tar.gz ~/.tos/config.toml ~/.tos/node_key.json
+
+# Store backup securely
+# The node_key.json is your node's identity - keep it safe!
+```
+
+## Next Steps
+
+Once your daemon is running:
+
+1. **Set up a Wallet**: [Wallet Setup Guide](/getting-started/wallet-setup)
+2. **Start AI-Mining**: [AI-Mining Guide](/getting-started/ai-mining)
+3. **Build Applications**: [Developer API](/developers-api/daemon)
+4. **Monitor Performance**: [Monitoring Guide](/tutorials/node-monitoring)
+
+---
+
+**Welcome to TOS Network!** 🚀
+
+Your daemon is now part of a global network committed to **"Don't Trust, Verify it"** - where privacy, security, and productive AI-Mining create the future of blockchain technology.
