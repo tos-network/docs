@@ -43,10 +43,10 @@ sudo apt install tos-wallet-cli
 brew install tos-network/tap/tos-wallet-cli
 
 # Option 3: Build from source
-git clone https://github.com/tos-network/tos-wallet.git
-cd tos-wallet
-make build-cli
-sudo cp build/tos-wallet /usr/local/bin/
+git clone https://github.com/tos-network/tos.git
+cd tos
+cargo build --release --bin tos_wallet
+sudo cp target/release/tos_wallet /usr/local/bin/
 
 # Verify installation
 tos-wallet --version

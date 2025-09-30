@@ -142,20 +142,24 @@ tos-daemon --help
 ```bash
 # Install dependencies
 sudo apt update
-sudo apt install build-essential git golang-go
+sudo apt install build-essential git curl cmake pkg-config libssl-dev libclang-dev
+
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source ~/.cargo/env
 
 # Clone repository
-git clone https://github.com/tos-network/tos-daemon.git
-cd tos-daemon
+git clone https://github.com/tos-network/tos.git
+cd tos
 
 # Build daemon
-make build
+cargo build --release --bin tos_daemon
 
-# Install globally
-sudo make install
+# Install globally (optional)
+sudo cp target/release/tos_daemon /usr/local/bin/
 
 # Verify installation
-tos-daemon --version
+tos_daemon --version
 ```
 
 #### Option 3: Docker Installation

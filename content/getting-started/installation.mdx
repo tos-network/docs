@@ -286,21 +286,23 @@ sudo apt update
 sudo apt install -y \
     build-essential \
     git \
-    golang-go \
-    rust \
+    curl \
     cmake \
     pkg-config \
     libssl-dev \
+    libclang-dev \
     protobuf-compiler
 
-# macOS
-brew install git go rust cmake protobuf
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source ~/.cargo/env
 
-# Verify Go version (requires Go 1.19+)
-go version
+# macOS
+brew install git rust cmake protobuf
 
 # Verify Rust version (requires Rust 1.70+)
 rustc --version
+cargo --version
 ```
 
 ### Clone and Build
@@ -313,21 +315,22 @@ cd tos
 # Checkout latest stable release
 git checkout $(git describe --tags --abbrev=0)
 
-# Build all components
-make build
+# Build all components using local build script
+./build_local.sh
 
-# Or build specific components
-make build-daemon     # Build daemon only
-make build-wallet     # Build wallet only
-make build-miner      # Build miner only
+# Or build manually with cargo
+cargo build --release
 
-# Install binaries
-sudo make install
+# Build specific components
+cargo build --release --bin tos_daemon
+cargo build --release --bin tos_wallet
+cargo build --release --bin tos_miner
+cargo build --release --bin tos_ai_miner
 
-# Verify installation
-tos-daemon --version
-tos-wallet --version
-tos-miner --version
+# Verify build
+./target/release/tos_daemon --version
+./target/release/tos_wallet --version
+./target/release/tos_miner --version
 ```
 
 ### Development Build
@@ -343,13 +346,13 @@ cd tos
 git checkout develop
 
 # Build with debug symbols
-make build-debug
+cargo build
 
 # Run tests
-make test
+cargo test
 
-# Install development binaries
-make install-dev
+# Build development binaries
+cargo build --profile dev
 ```
 
 ### Cross-Compilation
@@ -357,17 +360,20 @@ make install-dev
 Build for different platforms:
 
 ```bash
+# Install cross-compilation tool
+cargo install cross
+
 # Build for Linux ARM64
-make build-linux-arm64
+cargo build --target aarch64-unknown-linux-gnu --release
 
 # Build for Windows
-make build-windows
+cargo build --target x86_64-pc-windows-gnu --release
 
 # Build for macOS
-make build-macos
+cargo build --target x86_64-apple-darwin --release
 
 # Build for all platforms
-make build-all
+./build_all.sh
 ```
 
 ## Package Manager Installation
