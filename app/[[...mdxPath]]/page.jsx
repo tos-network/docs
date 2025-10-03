@@ -9,7 +9,7 @@ export async function generateMetadata(props) {
 
   return {
     title: metadata.title || 'TOS Network Documentation',
-    description: metadata.description || 'Detailed information on the core features and functionality of TOS Network - Trustless Open System with AI-Mining, Privacy, and Smart Contracts'
+    description: metadata.description || 'Detailed information on the core features and functionality of TOS Network - TopoSpartan Network: The Indestructible Topology with AI-Mining, Privacy, and Smart Contracts'
   }
 }
 

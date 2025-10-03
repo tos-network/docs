@@ -5,7 +5,7 @@ import 'nextra-theme-docs/style.css'
 
 export const metadata = {
   title: 'TOS Network Documentation',
-  description: 'Trustless Open System - World\'s first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts',
+  description: 'TopoSpartan Network - The Indestructible Topology. World\'s first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts',
   keywords: ['TOS', 'blockchain', 'AI-mining', 'privacy', 'smart contracts', 'documentation'],
   author: 'TOS Network Team'
 }
@@ -36,7 +36,7 @@ const navbar = (
 )
 
 const footer = <Footer>
-    {new Date().getFullYear()} © <a href="https://tos.network" target="_blank">TOS Network</a> | Trustless Open System
+    {new Date().getFullYear()} © <a href="https://tos.network" target="_blank">TOS Network</a> | TopoSpartan Network
 </Footer>
 
 export default async function RootLayout({ children }) {
@@ -46,7 +46,7 @@ export default async function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="theme-color" content="#00d4ff" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <meta name="description" content="TOS Network Documentation - Trustless Open System with AI-Mining, Privacy, and Smart Contracts" />
+        <meta name="description" content="TOS Network Documentation - TopoSpartan Network: The Indestructible Topology with AI-Mining, Privacy, and Smart Contracts" />
         <meta property="og:title" content="TOS Network Documentation" />
         <meta property="og:description" content="World's first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts" />
         <meta property="og:type" content="website" />

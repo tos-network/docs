@@ -1,7 +1,7 @@
 {
   "name": "tos-docs",
   "version": "1.0.0",
-  "description": "TOS Network Documentation - Trustless Open System",
+  "description": "TOS Network Documentation - TopoSpartan Network: The Indestructible Topology",
   "type": "module",
   "scripts": {
     "start": "next dev",
