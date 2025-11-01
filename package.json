@@ -1,7 +1,7 @@
 {
   "name": "tos-docs",
   "version": "1.0.0",
-  "description": "TOS Network Documentation - TopoSpartan Network: The Indestructible Topology",
+  "description": "TOS Network Documentation - OpenSystem Network: The Open Economic Operating System",
   "type": "module",
   "scripts": {
     "start": "next dev",

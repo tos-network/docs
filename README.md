@@ -1,6 +1,6 @@
 # TOS Network Documentation
 
-This repository contains all documentation about TOS Network (TopoSpartan Network) and is available online at https://docs.tos.network
+This repository contains all documentation about TOS Network (OpenSystem Network) and is available online at https://docs.tos.network
 
 ## About TOS Network
 
