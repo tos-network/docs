@@ -761,7 +761,7 @@ redeem_data[41..49].copy_from_slice(&0u64.to_le_bytes()); // no Democrat tokens
 
 ```rust
 // Super Bowl prediction
-let question_id = keccak256(b"super-bowl-2025-winner");
+let question_id = keccak256(b"super-bowl-2026-winner");
 
 // Condition with initial odds: Chiefs -130 (56.5%), 49ers +110 (47.6%)
 // Market maker sets initial prices reflecting betting lines
@@ -770,10 +770,10 @@ let question_id = keccak256(b"super-bowl-2025-winner");
 ### Crypto Price Prediction
 
 ```rust
-// "Will BTC be above $100,000 on Dec 31, 2025?"
-let question_id = keccak256(b"btc-price-2025-12-31");
+// "Will BTC be above $150,000 on Dec 31, 2026?"
+let question_id = keccak256(b"btc-price-2026-12-31");
 
-// Binary outcome: Yes (>$100k) or No (≤$100k)
+// Binary outcome: Yes (>$150k) or No (≤$150k)
 // Oracle uses price feeds at specific timestamp
 ```
 
