@@ -6,5 +6,6 @@ export default {
   roadmap: 'Development Roadmap',
   'network-upgrades': 'Network Upgrades',
   'development-status': 'Development Status',
-  contributors: 'Contributors Guide'
+  contributors: 'Contributors Guide',
+  'security-audit': 'Security Audit'
 }

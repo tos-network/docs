@@ -1,0 +1,399 @@
+---
+title: Arbitration System
+description: On-chain dispute resolution for escrow transactions
+---
+
+import { Callout } from 'nextra/components'
+
+# Arbitration System
+
+TOS provides a **protocol-level arbitration system** for resolving disputes in escrow transactions. The system features multi-tier dispute resolution with independent arbiters, committees, and appeals.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| Design Specification | Complete |
+| Independent Arbiter Registration | Planned |
+| Arbitration Committees | Planned |
+| Dispute Filing & Resolution | Planned |
+| Appeal Mechanism | Planned |
+| Stake Management | Planned |
+
+<Callout type="warning">
+The arbitration system is currently in the design phase. Implementation is planned for a future release.
+</Callout>
+
+## Design Philosophy
+
+The arbitration system is built on proven patterns from the KYC committee infrastructure:
+
+- **Reuse Proven Patterns**: M-of-N voting mechanism from KYC committees
+- **Multi-tier Architecture**: Independent Arbiters -> Committee -> DAO/Global
+- **Stake-based Trust**: Arbiters stake tokens as collateral
+- **Reputation System**: Track arbiter performance for quality assurance
+- **Appeal Mechanism**: Parties can appeal to higher tiers
+
+## Multi-Tier Architecture
+
+```
+                    Tier 3: DAO / Global Committee
+                              |
+                              | Appeals
+                              |
+                    Tier 2: Regional Arbitration Committees
+                              |
+                              | Appeals
+                              |
+                    Tier 1: Independent Arbiters
+                              |
+                              |
+                    Escrow Dispute Filed
+```
+
+### Tier 1: Independent Arbiters
+
+Single arbiters designated at escrow creation:
+- Lower cost for small disputes
+- Faster resolution
+- Suitable for escrows < $10,000
+
+### Tier 2: Arbitration Committees
+
+Regional committees with multiple arbiters:
+- M-of-N voting for decisions
+- Higher trust for larger disputes
+- Professional arbiters with domain expertise
+
+### Tier 3: DAO / Global Committee
+
+Final appeal authority:
+- Handles appeals from Tier 2
+- Governance-level decisions
+- Arbiter slashing for misconduct
+
+## Expertise Domains
+
+Arbiters can specialize in specific domains:
+
+| Domain | Description |
+|--------|-------------|
+| General | Catch-all for unclassified disputes |
+| SmartContract | Smart contract disputes |
+| Payment | Payment and settlement disputes |
+| DataService | API and data feed disputes |
+| AIAgent | AI Agent service disputes |
+| DigitalAsset | NFT and digital asset disputes |
+| DeFi | DeFi protocol disputes |
+| CrossChain | Cross-chain bridge disputes |
+
+## Dispute Resolution Workflow
+
+### 1. Dispute Filing
+
+Either party in an escrow can file a dispute:
+
+```
+Escrow State: InProgress
+      |
+      | FileDispute (by payer or payee)
+      v
+Escrow State: Disputed
+Dispute Status: Filed
+```
+
+### 2. Evidence Collection
+
+Both parties submit evidence during the evidence period:
+
+```
+Dispute Status: Filed
+      |
+      | SubmitEvidence (both parties)
+      v
+Dispute Status: EvidenceCollection
+      |
+      | Evidence deadline reached
+      v
+Dispute Status: UnderReview
+```
+
+### 3. Arbitration Decision
+
+The assigned arbiter(s) review and vote:
+
+```
+Dispute Status: UnderReview
+      |
+      | VoteDispute (by arbiter(s))
+      v
+Dispute Status: Voting
+      |
+      | Threshold reached
+      v
+Dispute Status: Decided
+Decision: PayerWins / PayeeWins / Split
+```
+
+### 4. Execution
+
+The decision is executed to release funds:
+
+```
+Dispute Status: Decided
+      |
+      | ExecuteDecision
+      v
+Dispute Status: Resolved
+Funds: Released to winner(s)
+```
+
+## Dispute States
+
+| State | Description |
+|-------|-------------|
+| Filed | Dispute filed, awaiting arbiter assignment |
+| EvidenceCollection | Evidence submission period |
+| UnderReview | Under arbitration review |
+| Voting | Voting in progress |
+| Decided | Decision made, awaiting execution |
+| Appealed | Appeal filed |
+| AppealReview | Appeal under review |
+| Resolved | Funds released |
+| Cancelled | Parties settled |
+
+## Dispute Outcomes
+
+| Outcome | Description |
+|---------|-------------|
+| PayerWins | Full refund to payer |
+| PayeeWins | Full release to payee |
+| Split | Partial refund/release to both parties |
+
+## Arbiter Registration
+
+### Requirements
+
+- Minimum stake (collateral)
+- Domain expertise declaration
+- Fee structure (basis points)
+- Min/max escrow values willing to handle
+
+### Arbiter Account Structure
+
+```rust
+pub struct ArbiterAccount {
+    /// Arbiter's public key
+    pub public_key: PublicKey,
+    /// Display name
+    pub name: String,
+    /// Expertise domains
+    pub expertise: Vec<ExpertiseDomain>,
+    /// Status (Active, Suspended, Exiting, Removed)
+    pub status: ArbiterStatus,
+    /// Stake amount (locked tokens)
+    pub stake_amount: u64,
+    /// Fee in basis points (100 = 1%)
+    pub fee_basis_points: u16,
+    /// Reputation score (0-10000)
+    pub reputation_score: u16,
+    /// Statistics
+    pub total_cases: u64,
+    pub cases_completed: u64,
+    pub cases_overturned: u64,
+}
+```
+
+## Stake Management
+
+Arbiters stake tokens as collateral to ensure honest behavior. The stake lifecycle includes registration, updates, and withdrawal with a cooldown period.
+
+### Stake Lifecycle
+
+```
+RegisterArbiter          UpdateArbiter           RequestArbiterExit
+(stake tokens)           (add stake)             (start cooldown)
+     |                       |                        |
+     v                       v                        v
+  [Active] ───add stake──> [Active] ──deactivate─> [Exiting]
+     |                                                |
+     | SlashArbiter                     cooldown done |
+     v                                   (14 days)    v
+  [Slashed]                             WithdrawArbiterStake
+  (partial)                              (return stake)
+                                              |
+                                              v
+                                           [Removed]
+```
+
+### Withdrawal Rules
+
+1. **Request Exit**: Arbiter requests exit, status changes to `Exiting`
+2. **Cooldown Period**: 14 days (~80,640 blocks)
+3. **Complete Cases**: Must have no active cases
+4. **Withdraw**: Stake returned to arbiter's balance
+
+<Callout type="info">
+The 14-day cooldown period prevents arbiters from exiting immediately after misconduct, allowing time for disputes to be filed.
+</Callout>
+
+### Slashing
+
+Arbiters can be slashed for misconduct:
+- Biased or incorrect decisions (overturned on appeal)
+- Failure to respond within deadlines
+- Collusion with parties
+- Repeated poor performance
+
+## Arbitration Committees
+
+Committees are regional groups of arbiters for higher-value disputes:
+
+### Committee Structure
+
+```rust
+pub struct ArbitrationCommittee {
+    /// Committee ID
+    pub id: Hash,
+    /// Regional jurisdiction
+    pub region: KycRegion,
+    /// Committee name
+    pub name: String,
+    /// Member arbiters
+    pub members: Vec<ArbiterMember>,
+    /// Governance threshold (M-of-N)
+    pub threshold: u8,
+    /// Arbitration threshold (for disputes)
+    pub arbitration_threshold: u8,
+    /// Expertise domains
+    pub expertise_domains: Vec<ExpertiseDomain>,
+    /// Base arbitration fee
+    pub base_fee: u64,
+    /// Minimum arbiter stake
+    pub min_arbiter_stake: u64,
+    /// Maximum dispute value
+    pub max_dispute_value: u64,
+}
+```
+
+### Arbiter Roles in Committee
+
+| Role | Weight | Capabilities |
+|------|:------:|--------------|
+| Lead | 3x | Assign cases, initiate governance |
+| Senior | 2x | Higher vote weight |
+| Arbiter | 1x | Standard voting |
+| Observer | 0x | No voting (trainee) |
+
+## Appeal Process
+
+### Filing an Appeal
+
+Either party can appeal a Tier 1 or Tier 2 decision:
+
+```rust
+pub struct AppealDisputePayload {
+    /// Dispute ID to appeal
+    pub dispute_id: Hash,
+    /// Appeal reason hash
+    pub reason_hash: Hash,
+    /// Supporting evidence
+    pub evidence_hash: Option<Hash>,
+    /// Appeal fee (typically 2x base fee)
+    pub appeal_fee: u64,
+}
+```
+
+### Appeal Handling
+
+1. Appeal filed with fee (typically 2x base arbitration fee)
+2. Parent committee/tier reviews the case
+3. Original decision upheld OR overturned
+4. If overturned, original arbiter may be penalized
+
+<Callout type="warning">
+Appeal fees are non-refundable unless the appeal succeeds and the original decision is overturned.
+</Callout>
+
+## Transaction Types
+
+| TX ID | Name | Description |
+|:-----:|------|-------------|
+| 33 | RegisterArbiter | Register as independent arbiter |
+| 34 | UpdateArbiter | Update profile/stake |
+| 36 | RegisterArbitrationCommittee | Create committee |
+| 37 | UpdateArbitrationCommittee | Modify committee |
+| 38 | FileDispute | File escrow dispute |
+| 39 | SubmitEvidence | Submit evidence |
+| 40 | VoteDispute | Cast arbitration vote |
+| 41 | ExecuteDecision | Execute decision |
+| 42 | AppealDispute | Appeal decision |
+| 43 | VoteAppeal | Vote on appeal |
+| 44 | SlashArbiter | Slash stake (governance) |
+| 45 | RequestArbiterExit | Start exit cooldown |
+| 46 | WithdrawArbiterStake | Withdraw after cooldown |
+| 47 | CancelArbiterExit | Cancel exit request |
+
+## Fee Structure
+
+| Operation | Fee |
+|-----------|-----|
+| Dispute Filing | 1% of escrow value (min $10) |
+| Evidence Submission | Free |
+| Arbiter Vote | Paid from dispute fee |
+| Appeal (Tier 1 -> 2) | 2x base fee |
+| Appeal (Tier 2 -> 3) | 3x base fee |
+
+## Timeline Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| Evidence Period | 7 days | Time to submit evidence |
+| Decision Deadline | 14 days | Max time for arbiter decision |
+| Appeal Window | 7 days | Time to file appeal |
+| Cooldown Period | 14 days | Arbiter exit cooldown |
+| Case Grace Period | 30 days | Complete assigned cases |
+
+## Integration with Escrow
+
+The arbitration system integrates with the escrow transaction type:
+
+```rust
+pub struct EscrowPayload {
+    /// Payee address
+    pub payee: PublicKey,
+    /// Amount in escrow
+    pub amount: u64,
+    /// Designated arbiter (Tier 1)
+    pub arbiter: Option<PublicKey>,
+    /// Or designated committee (Tier 2)
+    pub committee_id: Option<Hash>,
+    /// Deadline for completion
+    pub deadline: u64,
+    /// Description hash
+    pub description_hash: Hash,
+}
+```
+
+## Reputation System
+
+Arbiters build reputation through successful case resolution:
+
+| Metric | Impact |
+|--------|--------|
+| Cases completed | +10 points per case |
+| Decision upheld on appeal | +50 points |
+| Decision overturned | -100 points |
+| Response time | +/- based on speed |
+| Stake amount | Higher stake = more trust |
+
+Reputation affects:
+- Case assignment priority
+- Maximum escrow values handled
+- Fee earning potential
+
+## See Also
+
+- [Compliance & KYC](/native-features/compliance-kyc) - Committee structure reference
+- [Atomic Swap](/native-features/atomic-swap) - Trustless exchanges
+- [Smart Contracts](/smart-contracts) - Escrow contract integration

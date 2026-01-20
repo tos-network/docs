@@ -1,0 +1,304 @@
+---
+title: TOS Name Service (TNS)
+description: Human-readable account names like alice@tos.network
+---
+
+import { Callout } from 'nextra/components'
+
+# TOS Name Service (TNS)
+
+TOS Name Service (TNS) provides **human-readable account names** similar to ENS on Ethereum. Instead of using cryptographic addresses like `tos1qxy2kgdyg...`, users can register names like `alice@tos.network`.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| Name Registration | Implemented |
+| Name Resolution | Implemented |
+| Ephemeral Messages (ECDH encrypted) | Implemented |
+| TNS-aware Transfers | Implemented |
+| Wallet Commands | Implemented |
+| Unit Tests (63) | Passing |
+
+## Features Overview
+
+```
+TNS (TOS Name Service)
+-----------------------------------------------
+1. Name Registration
+   alice registers -> alice@tos.network
+
+2. Address Resolution
+   alice@tos.network -> tos1qxy2kgdyg...
+
+3. Ephemeral Messages (like Signal disappearing messages)
+   alice@tos.network -> bob@tos.network
+   Messages auto-delete after N blocks
+```
+
+## Design Decisions
+
+| Feature | Decision |
+|---------|----------|
+| **Format** | `username@tos.network` (fixed suffix) |
+| **Storage** | blake3 hash (privacy protection) |
+| **Registration Fee** | 0.1 TOS |
+| **Limit** | One name per account |
+| **Changeability** | Not changeable after registration |
+| **Transferability** | Not transferable (permanently bound) |
+| **Message TTL** | 100-86,400 blocks (~30 min to 3 days) |
+| **Max Message Size** | 140 bytes |
+
+## Name Registration
+
+### Naming Rules
+
+| Rule | Description |
+|------|-------------|
+| Length | 3-64 characters |
+| Allowed Characters | Lowercase `a-z`, digits `0-9` |
+| Allowed Separators | Period `.`, hyphen `-`, underscore `_` |
+| Start Character | Must start with a letter |
+| End Character | Cannot end with a separator |
+| Consecutive Separators | Not allowed (e.g., `..`, `--`, `._`) |
+| Reserved Names | admin, system, tos, root, null, test, etc. |
+
+### Valid Examples
+
+- `alice` -> `alice@tos.network`
+- `john.doe` -> `john.doe@tos.network`
+- `alice-wang` -> `alice-wang@tos.network`
+- `user_123` -> `user_123@tos.network`
+
+### Invalid Examples
+
+- `ab` - Too short (< 3 characters)
+- `123abc` - Starts with digit
+- `.alice` - Starts with separator
+- `alice.` - Ends with separator
+- `alice..bob` - Consecutive separators
+- `admin` - Reserved name
+
+### Registration via CLI
+
+```bash
+# Register a name
+tos_wallet register_name name=alice
+
+# Registration costs 0.1 TOS
+```
+
+### Registration via SDK
+
+```javascript
+const tx = await tos.sendTransaction({
+    type: 'RegisterName',
+    payload: { name: 'alice' }
+});
+
+// After confirmation, alice@tos.network is registered
+```
+
+## Name Resolution
+
+### RPC Query
+
+```javascript
+// Resolve name to address
+const result = await fetch('/resolve_name', {
+    method: 'POST',
+    body: JSON.stringify({ name: 'bob' })
+}).then(r => r.json());
+
+// result.address = 'tos1qxy2kgdyg...'
+```
+
+### Wallet Command
+
+```bash
+# Resolve a name
+tos_wallet resolve_name name=bob
+
+# Output: bob@tos.network -> tos1qxy2kgdyg...
+```
+
+## TNS-Aware Transfers
+
+You can send funds directly to TNS names instead of addresses:
+
+```bash
+# Transfer using TNS name
+tos_wallet transfer address=bob@tos.network asset=TOS amount=100
+
+# Transfer all balance
+tos_wallet transfer_all address=alice@tos.network asset=TOS
+```
+
+The wallet automatically resolves `@tos.network` suffixes to addresses.
+
+## Ephemeral Messages
+
+TNS supports **ephemeral messages** - encrypted messages that automatically disappear after a specified number of blocks. Similar to Signal's disappearing messages feature.
+
+### Message Features
+
+- **End-to-end Encryption**: ECDH key exchange + ChaCha20
+- **Auto-deletion**: Messages deleted after TTL expires
+- **Size Limit**: 140 bytes maximum
+- **Privacy**: Only recipient can decrypt
+
+### Sending Messages
+
+```bash
+# Send an ephemeral message
+tos_wallet send_message recipient=bob message="Hello, Bob!" ttl=1000
+
+# TTL range: 100-86400 blocks (~30 min to 3 days)
+```
+
+### Reading Messages
+
+```bash
+# List received messages
+tos_wallet list_messages page=0
+
+# Read a specific message (auto-decrypts)
+tos_wallet read_message message_id=<hash>
+```
+
+### Encryption Details
+
+Messages are encrypted using ECDH (Elliptic Curve Diffie-Hellman):
+
+1. Sender derives shared secret from recipient's public key
+2. Message encrypted with ChaCha20 using derived key
+3. Only recipient's private key can decrypt
+4. Message expires after TTL blocks
+
+```rust
+pub struct EphemeralMessagePayload {
+    /// Sender's TNS name hash
+    sender_name_hash: Hash,
+    /// Recipient's TNS name hash
+    recipient_name_hash: Hash,
+    /// Message nonce (for replay protection)
+    message_nonce: u64,
+    /// TTL in blocks
+    ttl_blocks: u32,
+    /// Encrypted content
+    encrypted_content: Vec<u8>,
+    /// Decryption handle for recipient
+    receiver_handle: DecryptHandle,
+}
+```
+
+## Smart Contract Integration
+
+### Syscalls
+
+While TNS is primarily used via wallet and RPC, smart contracts can verify name ownership:
+
+```rust
+use tako_sdk::*;
+
+fn verify_name_ownership(user: &Address, expected_name_hash: &Hash) -> bool {
+    // Get name hash registered by this address
+    let name_hash = get_name_hash_by_account(user);
+
+    match name_hash {
+        Some(hash) => hash == *expected_name_hash,
+        None => false
+    }
+}
+```
+
+## Data Structures
+
+### On-Chain Storage
+
+```rust
+// Name Registry Columns
+NameHashToAccount:  {blake3(name)} => PublicKey
+AccountHasName:     {PublicKey} => blake3(name)
+
+// Ephemeral Messages
+EphemeralMessages:  {recipient_hash}{created_topo}{msg_id} => MessageData
+MessageExpiry:      {expire_topo}{msg_key} => ()
+MessageIdIndex:     {msg_id} => expire_topo
+```
+
+### RegisterNamePayload
+
+```rust
+pub struct RegisterNamePayload {
+    /// Username (without @tos.network suffix)
+    name: String,
+}
+
+// Serialization: 1 byte length + name bytes
+// Max size: 1 + 64 = 65 bytes
+```
+
+## Transaction Types
+
+| Transaction | Type ID | Description |
+|-------------|:-------:|-------------|
+| RegisterName | 21 | Register a TNS name |
+| EphemeralMessage | 22 | Send an ephemeral message |
+
+## Security Considerations
+
+### Name Privacy
+
+- Names are stored as blake3 hashes on-chain
+- Cannot reverse the hash to get the original name
+- Name lookup requires knowing the name first
+
+### Anti-Phishing Measures
+
+- **ASCII Only**: Non-ASCII characters rejected (prevents homoglyph attacks)
+- **Reserved Names**: Common admin names blocked
+- **Normalization**: Automatic lowercase conversion
+- **Separator Rules**: Prevents confusing names like `alice..bob`
+
+<Callout type="warning">
+**Unicode Homoglyph Protection**: TNS only allows ASCII characters to prevent attacks where similar-looking Unicode characters (like Cyrillic "a") could impersonate legitimate names.
+</Callout>
+
+### Message Security
+
+- End-to-end encrypted (sender to recipient only)
+- Replay protection via message nonce
+- Auto-deletion ensures message privacy
+- No message content stored in plaintext
+
+## Future Upgrades (V2)
+
+| Feature | Description |
+|---------|-------------|
+| Name Modification | Change name once per year |
+| Subdomains | `team.alice@tos.network` |
+| Profile Data | Link metadata to names |
+| Name Marketplace | Transfer/sell names |
+
+<Callout type="info">
+V2 features require a protocol upgrade. The current V1 implementation does not support name changes or transfers.
+</Callout>
+
+## Wallet Command Summary
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `register_name` | Register a TNS name | `register_name name=alice` |
+| `resolve_name` | Resolve name to address | `resolve_name name=bob` |
+| `send_message` | Send ephemeral message | `send_message recipient=bob message="Hi" ttl=1000` |
+| `list_messages` | List received messages | `list_messages page=0` |
+| `read_message` | Read message details | `read_message message_id=<hash>` |
+| `transfer` | TNS-aware transfer | `transfer address=bob@tos.network amount=100` |
+| `transfer_all` | TNS-aware full transfer | `transfer_all address=alice@tos.network` |
+
+## See Also
+
+- [Getting Started](/getting-started) - Set up your wallet
+- [Privacy Transfer](/native-features/privacy-transfer) - Private transactions
+- [Referral System](/native-features/referral-system) - Multi-level relationships

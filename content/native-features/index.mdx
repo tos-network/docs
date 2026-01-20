@@ -25,13 +25,17 @@ TOS Network provides powerful features at the **protocol level** rather than as 
 | [Batch Transfer](/native-features/batch-transfer) | Implemented | P0 | Up to 500 recipients per transaction |
 | [VRF Randomness](/native-features/vrf-random) | Implemented | P0 | Verifiable random numbers |
 | [A2A Protocol](/native-features/a2a-protocol) | Implemented | P0 | Agent-to-Agent communication |
+| [TOS Name Service](/native-features/account-names) | Implemented | P0 | Human-readable account names |
+| [Compliance & KYC](/native-features/compliance-kyc) | Implemented | P0 | Protocol-level identity verification |
 | [Privacy Transfer](/native-features/privacy-transfer) | Implemented | P1 | Encrypted balances and transfers |
 | [Scheduled Tasks](/native-features/scheduled-tasks) | Implemented | P1 | Time-triggered contract execution |
 | [MEV Protection](/native-features/mev-protection) | Partial | P1 | Front-running prevention |
-| [Atomic Swap](/native-features/atomic-swap) | Planned | P1 | Cross-chain atomic exchanges |
 | [Native NFT](/native-features/native-nft) | Implemented | P2 | Protocol-level NFT support |
-| [Cross-Chain Bridge](/native-features/future-features) | Planned | P2 | Bridge to other blockchains |
-| [Oracle Integration](/native-features/future-features) | Planned | P2 | Price feeds and external data |
+| [Token Economics](/native-features/token-economics) | Implemented | P0 | TOS tokenomics and distribution |
+| [DeFi Ecosystem](/native-features/defi-ecosystem) | Partial | P1 | Complete DeFi infrastructure |
+| [Arbitration System](/native-features/arbitration) | Planned | P2 | Dispute resolution for escrows |
+| [Atomic Swap](/native-features/atomic-swap) | Planned | P2 | Cross-chain atomic exchanges |
+| [Cross-Chain Bridge](/native-features/future-features) | Planned | P3 | Bridge to other blockchains |
 
 ## Implemented Features
 
@@ -61,6 +65,18 @@ TOS Network provides powerful features at the **protocol level** rather than as 
     icon={<Icons.NodeConnections />}
   />
   <Card
+    title="TOS Name Service (TNS)"
+    subtitle="Human-readable names like alice@tos.network"
+    href="/native-features/account-names"
+    icon={<Icons.Protocol />}
+  />
+  <Card
+    title="Compliance & KYC"
+    subtitle="Protocol-level identity verification system"
+    href="/native-features/compliance-kyc"
+    icon={<Icons.Shield />}
+  />
+  <Card
     title="Privacy Transfer (UNO)"
     subtitle="Optional encrypted transfers with ZK proofs"
     href="/native-features/privacy-transfer"
@@ -82,6 +98,18 @@ TOS Network provides powerful features at the **protocol level** rather than as 
     title="Native NFT"
     subtitle="Protocol-level NFT with 30+ syscalls"
     href="/native-features/native-nft"
+    icon={<Icons.Graph />}
+  />
+  <Card
+    title="DeFi Ecosystem"
+    subtitle="Complete DeFi infrastructure with AI Oracle"
+    href="/native-features/defi-ecosystem"
+    icon={<Icons.Coins />}
+  />
+  <Card
+    title="Token Economics"
+    subtitle="TOS tokenomics and distribution model"
+    href="/native-features/token-economics"
     icon={<Icons.Graph />}
   />
 </Cards>

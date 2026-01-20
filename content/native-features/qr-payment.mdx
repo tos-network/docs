@@ -1,0 +1,353 @@
+---
+title: QR Code Payment
+description: QR code-based instant payment system for TOS blockchain
+---
+
+import { Callout } from 'nextra/components'
+
+# QR Code Payment System
+
+TOS provides a **QR code-based instant payment system** similar to PayPay, Alipay, or WeChat Pay. Leveraging the 3-second block time, payments confirm in **seconds, not minutes**.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| Payment URI scheme (tos://pay) | Implemented |
+| create_payment_request RPC | Implemented |
+| get_payment_status RPC | Implemented |
+| pay_request wallet RPC | Implemented |
+| WebSocket payment notifications | Implemented |
+| Callback webhook security | Implemented |
+
+<Callout type="info">
+The QR Payment system is fully implemented and production-ready.
+</Callout>
+
+## Why QR Payments?
+
+| Feature | TOS QR Payment | PayPay | Bitcoin |
+|---------|:--------------:|:------:|:-------:|
+| Confirmation Time | **3-24 seconds** | Instant | ~60 minutes |
+| Decentralized | **Yes** | No | Yes |
+| Transaction Fee | **~0.001 TOS** | 0-3% | Variable |
+| Reversibility | No | Yes (chargebacks) | No |
+
+## Payment Flow
+
+```
++-------------+     +-------------+     +-------------+
+|   Merchant  |     |   Customer  |     |   Daemon    |
++------+------+     +------+------+     +------+------+
+       |                   |                   |
+       | 1. Create Payment |                   |
+       |    Request        |                   |
+       |<------------------|                   |
+       |                   |                   |
+       | 2. Display QR     |                   |
+       |------------------>|                   |
+       |                   |                   |
+       |                   | 3. Scan & Pay     |
+       |                   |------------------>|
+       |                   |                   |
+       | 4. Poll Status    |                   |
+       |-------------------------------------->|
+       |                   |                   |
+       | 5. Confirm        |                   |
+       |<--------------------------------------|
+       |                   |                   |
+```
+
+## Payment URI Format
+
+### URI Scheme
+
+```
+tos://pay?<parameters>
+```
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `to` | Address | Yes | Merchant address (bech32 format) |
+| `amount` | u64 | No | Amount in atomic units (nanoTOS) |
+| `asset` | Hash | No | Asset hash (omit for native TOS) |
+| `memo` | String | No | Payment memo (max 64 bytes UTF-8) |
+| `id` | String | No | Payment request ID (max 32 bytes ASCII) |
+| `exp` | u64 | No | Expiration timestamp (Unix seconds) |
+| `callback` | URL | No | Webhook URL for notifications |
+
+### Example URIs
+
+**Fixed amount payment:**
+```
+tos://pay?to=tos1abc123...&amount=1000000000&memo=Coffee&id=order-12345
+```
+
+**Open amount (tip jar):**
+```
+tos://pay?to=tos1abc123...&memo=Tips
+```
+
+**With expiration:**
+```
+tos://pay?to=tos1abc123...&amount=5000000000&id=inv-001&exp=1734567890
+```
+
+## API Reference
+
+### Daemon RPC
+
+#### create_payment_request
+
+Create a new payment request and get QR data.
+
+**Request:**
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "create_payment_request",
+    "params": {
+        "address": "tos1abc...",
+        "amount": 1000000000,
+        "asset": null,
+        "memo": "Coffee",
+        "expires_in_seconds": 300
+    }
+}
+```
+
+**Response:**
+```json
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "payment_id": "pr_abc123def456",
+        "uri": "tos://pay?to=tos1abc...&amount=1000000000&memo=Coffee&id=pr_abc123def456&exp=1734567890",
+        "expires_at": 1734567890,
+        "qr_data": "tos://pay?...",
+        "min_topoheight": 123456
+    }
+}
+```
+
+#### get_payment_status
+
+Check payment status by scanning blockchain for matching transactions.
+
+**Request:**
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "get_payment_status",
+    "params": {
+        "payment_id": "pr_abc123def456",
+        "address": "tos1abc...",
+        "expected_amount": 1000000000,
+        "exp": 1734567890,
+        "min_topoheight": 100000
+    }
+}
+```
+
+**Response:**
+```json
+{
+    "jsonrpc": "2.0",
+    "result": {
+        "payment_id": "pr_abc123def456",
+        "status": "confirmed",
+        "tx_hash": "abc123...",
+        "amount_received": 1000000000,
+        "confirmations": 8,
+        "confirmed_at": 1734567920
+    }
+}
+```
+
+**Status values:**
+- `pending` - No matching transaction found
+- `mempool` - Transaction in mempool (0 confirmations)
+- `confirming` - In block but < 8 confirmations
+- `confirmed` - 8+ confirmations (stable)
+- `expired` - Payment request has expired
+- `underpaid` - Amount received < expected amount
+
+### Wallet RPC
+
+#### pay_request
+
+Parse and execute a payment from URI.
+
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "pay_request",
+    "params": {
+        "uri": "tos://pay?to=tos1abc...&amount=1000000000&memo=Coffee&id=pr_abc123def456"
+    }
+}
+```
+
+## Confirmation Strategy
+
+### Fast Confirmation (0-conf)
+
+For small payments (< 100 TOS):
+- Transaction is in mempool
+- Risk: Double-spend possible but economically unlikely
+
+### Standard Confirmation (1-conf)
+
+For medium payments (100-1000 TOS):
+- Wait for 1 block confirmation (~3 seconds)
+- Very low double-spend risk
+
+### Full Confirmation (8-conf)
+
+For large payments (> 1000 TOS):
+- Wait for 8 block confirmations (~24 seconds)
+- Reorg probability: < 10^-9
+
+## Merchant Integration
+
+### Point-of-Sale Flow
+
+```javascript
+// Step 1: Create payment request
+const payment = await rpc.call('create_payment_request', {
+    address: 'tos1merchant...',
+    amount: 1000000000,  // 10 TOS
+    memo: 'Order #12345'
+});
+
+// Step 2: Display QR code
+displayQR(payment.qr_data);
+
+// Step 3: Poll for payment (every 1-2 seconds)
+const interval = setInterval(async () => {
+    const status = await rpc.call('get_payment_status', {
+        payment_id: payment.payment_id,
+        address: 'tos1merchant...',
+        min_topoheight: payment.min_topoheight
+    });
+
+    if (status.status === 'confirmed') {
+        clearInterval(interval);
+        showSuccess();
+    }
+}, 1000);
+```
+
+### E-commerce Integration
+
+1. Generate payment request at checkout
+2. Store `min_topoheight` in order record
+3. Use WebSocket for real-time updates
+4. Redirect to success page when confirmed
+
+## WebSocket Subscription
+
+Subscribe to real-time payment notifications:
+
+```json
+{
+    "jsonrpc": "2.0",
+    "method": "subscribe",
+    "params": {
+        "notify": {
+            "watch_address_payments": {
+                "address": "tos1merchant..."
+            }
+        }
+    }
+}
+```
+
+## Callback Security
+
+For server-to-server notifications, implement HMAC-SHA256 signature verification:
+
+### Callback Request Format
+
+```http
+POST {callback_url}
+Content-Type: application/json
+X-TOS-Signature: {hmac_signature}
+X-TOS-Timestamp: {unix_timestamp}
+
+{
+    "event": "payment_received",
+    "payment_id": "pr_abc123",
+    "tx_hash": "abc123...",
+    "amount": 1000000000,
+    "confirmations": 1,
+    "timestamp": 1734567890
+}
+```
+
+### Signature Verification
+
+```javascript
+function verifyCallback(request, secret) {
+    const timestamp = request.headers['X-TOS-Timestamp'];
+    const signature = request.headers['X-TOS-Signature'];
+
+    // Check timestamp freshness (5 minute window)
+    if (Math.abs(Date.now() / 1000 - timestamp) > 300) {
+        throw new Error('Timestamp expired');
+    }
+
+    // Compute expected signature
+    const payload = timestamp + '.' + JSON.stringify(request.body);
+    const expected = crypto.createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+
+    // Constant-time comparison
+    if (!crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+    )) {
+        throw new Error('Invalid signature');
+    }
+
+    return true;
+}
+```
+
+## Extra Data Format
+
+Payment metadata in transactions uses this format:
+
+```
+Byte 0:     Type (0x01 = payment)
+Bytes 1-32: Payment ID (32 bytes, ASCII, zero-padded)
+Bytes 33+:  Memo (UTF-8, up to 95 bytes)
+```
+
+## Security Considerations
+
+1. **Replay Protection** - Payment IDs must be unique per merchant
+2. **Amount Verification** - Always verify amount matches expected
+3. **Expiration** - Use short expiration windows (5-10 minutes)
+4. **Callback Verification** - Always verify HMAC signatures
+
+<Callout type="warning">
+Never accept payments without verifying the amount and payment ID match your records.
+</Callout>
+
+## Recommended Confirmation Thresholds
+
+| Transaction Value | Confirmations | Wait Time |
+|-------------------|:-------------:|:---------:|
+| < $10 | 1 | ~3 seconds |
+| $10 - $100 | 3 | ~9 seconds |
+| $100 - $1,000 | 8 | ~24 seconds |
+| > $1,000 | 8+ | ~24+ seconds |
+
+## See Also
+
+- [Transaction Fees](/features/transaction-fees) - Fee calculation
+- [P2P Protocol](/features/p2p-protocol) - Network propagation

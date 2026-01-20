@@ -1,0 +1,305 @@
+---
+title: Token Economics
+description: TOS Network tokenomics, supply, and distribution model
+---
+
+import { Callout } from 'nextra/components'
+
+# Token Economics
+
+TOS Network implements a carefully designed token economic model that ensures long-term sustainability, fair distribution, and alignment of incentives across all network participants.
+
+## Token Overview
+
+| Property | Value |
+|----------|-------|
+| **Token Name** | TOS |
+| **Maximum Supply** | 18.4 Million TOS |
+| **Decimals** | 8 |
+| **Consensus** | Proof-of-Work (BlockDAG) |
+| **Block Time** | ~15 seconds |
+| **Initial Distribution** | Mining only (no pre-mine, no ICO) |
+
+## Supply Distribution
+
+TOS follows a **fair launch** model with no pre-mine or initial coin offering:
+
+```
+Total Supply: 18,400,000 TOS
+├── Mining Rewards: 90-95%
+│   └── Distributed to miners via Proof-of-Work
+├── Development Fund: 5-10%
+│   └── Funds network development and ecosystem growth
+└── No Pre-mine: 0%
+    └── All tokens mined fairly
+```
+
+## Emission Schedule
+
+TOS uses a gradual emission reduction model:
+
+### Block Rewards
+
+Block rewards decrease over time through halving events:
+
+| Phase | Block Range | Reward per Block | Notes |
+|-------|-------------|------------------|-------|
+| Phase 1 | 0 - 1,050,000 | Initial reward | Launch phase |
+| Phase 2 | 1,050,001 - 2,100,000 | 50% of Phase 1 | First halving |
+| Phase 3 | 2,100,001 - 3,150,000 | 25% of Phase 1 | Second halving |
+| ... | ... | Continues halving | Until max supply |
+
+### Development Fee
+
+A transparent development fee supports ongoing network development:
+
+| Block Range | Dev Fee | Duration |
+|-------------|:-------:|----------|
+| 0 - 3,249,999 | 10% | ~1.5 years (with BlockDAG) |
+| 3,250,000+ | 5% | Until ecosystem stability |
+
+<Callout type="info">
+The development fee will transition to DAO-based governance once Smart Contract capabilities are fully deployed, following TOS's core principle: "Don't Trust, Verify it".
+</Callout>
+
+## Mining Economics
+
+### Proof-of-Work Model
+
+TOS uses an ASIC-resistant mining algorithm (TOS Hash) to ensure decentralization:
+
+| Feature | Description |
+|---------|-------------|
+| Algorithm | TOS Hash (CPU/GPU friendly) |
+| Difficulty Adjustment | Kalman Filter algorithm |
+| Target Block Time | 15 seconds |
+| BlockDAG | Multiple blocks per height |
+
+### Miner Incentives
+
+Miners receive rewards from multiple sources:
+
+1. **Block Rewards**: Primary emission via PoW
+2. **Transaction Fees**: Fees from included transactions
+3. **DEV/DAG Bonuses**: Additional rewards from BlockDAG structure
+
+### Mining Profitability Factors
+
+```
+Mining Revenue = Block Reward + Transaction Fees + DAG Bonus
+Mining Cost = Hardware + Electricity + Maintenance
+Net Profit = Mining Revenue - Mining Cost
+```
+
+## TOS Energy Model Integration
+
+The [TOS Energy Model (TEM)](/features/energy-model) creates a dual economic system:
+
+### Traditional Fee Path
+
+```
+User → Pays TOS as fee → Fee burned/distributed
+```
+
+### Energy Path
+
+```
+User → Stakes TOS → Generates Energy → Uses Energy for transactions
+       └─ TOS locked ─┘
+```
+
+### Economic Impact
+
+| Metric | Effect |
+|--------|--------|
+| Circulating Supply | Reduced (staked TOS locked) |
+| Network Security | Increased (more staked value) |
+| Fee Volatility | Reduced (predictable energy costs) |
+| User Retention | Improved (incentive to stake) |
+
+## Transaction Fee Structure
+
+### Minimum Fees
+
+| Transaction Type | Minimum Fee |
+|------------------|-------------|
+| Simple Transfer | 0.00001000 TOS/KB |
+| Smart Contract Call | Variable (by CU) |
+| Asset Creation | 1.0 TOS |
+| Name Registration (TNS) | 0.1 TOS |
+
+### Fee Distribution
+
+Transaction fees are distributed as follows:
+
+```
+Transaction Fee
+├── 80% → Miner (block producer)
+├── 15% → DAG Contributors
+└── 5% → Protocol Treasury
+```
+
+## Deflationary Mechanisms
+
+TOS implements several mechanisms to create deflationary pressure:
+
+### 1. Fee Burning
+
+A portion of transaction fees may be burned:
+
+```
+Burn Rate = Base Rate × Network Activity Factor
+```
+
+### 2. Staking Lock-up
+
+Energy staking removes TOS from circulation:
+
+| Lock Duration | Multiplier | Typical Amount Locked |
+|---------------|:----------:|----------------------|
+| 7-29 days | 1.0x | Short-term |
+| 30-89 days | 1.25x | Medium-term |
+| 90-179 days | 1.5x | Long-term |
+| 180-364 days | 1.75x | Extended |
+| 365+ days | 2.0x | Maximum |
+
+### 3. Service Fees
+
+Various protocol services require TOS:
+
+| Service | Fee | Notes |
+|---------|-----|-------|
+| Asset Creation | 1 TOS | Native asset minting |
+| TNS Registration | 0.1 TOS | Name registration |
+| Contract Deployment | Variable | Based on size/complexity |
+| KYC Committee Registration | Variable | Stake required |
+| Arbiter Registration | Variable | Stake required |
+
+## Token Utility
+
+TOS tokens serve multiple functions in the network:
+
+### 1. Transaction Fees
+
+Primary currency for network fees:
+
+```rust
+// Pay transaction fee in TOS
+let tx = Transaction::new()
+    .with_fee(Amount::from_tos(0.001))
+    .build();
+```
+
+### 2. Energy Staking
+
+Stake TOS to generate energy for gas-free transactions:
+
+```rust
+// Create energy stake
+let stake = EnergyStake::new()
+    .amount(10_000) // 10,000 TOS
+    .duration(Duration::days(90))
+    .create();
+```
+
+### 3. Governance
+
+Future DAO participation requires TOS:
+
+- Vote on protocol upgrades
+- Propose changes
+- Elect committee members
+
+### 4. Collateral
+
+Various protocol features require TOS as collateral:
+
+| Feature | Collateral Purpose |
+|---------|-------------------|
+| KYC Committee | Ensure honest verification |
+| Arbitration | Ensure fair dispute resolution |
+| DeFi Protocols | Lending collateral |
+| Validator Staking | Future PoS hybrid |
+
+### 5. Native Asset Creation
+
+Create new tokens on TOS Network:
+
+```rust
+// Create a new native asset
+let asset = AssetCreate::new()
+    .name("My Token")
+    .symbol("MTK")
+    .decimals(8)
+    .supply(1_000_000)
+    .fee(Amount::from_tos(1.0)) // 1 TOS creation fee
+    .create();
+```
+
+## Economic Security
+
+### Attack Cost Analysis
+
+TOS's economic model creates high attack costs:
+
+| Attack Type | Cost Factors |
+|-------------|--------------|
+| 51% Attack | Hash power acquisition + energy cost |
+| Spam Attack | Transaction fees + energy depletion |
+| Sybil Attack | Multiple stake requirements |
+| Economic Attack | Locked collateral at risk |
+
+### Security Budget
+
+The network security budget comprises:
+
+```
+Security Budget = Block Rewards + Transaction Fees + Staking Value
+```
+
+As block rewards decrease, transaction fees and staking value must increase to maintain security.
+
+## Comparison with Other Networks
+
+| Feature | TOS | Bitcoin | Ethereum |
+|---------|-----|---------|----------|
+| Max Supply | 18.4M | 21M | Unlimited |
+| Consensus | PoW (BlockDAG) | PoW | PoS |
+| Block Time | ~15s | ~10min | ~12s |
+| Pre-mine | None | None | Yes |
+| Fee Model | TOS + Energy | BTC | ETH/Gas |
+| Smart Contracts | Yes (TAKO) | Limited | Yes (EVM) |
+
+## Long-Term Sustainability
+
+### Revenue Sources (Post-Mining)
+
+As mining rewards decrease, the network will rely on:
+
+1. **Transaction Fees**: Growing DeFi and application usage
+2. **Service Fees**: Asset creation, name registration, etc.
+3. **Staking Revenue**: Energy model participation
+4. **Protocol Treasury**: Accumulated fees for development
+
+### DAO Transition
+
+The development fee and protocol decisions will transition to DAO governance:
+
+```
+Current: Foundation-managed development fee
+   ↓
+Future: DAO-controlled treasury
+   ↓
+Goal: Fully decentralized governance
+```
+
+<Callout type="warning">
+Token economics may be adjusted through governance processes. Always verify current parameters on-chain.
+</Callout>
+
+## See Also
+
+- [TOS Energy Model](/features/energy-model) - Stake-to-earn energy system
+- [Mining System](/features/mining) - PoW mining details
+- [Smart Contracts](/smart-contracts) - Build on TOS
+- [Compliance & KYC](/native-features/compliance-kyc) - Committee economics

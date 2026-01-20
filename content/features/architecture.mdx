@@ -1,0 +1,447 @@
+---
+title: System Architecture
+description: TOS Network architecture overview - consensus, storage, and virtual state
+---
+
+import { Callout } from 'nextra/components'
+
+# TOS System Architecture
+
+TOS Network is a **BlockDAG-based blockchain** with native privacy features, smart contract support, and high throughput. This document provides an overview of the core architectural components.
+
+## Architecture Overview
+
+```
++----------------------------------------------------------+
+|                    Smart Contracts                        |
+|                    (TAKO Runtime)                         |
++-----------------------------+----------------------------+
+                              | syscalls
++-----------------------------v----------------------------+
+|                   Native Features                        |
+|  +--------+  +--------+  +--------+  +----------------+  |
+|  |Referral|  |  VRF   |  |Privacy |  |Scheduled Tasks |  |
+|  | System |  | Random |  | (UNO)  |  |                |  |
+|  +--------+  +--------+  +--------+  +----------------+  |
++-----------------------------+----------------------------+
+                              |
++-----------------------------v----------------------------+
+|                 Consensus Layer                          |
+|  +--------+  +--------+  +--------+  +----------------+  |
+|  |GHOSTDAG|  |  BPS   |  |Finality|  |  Reachability  |  |
+|  |Protocol|  | System |  | Depth  |  |    Index       |  |
+|  +--------+  +--------+  +--------+  +----------------+  |
++-----------------------------+----------------------------+
+                              |
++-----------------------------v----------------------------+
+|                  Storage Layer                           |
+|  +--------+  +--------+  +--------+  +----------------+  |
+|  |RocksDB |  | Cache  |  |Snapshot|  |  DAG Order     |  |
+|  |Backend |  | System |  | System |  |  (Topoheight)  |  |
+|  +--------+  +--------+  +--------+  +----------------+  |
++----------------------------------------------------------+
+```
+
+## Layered Consensus Design
+
+TOS uses a **layered architecture** that separates concerns between storage, consensus, and validation.
+
+### Layer 1: Storage/Indexing
+
+**Purpose:** Fast, sequential access to blocks for database queries.
+
+**Metric:** `TopoHeight` (continuous: 0, 1, 2, 3...)
+
+```
+Genesis -> Block1 -> Block2 -> Block3
+   0         1         2         3
+
+Every block gets sequential topoheight, no gaps.
+```
+
+**Key characteristics:**
+- Continuous sequence for efficient range queries
+- Assigned after consensus determines order
+- Not used for consensus decisions
+- Enables efficient pruning
+
+### Layer 2: Consensus
+
+**Purpose:** Select the heaviest chain in the DAG.
+
+**Metric:** `blue_work` (cumulative blue difficulty, U256)
+
+```
+         Block1 (work=1000)    Block2 (work=1000)
+                 \                  /
+                  Block3 (merges both)
+                  work = max(1000, 1000) + 1000 = 2000
+```
+
+**Key characteristics:**
+- Sum of difficulty of all blue (selected) blocks
+- Used for chain selection (heaviest wins)
+- Non-continuous (gaps when blocks are marked red)
+- Core consensus metric
+
+### Layer 3: Validation
+
+**Purpose:** Measure DAG depth for validation rules.
+
+**Metric:** `blue_score` (number of blue blocks in past cone)
+
+**Key characteristics:**
+- Increases by mergeset_blues.len() per block
+- Used for time-based validation rules
+- Maturity checks and finality depth
+
+### Metrics Comparison
+
+| Metric | Type | Continuous? | Purpose |
+|--------|------|:-----------:|---------|
+| topoheight | u64 | Yes | Database indexing |
+| blue_score | u64 | No | DAG depth validation |
+| blue_work | U256 | No | Chain selection |
+
+## GHOSTDAG Consensus
+
+TOS implements the **GHOSTDAG protocol** for BlockDAG consensus.
+
+### Key Parameters
+
+| Parameter | Value | Description |
+|-----------|:-----:|-------------|
+| K | 10 | Anticone size bound |
+| BPS | 1 | Blocks per second |
+| Block Time | 1000ms | Target block interval |
+| Finality Depth | 100 | Blocks until final |
+
+### K Parameter Calculation
+
+The K parameter is calculated using Poisson distribution analysis:
+
+```
+Given:
+  D (network delay): 2 seconds
+  lambda (block rate): 1 BPS
+  delta (security tolerance): 0.001 (0.1%)
+
+Formula:
+  x = 2 * D * lambda = 2 * 2 * 1 = 4.0
+  K = minimum where P(anticone > K) < delta
+
+Result: K = 10 (rounded from theoretical 9.7)
+```
+
+### Blue vs Red Blocks
+
+```
+Block A --+
+          +-- Block C (merges both)
+Block B --+
+
+If Block C has more than K=10 parallel blocks
+that are not ancestors of each other, those
+blocks are marked as "red" (orphaned).
+```
+
+## BPS Configuration System
+
+TOS uses compile-time BPS configuration for network parameters.
+
+```rust
+pub struct Bps<const BPS: u64>;
+
+pub type OneBps = Bps<1>;   // TOS standard
+pub type TenBps = Bps<10>;  // Higher throughput
+
+impl<const BPS: u64> Bps<BPS> {
+    /// Target block time in milliseconds
+    pub const fn target_time_per_block() -> u64 {
+        1000 / BPS  // 1 BPS = 1000ms
+    }
+
+    /// GHOSTDAG K parameter
+    pub const fn ghostdag_k() -> u64 {
+        match BPS {
+            1 => 10,    // TOS
+            10 => 124,  // Kaspa-style
+            _ => panic!("Unsupported BPS"),
+        }
+    }
+
+    /// Finality depth (constant ~100 seconds)
+    pub const fn finality_depth() -> u64 {
+        BPS * 100
+    }
+}
+```
+
+## Transaction Finality
+
+### Finality Timeline
+
+```
+Time    Status                  Security
+-------------------------------------------
+0s      Mempool (unconfirmed)   None
+3s      1 confirmation          ~50% attack risk
+10s     10 confirmations        ~1% attack risk
+30s     30 confirmations        ~0.01% attack risk
+60s     60 confirmations        ~0.0001% attack risk
+100s    100 confirmations       < 10^-18 attack risk
+        FINAL
+```
+
+### Confirmation Recommendations
+
+| Use Case | Confirmations | Wait Time |
+|----------|:-------------:|:---------:|
+| Coffee shop | 1-3 | ~1-3 seconds |
+| Restaurant | 6 | ~6 seconds |
+| Online ($100) | 30 | ~30 seconds |
+| Online ($1,000) | 60 | ~60 seconds |
+| Exchange deposit | **100** | **~100 seconds** |
+
+### Comparison with Other Chains
+
+| Blockchain | Time to Finality |
+|------------|:----------------:|
+| **TOS** | **~100 seconds** |
+| Bitcoin | ~60 minutes |
+| Ethereum | ~13 minutes |
+| Kaspa | ~10 seconds |
+
+<Callout type="info">
+TOS achieves 36x faster finality than Bitcoin while maintaining full privacy features.
+</Callout>
+
+## Virtual State Architecture
+
+TOS implements a **Virtual State pattern** for transaction processing.
+
+### State Traits
+
+```rust
+/// Read-only verification state
+#[async_trait]
+pub trait BlockchainVerificationState<'a, E> {
+    async fn get_sender_balance(...) -> Result<&mut Ciphertext, E>;
+    async fn get_receiver_balance(...) -> Result<&mut Ciphertext, E>;
+    async fn get_account_nonce(...) -> Result<Nonce, E>;
+    async fn update_account_nonce(...) -> Result<(), E>;
+}
+
+/// Write state for applying transactions
+#[async_trait]
+pub trait BlockchainApplyState<'a, S, E>:
+    BlockchainVerificationState<'a, E>
+{
+    async fn add_burned_coins(&mut self, amount: u64) -> Result<(), E>;
+    async fn add_gas_fee(&mut self, amount: u64) -> Result<(), E>;
+    async fn set_contract_outputs(...) -> Result<(), E>;
+}
+```
+
+### State Implementations
+
+| Implementation | Purpose |
+|----------------|---------|
+| ChainState | Transaction verification |
+| ApplicableChainState | Commit changes to storage |
+| MempoolState | Mempool validation (no commit) |
+
+### Processing Flow
+
+```
+Block arrives:
+  |
+  v
++------------------+
+| Header Validation|  (GHOSTDAG, reachability)
++--------+---------+
+         |
+         v
++------------------+
+| Create ChainState|  (Virtual snapshot)
++--------+---------+
+         |
+         v
++------------------+
+| Verify TX 1...N  |  (Check balances, ZK proofs)
++--------+---------+
+         |
+         v
++------------------+
+| ApplicableState  |  (Prepare commits)
++--------+---------+
+         |
+         v
++------------------+
+| Commit to RocksDB|  (Atomic write)
++------------------+
+```
+
+## P2P Network Architecture
+
+### Peer Tiers
+
+```
+Tier 1: Exclusive Nodes
+        Mandatory connection, highest priority
+
+Tier 2: Priority Nodes (priority=true)
+        Seed nodes, manually added, bypass penalties
+
+Tier 3: Whitelist
+        Trusted via RPC, no fail count increment
+
+Tier 4: Graylist
+        Unknown peers, subject to fail tracking
+
+Tier 5: Blacklist
+        Banned, never connect
+```
+
+### Peer Selection Priority
+
+```
+1. exclusive_nodes (if configured)
+       |
+2. Whitelist peers from peerlist
+       |
+3. Graylist peers (backup)
+       |
+4. Seed nodes (fallback)
+```
+
+### Priority Block Fast-Forward
+
+When `allow_priority_blocks` is enabled:
+
+```rust
+if self.allow_priority_blocks && peer.is_priority() {
+    // Propagate block immediately before verification
+    spawn_task("broadcast-priority-block", async {
+        self.broadcast_block(&block_hash).await;
+    });
+}
+```
+
+## Storage Architecture
+
+### RocksDB Schema
+
+```
+Blocks:
+  block:<hash>           -> Block data
+  block_header:<hash>    -> BlockHeader
+
+DAG:
+  ghostdag:<hash>        -> GhostdagData
+  reachability:<hash>    -> ReachabilityData
+  dag_order:<topo>       -> Hash (topoheight index)
+
+State:
+  account:<pubkey>       -> Account data
+  balance:<key>          -> Ciphertext
+  nonce:<pubkey>         -> u64
+
+Indexes:
+  tx_block:<tx_hash>     -> Hash (block containing tx)
+  tips:current           -> Vec<Hash>
+```
+
+### Cache System
+
+```rust
+pub struct StorageCache {
+    /// Chain state cache
+    pub chain: ChainCache,
+
+    /// Object caches (blocks, transactions)
+    pub objects: ObjectsCache,
+
+    /// Counter caches for fast counts
+    pub counters: CounterCache,
+}
+
+pub struct ChainCache {
+    pub tips: Option<Vec<Hash>>,
+    pub top_topoheight: Option<u64>,
+    pub top_height: Option<u64>,
+}
+```
+
+## Smart Contract Integration
+
+### TAKO Runtime
+
+TOS uses the TAKO (TOS Application Kit for Operations) runtime for smart contracts.
+
+```
++----------------------+
+|   Smart Contract     |
+|   (WASM Module)      |
++----------+-----------+
+           | syscall
++----------v-----------+
+|    TAKO Runtime      |
+|  +-------+-------+   |
+|  |Syscall|Memory |   |
+|  |Handler|Manager|   |
+|  +-------+-------+   |
++----------+-----------+
+           |
++----------v-----------+
+|   Native Features    |
+|  (Referral, VRF...)  |
++----------------------+
+```
+
+### Syscall Categories
+
+| Category | Examples |
+|----------|----------|
+| Transfer | transfer, batch_transfer |
+| Referral | bind_referrer, get_uplines |
+| Random | vrf_random, vrf_verify |
+| Storage | store, load |
+| Context | get_tx_sender, get_block_hash |
+
+## Security Model
+
+### Privacy Layer (UNO)
+
+- Encrypted balances using homomorphic encryption
+- Zero-knowledge proofs for transaction validity
+- Confidential transfers with range proofs
+
+### Consensus Security
+
+- GHOSTDAG provides 50% Byzantine fault tolerance
+- K=10 ensures 99.9% confidence in block selection
+- 100-block finality provides < 10^-18 reorg probability
+
+### Network Security
+
+- Peer reputation system (whitelist/graylist/blacklist)
+- Priority node restrictions for critical infrastructure
+- SSRF protection for agent endpoints
+
+## Performance Characteristics
+
+| Metric | Value |
+|--------|:-----:|
+| Block Time | 1 second |
+| Finality | ~100 seconds |
+| TPS (current) | ~1,400 |
+| TPS (with pipeline) | ~3,500-4,500 |
+| Max Batch Size | 500 recipients |
+
+## See Also
+
+- [GHOSTDAG Consensus](/features/tos-hash) - Consensus algorithm
+- [Transaction Fees](/features/transaction-fees) - Fee model
+- [P2P Protocol](/features/p2p-protocol) - Network layer
+- [Energy Model](/features/energy-model) - Resource management

@@ -1,0 +1,395 @@
+---
+title: Agent Accounts
+description: Protocol-level autonomous agent account system for AI and automated transactions
+---
+
+import { Callout } from 'nextra/components'
+
+# Agent Accounts
+
+TOS Network implements a **protocol-level agent account system** that enables AI agents and automated systems to transact autonomously under strict, verifiable constraints. This feature extends the standard account model with policy-based validation and session keys enforced at the consensus level.
+
+<Callout type="info">
+Agent Accounts are designed for the emerging AI economy, allowing autonomous agents to operate with human oversight while maintaining security and accountability.
+</Callout>
+
+## Overview
+
+Agent Accounts provide:
+
+- **Autonomous Operation**: AI agents can transact without human intervention for each transaction
+- **Policy Enforcement**: Strict, verifiable constraints enforced at consensus level
+- **Session Keys**: Scoped, time-limited keys for automated operations
+- **Owner Override**: Human owners maintain ultimate control
+
+### Key Benefits
+
+- **Security**: Policy + session keys + owner override ensure safe autonomous operation
+- **Accountability**: All agent actions are traceable and auditable
+- **Flexibility**: Configurable constraints for different use cases
+- **Compatibility**: Reuses existing EOA transaction semantics and tooling
+
+## Account Model
+
+### Account Type Detection
+
+Account type is derived from storage, not stored as a separate field:
+
+- **Normal Account**: No `AgentAccountMeta` entry exists
+- **Agent Account**: `AgentAccountMeta` entry exists for the account
+
+```rust
+// Account type detection in validation
+if account.has_agent_meta() {
+    // Treat as AccountType::AgentAccount
+    // Enforce agent auth rules
+} else {
+    // Treat as standard account
+    // Use legacy auth rules
+}
+```
+
+### AgentAccountMeta Structure
+
+```rust
+pub struct AgentAccountMeta {
+    pub owner: PublicKey,           // Human owner (override authority)
+    pub controller: PublicKey,      // Agent execution key
+    pub policy_hash: Hash,          // Policy config hash reference
+    pub status: u8,                 // 0=active, 1=frozen
+    pub energy_pool: PublicKey,     // Optional budget/energy payer
+    pub session_key_root: Hash,     // Optional Merkle root for session keys
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `owner` | The human owner with full control and override authority |
+| `controller` | The AI agent's execution key for automated transactions |
+| `policy_hash` | Reference to policy configuration (on-chain or off-chain) |
+| `status` | Account status: 0 = active, 1 = frozen |
+| `energy_pool` | Optional account for fee payment (must be owner or controller) |
+| `session_key_root` | Merkle root for registered session keys |
+
+## Transaction Model
+
+Agent accounts reuse the existing transaction signature field without requiring new auth fields or transaction version changes.
+
+### Authentication Flow
+
+When a transaction is signed by an Agent Account:
+
+1. Verify the signature against `owner`, `controller`, or valid session key
+2. If signature matches `owner`, treat as admin override
+3. If signature matches `controller` or session key, enforce constraints
+
+```
+Transaction Validation Flow:
+                              +
+                              |
+                              v
+                    +-------------------+
+                    | Is AgentAccount?  |
+                    +-------------------+
+                     /               \
+                   No                Yes
+                   /                   \
+                  v                     v
+        +-------------+     +----------------------+
+        | Normal Auth |     | Check Signer Role    |
+        +-------------+     +----------------------+
+                                    |
+                    +---------------+---------------+
+                    |               |               |
+                    v               v               v
+              +----------+   +------------+   +-------------+
+              |  Owner   |   | Controller |   | Session Key |
+              +----------+   +------------+   +-------------+
+                    |               |               |
+                    v               v               v
+              +---------+   +------------+   +-------------+
+              | Admin   |   | Standard   |   | Scoped      |
+              | Access  |   | Limits     |   | Constraints |
+              +---------+   +------------+   +-------------+
+```
+
+### Registering an Agent Account
+
+To upgrade a normal account to an Agent Account:
+
+```rust
+pub struct RegisterAgentAccountPayload {
+    pub controller: PublicKey,
+    pub policy_hash: Hash,
+    pub energy_pool: Option<PublicKey>,
+    pub session_key_root: Option<Hash>,
+}
+```
+
+**Registration Rules**:
+
+- The transaction sender becomes the `owner`
+- Sender must be a normal account (no existing `AgentAccountMeta`)
+- `controller` cannot equal `owner`
+- `policy_hash` must be non-zero
+- `energy_pool` (if set) must exist and be registered
+
+## Session Keys
+
+Session keys provide scoped, time-limited access for automated operations.
+
+### Session Key Structure
+
+```rust
+pub struct SessionKey {
+    pub key_id: u64,                     // Unique identifier
+    pub public_key: PublicKey,           // Session key public key
+    pub expiry_topoheight: u64,          // Expiration height
+    pub max_value_per_window: u64,       // Per-transaction value cap
+    pub allowed_targets: Vec<PublicKey>, // Permitted recipient addresses
+    pub allowed_assets: Vec<Hash>,       // Permitted asset types
+}
+```
+
+### Session Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Time-Limited** | Expires at specified topoheight |
+| **Value-Capped** | Maximum value per transaction |
+| **Target-Restricted** | Only specified recipients allowed |
+| **Asset-Restricted** | Only specified assets can be transferred |
+
+### Example: Compute Provider Session Key
+
+```rust
+// Owner registers a session key for AI compute payments
+SessionKey {
+    key_id: 1,
+    public_key: K_session,
+    expiry_topoheight: 1_000_000,
+    max_value_per_window: 50_000_000, // 50 TOS
+    allowed_targets: vec![ComputeProviderAddr],
+    allowed_assets: vec![TOS_ASSET_HASH],
+}
+```
+
+The agent can use `K_session` to sign payments to the compute provider:
+
+1. Node verifies session key validity
+2. Checks scope limits (target, asset, value)
+3. Verifies policy compliance
+4. Executes if all constraints pass
+
+## Agent Account Operations
+
+### Admin-Only Operations
+
+These operations require the owner's signature:
+
+| Operation | Description |
+|-----------|-------------|
+| `UpdatePolicy` | Change the policy hash reference |
+| `RotateController` | Replace the controller key |
+| `SetStatus` | Freeze or unfreeze the account |
+| `SetEnergyPool` | Change the fee payment source |
+| `SetSessionKeyRoot` | Update session key Merkle root |
+| `AddSessionKey` | Register a new session key |
+| `RevokeSessionKey` | Invalidate a session key |
+
+### Payload Definitions
+
+```rust
+pub enum AgentAccountPayload {
+    Register {
+        controller: PublicKey,
+        policy_hash: Hash,
+        energy_pool: Option<PublicKey>,
+        session_key_root: Option<Hash>,
+    },
+    UpdatePolicy {
+        policy_hash: Hash,
+    },
+    RotateController {
+        new_controller: PublicKey,
+    },
+    SetStatus {
+        status: u8,
+    },
+    SetEnergyPool {
+        energy_pool: Option<PublicKey>,
+    },
+    SetSessionKeyRoot {
+        session_key_root: Option<Hash>,
+    },
+    AddSessionKey {
+        key: SessionKey,
+    },
+    RevokeSessionKey {
+        key_id: u64,
+    },
+}
+```
+
+## Energy and Fees
+
+Agent accounts support flexible fee payment:
+
+1. **Default**: Use `energy_pool` if set and has sufficient balance
+2. **Fallback**: Use agent account balance if energy pool insufficient
+3. **Energy rules**: Standard energy consumption rules apply (transfers consume energy)
+
+<Callout type="warning">
+When using session keys, fees covered by `energy_pool` are excluded from the session key's spend limit calculation.
+</Callout>
+
+## Freeze and Recovery
+
+### Freezing an Account
+
+When `status = frozen`:
+
+- All controller and session key transactions are rejected
+- Only admin payloads with owner signature are accepted
+- Allows owner to maintain control during security incidents
+
+### Recovery Actions
+
+The owner can:
+
+- Rotate the controller key if compromised
+- Revoke all session keys
+- Unfreeze after security review
+- Recover funds via owner-signed transfers
+
+## Policy Validation
+
+The `policy_hash` references policy configuration for off-chain audit and compliance:
+
+- Consensus enforces session-key constraints
+- Additional policy enforcement can be implemented at application layer
+- Policy hash provides audit trail for compliance verification
+
+## RPC Extensions
+
+New RPC methods for Agent Accounts:
+
+| Method | Description |
+|--------|-------------|
+| `get_agent_account` | Get full AgentAccountMeta |
+| `has_agent_account` | Check if account is an agent account |
+| `get_agent_session_key` | Get specific session key by ID |
+| `get_agent_session_keys` | List all session keys for account |
+
+## Error Codes
+
+| Error Code | Description |
+|------------|-------------|
+| `AgentAccountUnauthorized` | Signer lacks required permission |
+| `AgentAccountSessionKeyExpired` | Session key past expiry |
+| `AgentAccountPolicyViolation` | Transaction violates policy constraints |
+| `AgentAccountFrozen` | Account is frozen |
+| `AgentAccountInvalidParameter` | Invalid input parameter |
+| `AgentAccountAlreadyRegistered` | Account already has AgentAccountMeta |
+| `AgentAccountInvalidController` | Invalid controller key |
+| `AgentAccountSessionKeyExists` | Session key ID already registered |
+| `AgentAccountSessionKeyNotFound` | Session key ID not found |
+
+## Implementation Details
+
+### Code Layout
+
+```
+common/
+  src/
+    transaction/
+      payload/
+        agent_account/       # Payload definitions
+      verify/
+        agent_account.rs     # Verification logic
+
+daemon/
+  src/
+    core/
+      state/
+        chain_state/
+          apply.rs           # State application
+      storage/
+        providers/
+          agent_account.rs   # Storage provider
+        rocksdb/
+          types/
+            agent_account.rs # RocksDB types
+          column.rs          # Column definitions
+```
+
+### Storage Columns
+
+- `AccountMeta`: Maps `account_id` to `AgentAccountMeta`
+- `SessionKeys`: Maps `account_id + key_id` to `SessionKey`
+
+## Use Cases
+
+### AI Compute Payments
+
+An AI agent needs to pay for compute resources:
+
+1. Owner creates Agent Account with controller key
+2. Registers session key scoped to compute provider
+3. Agent autonomously pays for inference calls
+4. Session key limits prevent overspending
+
+### Automated Trading
+
+A trading bot needs limited transaction authority:
+
+1. Owner registers Agent Account
+2. Creates session keys for specific DEX contracts
+3. Bot operates within defined constraints
+4. Owner can freeze if behavior anomalous
+
+### Subscription Payments
+
+Recurring payments without manual intervention:
+
+1. Agent Account with session key for service provider
+2. Monthly value cap via `max_value_per_window`
+3. Automatic renewals within constraints
+4. Owner maintains override capability
+
+## ERC-8004 Compatibility
+
+TOS Agent Accounts are designed with awareness of ERC-8004 (Trustless Agents):
+
+| ERC-8004 Concept | TOS Implementation |
+|------------------|-------------------|
+| Identity Registry (ERC-721) | AgentIdentityNFT |
+| 4-part Agent ID | AgentIdCanonical |
+| Reputation 0-100 | Internal bps, API converts to 0-100 |
+| Feedback Authorization | FeedbackAuthorization |
+| Validation Registry | ValidationRegistryTrait |
+
+### TOS Extensions
+
+TOS extends the ERC-8004 model with:
+
+1. **Separation of Concerns**: Account (non-transferable) vs NFT Identity (transferable)
+2. **Deterministic Computation**: Fixed-point (bps) instead of floating-point
+3. **Energy Policy**: AI Agent-specific energy policies
+4. **Circuit Breaker**: Automatic pause on anomalous behavior
+5. **Anomaly Detection**: Behavioral analysis for security
+6. **A2A Task Escrow**: Task-based payment settlement
+
+## Security Considerations
+
+<Callout type="warning">
+**Session Key Security**: Session keys should be treated as sensitive credentials. While scoped, a compromised session key can still transact within its constraints until expiration or revocation.
+</Callout>
+
+### Best Practices
+
+1. **Minimize Scope**: Use the narrowest possible constraints for session keys
+2. **Short Expiry**: Prefer shorter expiration times with key rotation
+3. **Monitor Activity**: Watch for unusual patterns in agent transactions
+4. **Separate Concerns**: Use different session keys for different purposes
+5. **Emergency Freeze**: Be prepared to freeze account if compromise suspected

@@ -1,0 +1,486 @@
+---
+title: DeFi Ecosystem
+description: Complete decentralized finance infrastructure on TOS Network
+---
+
+import { Callout } from 'nextra/components'
+
+# DeFi Ecosystem
+
+TOS Network provides comprehensive infrastructure for building decentralized finance (DeFi) applications. With native asset support, AI-enhanced oracles, and innovative security features, TOS enables safer and more efficient DeFi protocols.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| Native Asset (ERC20 equivalent) | Implemented |
+| Asset Lock Mechanism | Implemented |
+| AI Price Oracle | Planned |
+| DEX Syscalls | Planned |
+| Lending Syscalls | Planned |
+
+## TOS DeFi Innovations
+
+TOS introduces three major innovations for DeFi:
+
+| Innovation | Traditional | TOS | Advantage |
+|------------|-------------|-----|-----------|
+| **Native Asset** | ERC20 contracts | Protocol-level tokens | No contract vulnerabilities |
+| **Asset Lock** | transfer_from | lock_use | Assets stay with user |
+| **AI Oracle** | Chainlink | AI verification + confidence | Manipulation detection |
+
+## Supported DeFi Protocol Types
+
+Based on analysis of top Ethereum DeFi protocols, TOS supports all major DeFi categories:
+
+| Type | Examples | TOS Support |
+|------|----------|:-----------:|
+| DEX (AMM) | Uniswap, Curve, Balancer | 100% |
+| Lending | Aave, Compound | 100% |
+| CDP/Stablecoin | MakerDAO | 100% |
+| Aggregator | 1inch, Yearn | 100% |
+| Perpetuals | GMX, dYdX | 100% |
+| Prediction Market | Polymarket, Augur | 100% |
+
+## Native Asset System
+
+TOS Native Assets provide full ERC20 functionality at the protocol level:
+
+### Supported Operations
+
+| Operation | Usage | Status |
+|-----------|-------|:------:|
+| transfer | 100% of DeFi | Implemented |
+| transferFrom | 100% of DeFi | Implemented |
+| approve | 100% of DeFi | Implemented |
+| allowance | 100% of DeFi | Implemented |
+| balanceOf | 100% of DeFi | Implemented |
+| mint | 80% of DeFi | Implemented |
+| burn | 70% of DeFi | Implemented |
+| permit (EIP-2612) | 60% of DeFi | Implemented |
+| delegate/getVotes | 40% of DeFi | Implemented |
+
+### Native Asset Syscalls
+
+```rust
+// Asset creation
+fn asset_create(...) -> Hash;
+
+// Transfers
+fn transfer(to: Address, asset: Hash, amount: u64) -> Result<(), Error>;
+fn transfer_from(from: Address, to: Address, asset: Hash, amount: u64) -> Result<(), Error>;
+
+// Approvals
+fn approve(spender: Address, asset: Hash, amount: u64) -> Result<(), Error>;
+fn get_allowance(owner: Address, spender: Address, asset: Hash) -> u64;
+
+// Supply management
+fn mint(asset: Hash, to: Address, amount: u64) -> Result<(), Error>;
+fn burn(asset: Hash, amount: u64) -> Result<(), Error>;
+
+// Governance
+fn delegate(asset: Hash, delegatee: Address) -> Result<(), Error>;
+fn get_votes(account: Address, asset: Hash) -> u64;
+fn get_past_votes(account: Address, asset: Hash, block: u64) -> u64;
+```
+
+## Asset Lock Mechanism
+
+The Asset Lock mechanism is a core TOS innovation that keeps assets in user accounts while allowing DeFi protocols to use them.
+
+### Traditional vs TOS Approach
+
+```
+Traditional DeFi:
+User -> approve -> DEX -> transferFrom -> User's tokens in DEX contract
+(Assets leave user's account)
+
+TOS DeFi:
+User -> lock_asset -> DEX -> lock_use -> User's tokens stay locked in user account
+(Assets never leave user's account)
+```
+
+### Asset Lock Syscalls
+
+```rust
+// Lock assets (assets stay in user's account)
+fn lock_asset(
+    asset: Hash,
+    amount: u64,
+    authorized_user: Address,  // Who can use the lock
+    unlock_height: u64         // Auto-unlock block height
+) -> u64;  // Returns lock_id
+
+// Use locked assets (authorized contracts only)
+fn lock_use(
+    owner: Address,
+    asset: Hash,
+    amount: u64,
+    lock_id: u64,
+    contract: Address
+) -> Result<(), Error>;
+
+// Mark lock as collateral (prevents unlock while debt exists)
+fn set_lock_collateral(lock_id: u64, is_collateral: bool) -> Result<(), Error>;
+
+// Get lock information
+fn get_lock(lock_id: u64) -> Option<LockInfo>;
+```
+
+### Benefits
+
+1. **Security**: Assets never enter potentially vulnerable contracts
+2. **Transparency**: Users can always verify their locked balance
+3. **Composability**: Multiple protocols can reference the same lock
+4. **Recovery**: Auto-unlock prevents permanent fund loss
+
+## AI Price Oracle
+
+TOS implements an AI-enhanced price oracle that provides manipulation detection and confidence scores.
+
+### Traditional Oracle Problems
+
+| Solution | Representative | Problem |
+|----------|---------------|---------|
+| Centralized Nodes | Chainlink | Nodes can be bribed/attacked |
+| DEX TWAP | Uniswap | Flash loan manipulation |
+| Multi-source | Band Protocol | Still depends on centralized sources |
+
+### TOS AI Oracle Architecture
+
+```
+Traditional:  Data Source -> Node Aggregation -> On-chain (single point of failure)
+
+TOS:         Multiple Sources -> AI Verification Layer -> Consensus -> On-chain
+                                       |
+                          Anomaly Detection + Manipulation Recognition + Confidence
+```
+
+### AI Oracle Syscalls
+
+```rust
+// Basic price query
+fn get_price(asset: Hash) -> Result<PriceData, OracleError>;
+
+// Safe price with AI analysis
+fn get_price_safe(asset: Hash, max_deviation: u16) -> Result<SafePriceData, OracleError>;
+
+// Time-weighted average price
+fn get_twap(asset: Hash, period: u64) -> Result<u128, OracleError>;
+
+// Collateral valuation
+fn get_collateral_value(assets: &[(Hash, u128)]) -> Result<CollateralValue, OracleError>;
+
+// Mark price for perpetuals
+fn get_mark_price(asset: Hash) -> Result<MarkPrice, OracleError>;
+```
+
+### SafePriceData Structure
+
+```rust
+pub struct SafePriceData {
+    /// Current price
+    price: u128,
+    /// AI safety assessment
+    is_safe: bool,
+    /// Manipulation risk (0-100)
+    manipulation_risk: u8,
+    /// AI recommendation
+    recommendation: PriceAction,
+}
+
+pub enum PriceAction {
+    UsePrice,       // Normal use
+    UseWithCaution, // Increase collateral margin
+    DelayAction,    // Wait for price stability
+    RejectAction,   // High risk - block operation
+}
+```
+
+### AI Oracle Protection Examples
+
+```rust
+// Lending: Check before liquidation
+let safe_price = get_price_safe(collateral_asset, 100)?;
+
+match safe_price.recommendation {
+    PriceAction::UsePrice => allow_liquidation(),
+    PriceAction::UseWithCaution => increase_safety_margin(),
+    PriceAction::DelayAction => wait_for_stability(),
+    PriceAction::RejectAction => block_potential_attack(),
+}
+```
+
+### AI Models
+
+| Model | Function | Protection Scenario |
+|-------|----------|---------------------|
+| **Anomaly Detection** | Historical volatility + Z-score | Price spikes |
+| **Manipulation Detection** | Flash loan/wash trading patterns | Mango/Euler-style attacks |
+| **Cross-source Verification** | Multi-source consistency + outlier removal | Single-source attacks |
+
+## DeFi Protocol Examples
+
+### 1. DEX (Uniswap Style)
+
+```rust
+// Swap using Asset Lock (assets stay with user)
+pub fn swap(
+    token_in: Hash,
+    token_out: Hash,
+    amount_in: u64,
+    lock_id: u64,      // User's locked tokens
+    min_out: u64,
+    recipient: Address,
+) -> Result<u64, Error> {
+    // AI Oracle validates price safety
+    let risk = check_arbitrage_risk(token_in, token_out, rate)?;
+
+    // Use locked tokens (assets don't enter contract)
+    lock_use(caller, token_in, amount_in, lock_id, self_address())?;
+
+    // Transfer output to recipient
+    transfer(recipient, token_out, amount_out)?;
+
+    Ok(amount_out)
+}
+```
+
+**Features:**
+- `create_pool` - Create trading pair
+- `add_liquidity` - Add liquidity, receive LP Token (Native Asset)
+- `remove_liquidity` - Remove liquidity
+- `swap` - AI-protected token swap
+- `swap_with_price_limit` - Swap with price protection
+
+### 2. Lending (Aave Style)
+
+```rust
+// Collateral using Asset Lock (assets stay with user)
+pub fn supply_collateral(
+    asset: Hash,
+    amount: u64,
+    lock_id: u64,
+) -> Result<(), Error> {
+    // Lock assets as collateral
+    set_lock_collateral(lock_id, true)?;
+}
+
+// AI-protected liquidation
+pub fn liquidate(...) -> Result<u64, Error> {
+    let safety = is_liquidation_safe(collateral, debt, ...)?;
+
+    match safety.recommendation {
+        LiquidationAction::Reject => return Err(Error::LiquidationUnsafe),
+        LiquidationAction::Delay => return Err(Error::LiquidationDelayed),
+        _ => proceed_with_liquidation(),
+    }
+}
+```
+
+**Features:**
+- `deposit` - Deposit and receive aToken (Native Asset)
+- `withdraw` - Withdraw funds
+- `supply_collateral` - Provide collateral (Asset Lock)
+- `borrow` - Borrow against collateral (AI Oracle valuation)
+- `repay` - Repay debt (auto-unlock collateral)
+- `liquidate` - AI-protected liquidation
+
+### 3. Perpetual DEX (GMX Style)
+
+```rust
+// Open position with margin lock
+pub fn increase_position(
+    index_token: Hash,
+    collateral_token: Hash,
+    size_delta: u128,
+    is_long: bool,
+    lock_id: u64,      // Locked margin
+) -> Result<Hash, Error> {
+    // AI Oracle mark price
+    let mark_price = get_mark_price(index_token)?;
+
+    // AI validates position safety
+    let safety = is_position_safe(index_token, size_delta, is_long, price)?;
+
+    match safety.recommendation {
+        PositionAction::Reject => return Err(Error::PositionUnsafe),
+        PositionAction::ReduceLeverage => reduce_leverage(),
+        _ => {}
+    }
+
+    // Lock margin
+    lock_use(caller, collateral, amount, lock_id, self_address())?;
+    set_lock_collateral(lock_id, true)?;
+}
+```
+
+**Features:**
+- `add_liquidity` - Add liquidity, receive GLP (Native Asset)
+- `increase_position` - Open/add position (up to 50x)
+- `decrease_position` - Close/reduce position
+- `liquidate_position` - AI-protected liquidation
+- Funding Rate - Long/short balance mechanism
+
+### 4. Prediction Market
+
+```rust
+// Create prediction market
+pub fn create_market(
+    question_hash: Hash,
+    outcomes: Vec<String>,
+    resolution_time: u64,
+    oracle_config: OracleConfig,
+) -> Result<Hash, Error> {
+    // Create outcome tokens (Native Assets)
+    for outcome in &outcomes {
+        let token = asset_create(outcome_name, total_supply)?;
+        outcome_tokens.push(token);
+    }
+}
+
+// Buy outcome tokens
+pub fn buy_outcome(
+    market_id: Hash,
+    outcome_index: u8,
+    amount: u64,
+    lock_id: u64,
+) -> Result<u64, Error> {
+    // Use locked collateral
+    lock_use(caller, collateral, amount, lock_id, self_address())?;
+
+    // Mint outcome tokens
+    let tokens = calculate_outcome_tokens(amount, outcome_index)?;
+    mint(outcome_token, caller, tokens)?;
+}
+```
+
+**TOS Innovations for Prediction Markets:**
+- Outcome tokens as Native Assets (not ERC1155)
+- AI Oracle for result verification + manipulation detection
+- Asset Lock for collateral management
+- Built-in dispute resolution
+
+### 5. Cross-Protocol Composability
+
+TOS DeFi protocols can be composed seamlessly:
+
+```rust
+// Leveraged yield farming: Lending + DEX + Vault
+pub fn open_leveraged_farm(
+    collateral_asset: Hash,
+    collateral_amount: u64,
+    lock_id: u64,
+    borrow_asset: Hash,
+    target_leverage: u16,  // 300 = 3x
+    vault_id: Hash,
+) -> Result<LeveragedPosition, Error> {
+    // AI global risk assessment
+    let global_risk = ai_assess_leverage_strategy(...)?;
+
+    // Step 1: Deposit collateral to Lending
+    lock_use(caller, collateral_asset, collateral_amount, lock_id, LENDING)?;
+    call_contract(LENDING, "supply_collateral", &[...])?;
+
+    // Step 2: Borrow
+    call_contract(LENDING, "borrow", &[...])?;
+
+    // Step 3: Deposit borrowed amount to Vault
+    let borrow_lock = lock_asset(borrow_asset, borrow_amount, VAULT, 1000000)?;
+    call_contract(VAULT, "deposit", &[...])?;
+}
+```
+
+**Composability Advantages:**
+
+| Feature | Traditional DeFi | TOS DeFi |
+|---------|-----------------|----------|
+| Asset Flow | Multiple approve/transfer | Single lock, multiple lock_use |
+| Risk Control | Each protocol independent | AI global monitoring |
+| Execution | Multiple transactions | Atomic execution |
+| Attack Protection | None | AI malicious arbitrage detection |
+| Liquidation | Independent | AI cascade prevention |
+
+## Required Syscalls
+
+### P0: Core (Required)
+
+```rust
+// Block information
+fn get_block_timestamp() -> u64;
+fn get_block_number() -> u64;
+
+// Contract calls
+fn call_contract(contract: Hash, method: &str, params: &[Value]) -> Result<Value, Error>;
+
+// Events
+fn emit_event(name: &str, data: &[u8]) -> Result<(), Error>;
+
+// Storage
+fn storage_get(key: &[u8]) -> Option<Vec<u8>>;
+fn storage_set(key: &[u8], value: &[u8]) -> Result<(), Error>;
+```
+
+### P1: Advanced (Recommended)
+
+```rust
+// Signature verification
+fn verify_signature(pubkey: &[u8], message: &[u8], signature: &[u8]) -> bool;
+
+// AI Price Oracle
+fn get_price(asset: Hash) -> Result<PriceData, OracleError>;
+fn get_price_safe(asset: Hash, max_deviation: u16) -> Result<SafePriceData, OracleError>;
+fn get_twap(asset: Hash, period: u64) -> Result<u128, OracleError>;
+```
+
+### P2: Extended (Optional)
+
+```rust
+// Pause/unpause
+fn pause(asset: Hash) -> Result<(), Error>;
+fn unpause(asset: Hash) -> Result<(), Error>;
+
+// Blacklist
+fn blacklist(asset: Hash, account: Address) -> Result<(), Error>;
+fn unblacklist(asset: Hash, account: Address) -> Result<(), Error>;
+```
+
+## DeFi Coverage Summary
+
+| DeFi Type | Protocol | TOS Support | Notes |
+|-----------|----------|:-----------:|-------|
+| DEX | Uniswap, Curve, Balancer | 100% | Native Asset + Lock |
+| Lending | Aave, Compound | 100% | + AI Oracle liquidation protection |
+| CDP | MakerDAO | 100% | + AI Oracle collateral valuation |
+| Aggregator | 1inch, Yearn | 100% | Native Asset Permit |
+| Perpetual | GMX, dYdX | 100% | + AI Oracle mark price |
+| Prediction | Polymarket, Augur | 100% | + AI Oracle result verification |
+
+<Callout type="info">
+All mathematical calculations (fixed-point arithmetic, square roots, exponentials, Newton-Raphson) can be implemented in contracts without special syscalls.
+</Callout>
+
+## Security Considerations
+
+### AI Oracle Attack Prevention
+
+| Attack Type | Chainlink | TOS AI Oracle |
+|-------------|-----------|---------------|
+| Flash Loan Attack | Vulnerable | AI pattern recognition |
+| Slow Manipulation | Hard to detect | Historical analysis |
+| Coordinated Attack | Hard to prevent | Cross-source anomaly detection |
+| Novel Attacks | Cannot adapt | AI adaptive learning |
+
+### Asset Lock Security
+
+- Assets never enter potentially vulnerable contracts
+- Auto-unlock prevents permanent fund lock
+- Collateral flags prevent premature withdrawal
+- Multi-protocol composability without trust
+
+## See Also
+
+- [Native NFT](/native-features/native-nft) - Protocol-level NFT support
+- [VRF Randomness](/native-features/vrf-random) - Fair random numbers for DeFi
+- [Privacy Transfer](/native-features/privacy-transfer) - Private DeFi transactions
+- [Smart Contracts](/smart-contracts) - TAKO runtime for DeFi development

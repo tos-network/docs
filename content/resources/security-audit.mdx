@@ -1,0 +1,345 @@
+---
+title: Security Audit
+description: Comprehensive security audit reports and vulnerability assessments for TOS Network
+---
+
+import { Callout } from 'nextra/components'
+
+# Security Audit
+
+TOS Network undergoes rigorous security auditing to ensure the integrity and safety of the blockchain infrastructure. This page documents our security audit findings, remediation efforts, and ongoing security practices.
+
+<Callout type="info">
+All critical and high-severity vulnerabilities identified in security audits have been fixed. The network maintains a continuous security improvement process.
+</Callout>
+
+## Audit Summary
+
+| Category | Original Issues | Fixed | Status |
+|----------|----------------|-------|--------|
+| **Critical** | 12 | 12 | Fully Resolved |
+| **High** | 3 | 3 | Fully Resolved |
+| **Medium** | 6 | 6 | Fully Resolved |
+| **Low** | 46 | 28 | Acceptable (remaining 18 are acceptable patterns) |
+
+**Overall Status**: Security hardening complete
+
+## Audit Scope
+
+The security audit covers the following areas:
+
+- **Integer Overflow Protection** - All arithmetic operations in financial calculations
+- **Signature Replay Prevention** - Cross-chain and cross-transaction replay attacks
+- **Access Control** - Permission validation and authorization checks
+- **DoS Attack Vectors** - Resource exhaustion and unbounded operations
+- **Code Quality** - Error handling and defensive programming practices
+
+## Critical Vulnerabilities (Fixed)
+
+### 1. Balance Addition Overflow
+
+**Location**: `common/src/account/balance.rs`
+
+**Issue**: Balance addition could overflow when approaching u64::MAX limits.
+
+**Resolution**: Implemented `checked_add` operations with proper error handling:
+
+```rust
+pub fn add_to_balance(&mut self, value: u64) -> Result<(), BalanceError> {
+    self.final_balance = self.final_balance
+        .checked_add(value)
+        .ok_or(BalanceError::Overflow)?;
+    Ok(())
+}
+```
+
+### 2. Energy Calculation Division by Zero
+
+**Location**: `common/src/account/energy.rs`
+
+**Issue**: Energy calculations could trigger division by zero when freeze record amount is zero.
+
+**Resolution**: Added explicit zero-check and safe arithmetic:
+
+```rust
+fn calculate_energy_for_unfreeze(
+    record: &FreezeRecord,
+    unfreeze_amount: u64,
+) -> Result<u64, EnergyError> {
+    if record.amount == 0 {
+        return Err(EnergyError::InvalidRecordAmount);
+    }
+
+    let numerator = (record.energy_gained as u128)
+        .checked_mul(unfreeze_amount as u128)
+        .ok_or(EnergyError::Overflow)?;
+
+    let result = numerator
+        .checked_div(record.amount as u128)
+        .ok_or(EnergyError::DivisionByZero)?;
+
+    u64::try_from(result).map_err(|_| EnergyError::Overflow)
+}
+```
+
+### 3. EventRefs Unbounded Deserialization
+
+**Location**: `daemon/src/core/storage/rocksdb/providers/contract/event.rs`
+
+**Issue**: Event deserialization had no upper limit, potentially causing memory exhaustion.
+
+**Resolution**: Added `MAX_EVENTS_PER_TX` limit with early termination:
+
+```rust
+const MAX_EVENTS_PER_TX: usize = 1000;
+
+fn read(reader: &mut Reader) -> Result<Self, ReaderError> {
+    let mut refs = Vec::with_capacity(
+        ((reader.total_size() - reader.total_read()) / 44).min(MAX_EVENTS_PER_TX)
+    );
+
+    while reader.total_size() - reader.total_read() >= 44 {
+        if refs.len() >= MAX_EVENTS_PER_TX {
+            return Err(ReaderError::TooManyEvents(refs.len()));
+        }
+        // ... read event data
+    }
+    Ok(EventRefs(refs))
+}
+```
+
+### 4. Direct Referrals Infinite Pagination
+
+**Location**: `daemon/src/core/storage/rocksdb/providers/referral.rs`
+
+**Issue**: Referral page iteration had no upper bound, allowing DoS via infinite loops.
+
+**Resolution**: Added `MAX_REFERRAL_PAGES` limit and page counter.
+
+## High-Severity Vulnerabilities (Fixed)
+
+### 1. T0 Transaction Chain ID Protection
+
+**Issue**: T0 version transactions did not include chain_id in signature, enabling cross-chain replay.
+
+**Resolution**: Completely removed T0 support. Only T1 transactions (with chain_id) are accepted:
+
+```rust
+pub enum TxVersion {
+    #[default]
+    T1 = 1,
+}
+
+impl TxVersion {
+    pub fn from_u8(v: u8) -> Result<Self, VersionError> {
+        match v {
+            1 => Ok(TxVersion::T1),
+            0 => Err(VersionError::DeprecatedVersion),
+            _ => Err(VersionError::Unknown(v)),
+        }
+    }
+}
+```
+
+### 2. Team Size Calculation Unbounded
+
+**Issue**: Team size calculation inner loop had no bounds, allowing resource exhaustion.
+
+**Resolution**: Added `MAX_PAGES_PER_MEMBER` limit for inner loop iteration.
+
+## DoS Attack Mitigations
+
+### RPC Endpoint Protection
+
+The `get_blocks_at_height` RPC endpoint now enforces limits:
+
+```rust
+const MAX_BLOCKS_AT_HEIGHT: usize = 256;
+
+let max = params.max.unwrap_or(MAX_BLOCKS_AT_HEIGHT);
+if max > MAX_BLOCKS_AT_HEIGHT {
+    return Err(InternalRpcError::InvalidParams("max too large"));
+}
+```
+
+### Message Cleanup Bounds
+
+Expired message cleanup operations are bounded:
+
+```rust
+const MAX_CLEANUP_CYCLES: usize = 100;
+const MAX_CLEANUP_PER_CYCLE: usize = 1000;
+```
+
+### Contract Event Scanning
+
+Event scanning operations include iteration limits:
+
+```rust
+const MAX_SCAN_ITERATIONS: usize = 100_000;
+```
+
+## A2A Security (Supplementary Audit)
+
+### Nonce Replay Protection
+
+**Issue**: A2A HTTP signature nonce was only stored in memory, allowing cross-node replay in load-balanced deployments.
+
+**Resolution**:
+- Nonce storage upgraded to persistent storage with `pubkey + nonce` key
+- Memory cache retained as acceleration layer
+- TTL-based cleanup implemented
+
+### Payment ID Generation
+
+**Issue**: Payment IDs used `rand::random()` instead of cryptographically secure random.
+
+**Resolution**: Changed to CSPRNG generation using `OsRng`:
+
+```rust
+let mut bytes = [0u8; 16];
+OsRng.fill_bytes(&mut bytes);
+let random = hex::encode(bytes);
+format!("pr_{:x}_{}", timestamp, random)
+```
+
+### P2P Encryption Key Generation
+
+**Issue**: P2P encryption keys used `thread_rng` instead of `OsRng`.
+
+**Resolution**: Changed to `OsRng` for consistent security policy across the codebase.
+
+## Code Quality Standards
+
+### Prohibited Patterns
+
+The following patterns are prohibited in production code:
+
+- `.unwrap()` - Must use proper error handling
+- `.expect()` - Must use proper error handling
+- Raw arithmetic (`+`, `-`, `*`, `/`) for financial calculations - Must use `checked_*` or `saturating_*`
+- Floating-point in consensus calculations - Must use fixed-point with scale factors
+
+### Acceptable Exceptions
+
+The following uses of `.unwrap()` or `.expect()` are acceptable:
+
+| Pattern | Count | Reason |
+|---------|-------|--------|
+| Lock guards | 15 | Lock poisoning is unrecoverable |
+| Startup initialization | 3 | Startup failures should crash with clear error |
+
+## Verification Commands
+
+Run these commands to verify security compliance:
+
+```bash
+# 1. Compile check
+cargo build --release 2>&1 | grep -i warning
+
+# 2. Clippy security check
+cargo clippy --lib -- \
+    -D clippy::unwrap_used \
+    -D clippy::expect_used \
+    -D clippy::panic \
+    -D warnings
+
+# 3. Run all tests
+cargo test --all
+
+# 4. Check arithmetic overflow (debug mode)
+RUSTFLAGS="-C overflow-checks=on" cargo test --all
+
+# 5. Format check
+cargo fmt --all -- --check
+```
+
+## Consensus Security
+
+### GHOSTDAG Protocol
+
+The GHOSTDAG implementation includes:
+
+- **K-cluster validation** for parallel block ordering
+- **Blue score and blue work** for main chain selection
+- **Timestamp manipulation defense** via median time checks
+
+### Deterministic Calculations
+
+<Callout type="warning">
+Floating-point operations (`f32`/`f64`) are strictly prohibited in consensus layer code. All calculations use `u128` scaled integers with `SCALE=10000` to ensure deterministic results across different hardware platforms.
+</Callout>
+
+## Security Testing Framework
+
+TOS uses a comprehensive V3 testing framework with:
+
+- **Tier 0**: Unit tests
+- **Tier 1**: Component tests (`TestBlockchain`)
+- **Tier 2**: Integration tests (`TestDaemon`)
+- **Tier 3**: End-to-end tests (`LocalTosNetwork`)
+- **Tier 4**: Chaos tests
+
+### Key Security Tests
+
+| Test Category | Coverage | Status |
+|---------------|----------|--------|
+| K-Cluster Validation | GHOSTDAG security | Active |
+| Timestamp Ordering | DAA manipulation | Active |
+| State Rollback | Transaction atomicity | Active |
+| Nonce Handling | Replay prevention | Active |
+| Concurrent Access | Balance race conditions | Active |
+| Network Partition | Double-spend prevention | Active |
+
+## Industry Attack Analysis
+
+TOS security practices are informed by analysis of major blockchain security incidents:
+
+### Attack Categories Studied
+
+1. **Private Key Compromise** (51.96% of 2024 losses)
+2. **Flash Loan Attacks** - Price manipulation via uncollateralized loans
+3. **Bridge Exploits** - Cross-chain validation vulnerabilities
+4. **Reentrancy Attacks** - State manipulation during callbacks
+5. **Oracle Manipulation** - Price feed exploitation
+6. **Governance Attacks** - Voting mechanism abuse
+
+### Defensive Measures
+
+Based on industry analysis, TOS implements:
+
+- **SafeMath equivalent** - All arithmetic uses checked operations
+- **Checks-Effects-Interactions pattern** - State changes before external calls
+- **Multi-signature requirements** - Critical operations require multiple approvals
+- **Rate limiting** - RPC and API call restrictions
+- **Circuit breakers** - Automatic pause on anomalous activity
+
+## Ongoing Security
+
+### Bug Bounty Program
+
+TOS maintains an active bug bounty program for responsible disclosure of security vulnerabilities.
+
+### Continuous Auditing
+
+- Regular code reviews with security focus
+- Automated security scanning in CI/CD pipeline
+- Periodic third-party security assessments
+
+### Security Updates
+
+Security patches are prioritized based on severity:
+
+| Priority | Timeline | Description |
+|----------|----------|-------------|
+| P0 (Critical) | Immediate | Before next release |
+| P1 (High) | 1 week | Current sprint |
+| P2 (Medium) | 1 month | Next iteration |
+| P3 (Low) | Planned | Future roadmap |
+
+## References
+
+- [OWASP Smart Contract Top 10](https://owasp.org/www-project-smart-contract-top-10/)
+- [SlowMist Hacked Database](https://hacked.slowmist.io/)
+- [DeFi Llama Hacks Tracker](https://defillama.com/hacks)
+- [Chainalysis Security Reports](https://www.chainalysis.com/blog/)
