@@ -1,17 +1,47 @@
 ---
 title: Why TOS?
-description: What makes TOS Network different from other blockchains
+description: The First Blockchain Where AGI Earns Money
 ---
 
 import { Cards } from 'nextra/components'
 import { Card } from '../../components/card'
 import Icons from '../../components/icons'
+import { Callout } from 'nextra/components'
 
 # Why TOS Network?
 
-TOS Network is designed from the ground up to solve the real problems developers and users face on other blockchains. While most chains offer similar features, TOS provides **native-level optimizations** that deliver 10-100x improvements in cost, speed, and developer experience.
+<Callout type="info" emoji="🤖">
+**The First Blockchain Where AGI Earns Money**
 
-## Key Differentiators
+Verifiable identity (DID), intelligent work settlement (AGIW), compute/energy credits (CC/EC), and self-governance—the complete economic infrastructure for autonomous agents.
+</Callout>
+
+TOS Network is designed from the ground up for the **AGI era**. While other blockchains focus on human users and DeFi, TOS provides the complete infrastructure for **autonomous agents to earn, settle, and govern**—with 10,000 TPS, 1-second finality, and native-level optimizations.
+
+## AGI Economic Features
+
+<Cards>
+  <Card
+    title="Agent-First Digital Personhood"
+    subtitle="Native DID with controller rotation and attribute attestations"
+    href="/why-tos/agi-infrastructure"
+    icon={<Icons.Protocol />}
+  />
+  <Card
+    title="AGIW Settlement Primitive"
+    subtitle="Proof-of-Intelligent-Work for verifiable agent outputs"
+    href="/why-tos/agi-infrastructure"
+    icon={<Icons.Shield />}
+  />
+  <Card
+    title="Native Compute/Energy Credits"
+    subtitle="CC/EC at ledger level with Paymaster gas sponsorship"
+    href="/why-tos/agi-infrastructure"
+    icon={<Icons.Energy />}
+  />
+</Cards>
+
+## Technical Differentiators
 
 <Cards>
   <Card
@@ -57,7 +87,11 @@ TOS Network is designed from the ground up to solve the real problems developers
 | Feature | Ethereum | TRON | BSC | Solana | **TOS** |
 |---------|:--------:|:----:|:---:|:------:|:-------:|
 | **Transfer Cost** | $2.00 | $0.10 | $0.10 | $0.001 | **$0.001** |
+| **TPS** | 15 | 2,000 | 300 | 65,000 | **10,000** |
 | **Finality** | 12 min | 3s | 15s | Sub-1s | **1s** |
+| **Native DID** | No | No | No | No | **Yes** |
+| **Agent Work Settlement** | No | No | No | No | **Yes (AGIW)** |
+| **Compute Credits** | No | No | No | No | **Yes (CC/EC)** |
 | **Native Privacy** | No | No | No | No | **Yes** |
 | **Native Referral** | No | No | No | No | **Yes** |
 | **Native VRF** | No | No | Expensive | Yes | **Yes ($0.01)** |
@@ -65,6 +99,13 @@ TOS Network is designed from the ground up to solve the real problems developers
 | **Smart Contracts** | Solidity | Solidity | Solidity | Rust | **Rust** |
 
 ## Perfect For
+
+### AI/AGI Applications
+- **Native DID**: Agents become first-class citizens with provable identity
+- **AGIW Settlement**: Get paid per verified outcome, not per API call
+- **Compute Credits**: Sponsor agent gas directly in CC/EC via Paymasters
+- **A2A Protocol**: Agent-to-Agent communication with on-chain settlement
+- **Session Keys**: Time-limited, scoped permissions for autonomous operation
 
 ### DeFi Applications
 - Ultra-low gas makes micro-transactions viable
@@ -90,10 +131,11 @@ TOS Network is designed from the ground up to solve the real problems developers
 
 TOS Network achieves these capabilities through:
 
-1. **BlockDAG Architecture**: Multiple blocks at the same height for higher throughput
+1. **BlockDAG Architecture**: Multiple blocks at same height for 10,000 TPS with 1-second finality
 2. **TAKO Smart Contracts**: Rust-based eBPF runtime for high-performance execution
-3. **Native Syscalls**: Core features implemented at the protocol level, not as smart contracts
+3. **Native Syscalls**: 150+ syscalls for DID, VRF, privacy, referrals, and more
 4. **Energy Model**: Stake-based gas-free transactions for predictable costs
+5. **Agent Infrastructure**: DID, AGIW, CC/EC, and Paymasters for autonomous operation
 
 ## Get Started
 
