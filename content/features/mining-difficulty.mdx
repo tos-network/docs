@@ -14,7 +14,7 @@ The TOS Network difficulty adjustment algorithm is designed around the core prin
 ### Key Features
 
 - **Dynamic Adjustment**: Real-time difficulty adaptation based on network conditions
-- **AI-Mining Optimization**: Special considerations for AI-powered mining algorithms
+- **Mining Optimization**: Special considerations for GPU mining algorithms
 - **Predictable Block Times**: Target block time of 15 seconds with minimal variance
 - **Hash Rate Stability**: Smooth difficulty transitions prevent mining pool disruption
 - **Energy Efficiency**: Optimized for the TOS Energy Model integration
@@ -23,7 +23,7 @@ The TOS Network difficulty adjustment algorithm is designed around the core prin
 
 ### Basic Formula
 
-TOS Network uses a modified version of the Kimoto Gravity Well algorithm with AI-mining enhancements:
+TOS Network uses a modified version of the Kimoto Gravity Well algorithm with mining optimizations:
 
 ```
 new_difficulty = old_difficulty * (target_time / actual_time) * adjustment_factor
@@ -34,14 +34,6 @@ Where:
 - `actual_time` = Average time of last N blocks
 - `adjustment_factor` = Smoothing factor to prevent extreme adjustments
 
-### Enhanced AI-Mining Formula
-
-For AI-mining enabled blocks, the difficulty calculation includes additional parameters:
-
-```
-ai_difficulty = base_difficulty * ai_complexity_factor * energy_efficiency_ratio
-```
-
 ### Implementation Details
 
 ```rust
@@ -49,8 +41,6 @@ ai_difficulty = base_difficulty * ai_complexity_factor * energy_efficiency_ratio
 pub fn calculate_next_difficulty(
     current_difficulty: u64,
     block_times: &[u64],
-    ai_mining_blocks: u32,
-    total_blocks: u32,
 ) -> u64 {
     const TARGET_BLOCK_TIME: u64 = 15; // seconds
     const ADJUSTMENT_WINDOW: usize = 144; // ~36 minutes
@@ -63,12 +53,8 @@ pub fn calculate_next_difficulty(
     // Base adjustment ratio
     let time_ratio = TARGET_BLOCK_TIME as f64 / average_time;
 
-    // AI-mining adjustment factor
-    let ai_ratio = ai_mining_blocks as f64 / total_blocks as f64;
-    let ai_adjustment = 1.0 + (ai_ratio * 0.1); // 10% bonus for AI mining
-
     // Apply smoothing and limits
-    let adjustment = (time_ratio * ai_adjustment).clamp(MIN_ADJUSTMENT, MAX_ADJUSTMENT);
+    let adjustment = time_ratio.clamp(MIN_ADJUSTMENT, MAX_ADJUSTMENT);
 
     (current_difficulty as f64 * adjustment) as u64
 }
@@ -84,15 +70,6 @@ pub fn calculate_next_difficulty(
 | Minimum Adjustment | 0.25x | Prevents difficulty collapse |
 | Smoothing Factor | 0.1 | Reduces adjustment volatility |
 
-## AI-Mining Parameters
-
-| Parameter | Value | Description |
-|-----------|--------|-------------|
-| AI Complexity Bonus | +10% | Additional difficulty for AI-mined blocks |
-| Energy Efficiency Factor | 0.8-1.2x | Based on energy consumption |
-| Hash Rate Threshold | 1000 GH/s | Minimum for AI-mining activation |
-| GPU Acceleration Factor | 1.5x | Bonus for GPU-assisted AI mining |
-
 ## Best Practices
 
 ### For Miners
@@ -100,7 +77,7 @@ pub fn calculate_next_difficulty(
 - **Monitor Difficulty Trends**
   - Track difficulty adjustments
   - Plan mining operations around changes
-  - Optimize for AI-mining when profitable
+  - Optimize for efficiency
 
 - **Energy Efficiency**
   - Utilize TOS Energy Model

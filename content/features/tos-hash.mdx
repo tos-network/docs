@@ -1,20 +1,20 @@
 ---
 title: "TOS Hash Algorithm"
-description: "Comprehensive technical guide to the TOS Hash algorithm - a quantum-resistant, AI-mining optimized cryptographic hash function designed for maximum security and efficiency."
+description: "Comprehensive technical guide to the TOS Hash algorithm - a quantum-resistant, GPU-optimized cryptographic hash function designed for maximum security and efficiency."
 ---
 
 # TOS Hash Algorithm
 
-TOS Hash is a cutting-edge cryptographic hash function specifically designed for the TOS Network blockchain. Built on the principle of **"Don't Trust, Verify it"**, TOS Hash provides quantum resistance, AI-mining optimization, and exceptional security properties.
+TOS Hash is a cutting-edge cryptographic hash function specifically designed for the TOS Network blockchain. Built on the principle of **"Don't Trust, Verify it"**, TOS Hash provides quantum resistance, GPU optimization, and exceptional security properties.
 
 ## Overview
 
-TOS Hash combines multiple cryptographic techniques to create a robust, future-proof hashing algorithm that supports both traditional mining and AI-enhanced mining operations.
+TOS Hash combines multiple cryptographic techniques to create a robust, future-proof hashing algorithm that supports both traditional CPU mining and GPU-accelerated mining operations.
 
 ### Key Features
 
 - **Quantum Resistant**: Built to withstand quantum computer attacks
-- **AI-Mining Optimized**: Designed for efficient AI-assisted mining
+- **GPU Optimized**: Designed for efficient GPU mining
 - **Memory-Hard**: Requires significant memory to prevent ASIC dominance
 - **GPU-Friendly**: Optimized for modern GPU architectures
 - **Progressive Difficulty**: Adaptive complexity based on network conditions
@@ -30,11 +30,11 @@ TOS Hash combines multiple cryptographic techniques to create a robust, future-p
 | Memory Requirement | 2-8 GB | Dynamic based on difficulty |
 | Iterations | 1,024-16,384 | Variable based on network state |
 | Salt Size | 64 bytes | Random salt for each hash |
-| AI Factor | 1.0-2.5x | AI-mining complexity multiplier |
+| Complexity Factor | 1.0-2.5x | Mining complexity multiplier |
 
 ### Mathematical Foundation
 
-TOS Hash is based on a modified Argon2 construction with additional AI-mining enhancements:
+TOS Hash is based on a modified Argon2 construction with additional mining optimizations:
 
 ```
 TOS-Hash(input, salt, difficulty, ai_factor) =
@@ -113,7 +113,7 @@ impl TOSHasher {
         let ai_iterations = (self.ai_factor * 1000.0) as usize;
 
         for i in 0..ai_iterations {
-            // Simulate AI-mining complexity
+            // Simulate GPU-mining complexity
             enhanced = self.neural_transform(&enhanced, i);
         }
 
@@ -153,9 +153,9 @@ from typing import Tuple, List
 import time
 
 class TOSMiner:
-    def __init__(self, difficulty: int, ai_mining: bool = False):
+    def __init__(self, difficulty: int, gpu_mining: bool = False):
         self.difficulty = difficulty
-        self.ai_mining = ai_mining
+        self.gpu_mining = gpu_mining
         self.target = (2 ** 256) // difficulty
 
     def mine_block(self, block_data: bytes, max_nonce: int = 2**32) -> Tuple[int, bytes]:
@@ -167,8 +167,8 @@ class TOSMiner:
             salt = self._generate_salt(nonce)
 
             # Calculate TOS Hash
-            if self.ai_mining:
-                hash_result = self._tos_hash_ai(mining_input, salt)
+            if self.gpu_mining:
+                hash_result = self._tos_hash_gpu(mining_input, salt)
             else:
                 hash_result = self._tos_hash_standard(mining_input, salt)
 
@@ -207,7 +207,7 @@ class TOSMiner:
         # Final processing
         hasher = hashlib.sha3_256()
         hasher.update(enhanced_hash)
-        hasher.update(b'AI-MINING')
+        hasher.update(b'GPU-MINING')
 
         return hasher.digest()
 
@@ -290,31 +290,30 @@ class TOSMiner:
         return salt_hasher.digest()[:64]  # 64-byte salt
 ```
 
-## AI-Mining Enhancements
+## GPU Mining Optimizations
 
-### Neural Network Integration
+### Parallel Processing
 
-TOS Hash incorporates machine learning algorithms for enhanced mining:
+TOS Hash incorporates parallel processing for enhanced GPU mining:
 
 ```javascript
-class TOSAIMiner {
-  constructor(modelPath, difficulty) {
-    this.model = new TensorFlowModel(modelPath);
+class TOSGPUMiner {
+  constructor(difficulty) {
     this.difficulty = difficulty;
-    this.aiComplexity = this.calculateAIComplexity(difficulty);
+    this.complexity = this.calculateComplexity(difficulty);
   }
 
-  async mineWithAI(blockData, maxIterations = 1000000) {
+  async mineWithGPU(blockData, maxIterations = 1000000) {
     const startTime = Date.now();
 
     for (let nonce = 0; nonce < maxIterations; nonce++) {
-      // Prepare input for AI processing
-      const input = this.prepareAIInput(blockData, nonce);
+      // Prepare input for GPU processing
+      const input = this.prepareInput(blockData, nonce);
 
-      // Run through AI model
-      const aiOutput = await this.model.predict(input);
+      // Run through GPU processing
+      const output = await this.processOnGPU(input);
 
-      // Enhance with AI predictions
+      // Validate output
       const enhancedHash = this.enhanceWithAI(input, aiOutput);
 
       // Check if result meets difficulty
@@ -332,7 +331,7 @@ class TOSAIMiner {
       }
     }
 
-    throw new Error('AI mining failed to find solution');
+    throw new Error('GPU mining failed to find solution');
   }
 
   prepareAIInput(blockData, nonce) {
@@ -692,7 +691,7 @@ def test_avalanche_effect(samples=1000):
         "description": "Request mining work from pool",
         "parameters": {
           "worker_id": "string",
-          "ai_mining_capable": "boolean",
+          "gpu_capable": "boolean",
           "gpu_count": "integer"
         },
         "returns": {
@@ -749,9 +748,9 @@ type Worker struct {
 }
 
 type WorkRequest struct {
-    WorkerID       string `json:"worker_id"`
-    AIMiningCapable bool   `json:"ai_mining_capable"`
-    GPUCount       int    `json:"gpu_count"`
+    WorkerID    string `json:"worker_id"`
+    GPUCapable  bool   `json:"gpu_capable"`
+    GPUCount    int    `json:"gpu_count"`
 }
 
 type WorkResponse struct {
@@ -770,16 +769,16 @@ func (pool *TOSMiningPool) GetWork(w http.ResponseWriter, r *http.Request) {
     if worker == nil {
         worker = &Worker{
             ID:        req.WorkerID,
-            AICapable: req.AIMiningCapable,
+            GPUCapable: req.GPUCapable,
         }
         pool.workers[req.WorkerID] = worker
     }
     worker.LastActivity = time.Now()
 
-    // Calculate AI factor based on worker capabilities
-    aiFactor := 1.0
-    if req.AIMiningCapable && pool.aiEnabled {
-        aiFactor = 1.0 + float64(req.GPUCount)*0.1
+    // Calculate GPU factor based on worker capabilities
+    gpuFactor := 1.0
+    if req.GPUCapable && pool.gpuEnabled {
+        gpuFactor = 1.0 + float64(req.GPUCount)*0.1
     }
 
     // Calculate target from difficulty
@@ -1087,4 +1086,4 @@ impl Block {
 }
 ```
 
-TOS Hash represents a significant advancement in blockchain hashing algorithms, combining quantum resistance, AI-mining optimization, and robust security properties. By adhering to the "Don't Trust, Verify it" principle, every aspect of the algorithm is transparent and verifiable by network participants.
+TOS Hash represents a significant advancement in blockchain hashing algorithms, combining quantum resistance, GPU optimization, and robust security properties. By adhering to the "Don't Trust, Verify it" principle, every aspect of the algorithm is transparent and verifiable by network participants.

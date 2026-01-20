@@ -7,222 +7,186 @@ description: Comprehensive guides for integrating with TOS Network ecosystem par
 
 Connect your project with the growing TOS Network ecosystem through our comprehensive integration guides and partner APIs.
 
-## 🌐 Integration Categories
-
-### 💱 **Exchange Integrations**
-Connect with major cryptocurrency exchanges
-- [**Binance Integration**](/ecosystem/exchanges#binance) - Spot and futures trading
-- [**Coinbase Integration**](/ecosystem/exchanges#coinbase) - Retail and institutional
-- [**KuCoin Integration**](/ecosystem/exchanges#kucoin) - Advanced trading features
-- [**Gate.io Integration**](/ecosystem/exchanges#gateio) - Global market access
-- [**DEX Aggregators**](/ecosystem/exchanges#dex-aggregators) - Multi-DEX routing
-
-### 👛 **Wallet Integrations**
-Support popular crypto wallets
-- [**MetaMask Integration**](/ecosystem/wallets#metamask) - Browser extension support
-- [**WalletConnect Integration**](/ecosystem/wallets#walletconnect) - Mobile wallet protocol
-- [**Trust Wallet Integration**](/ecosystem/wallets#trust-wallet) - Mobile-first wallet
-- [**Ledger Integration**](/ecosystem/wallets#ledger) - Hardware wallet support
-- [**Custom Wallet SDK**](/ecosystem/wallets#custom-sdk) - Build your own wallet
-
-### 🌉 **Cross-Chain Bridges**
-Multi-chain connectivity solutions
-- [**Ethereum Bridge**](/ecosystem/bridges#ethereum) - ETH ↔ TOS transfers
-- [**BSC Bridge**](/ecosystem/bridges#bsc) - Binance Smart Chain integration
-- [**Polygon Bridge**](/ecosystem/bridges#polygon) - Layer 2 scaling
-- [**Avalanche Bridge**](/ecosystem/bridges#avalanche) - High-speed transfers
-- [**Custom Bridge SDK**](/ecosystem/bridges#sdk) - Build custom bridges
-
-### 🏦 **DeFi Protocol Integrations**
-Decentralized finance ecosystem
-- [**TOSSwap Integration**](/ecosystem/defi-protocols#tosswap) - Native DEX
-- [**Uniswap V3 Integration**](/ecosystem/defi-protocols#uniswap) - Automated market making
-- [**Aave Integration**](/ecosystem/defi-protocols#aave) - Lending and borrowing
-- [**Compound Integration**](/ecosystem/defi-protocols#compound) - Interest rate protocols
-- [**1inch Integration**](/ecosystem/defi-protocols#1inch) - DEX aggregation
-
-### 🏢 **Enterprise Solutions**
-Business and institutional integrations
-- [**Custody Solutions**](/ecosystem/enterprise#custody) - Institutional-grade security
-- [**Payment Processors**](/ecosystem/enterprise#payments) - Merchant integration
-- [**Banking APIs**](/ecosystem/enterprise#banking) - Traditional finance bridge
-- [**Compliance Tools**](/ecosystem/enterprise#compliance) - Regulatory compliance
-- [**White-label Solutions**](/ecosystem/enterprise#white-label) - Custom branding
-
-### 📱 **Mobile SDK Integration**
-Mobile application development
-- [**iOS SDK**](/ecosystem/mobile-sdks#ios) - Native iOS integration
-- [**Android SDK**](/ecosystem/mobile-sdks#android) - Native Android integration
-- [**React Native SDK**](/ecosystem/mobile-sdks#react-native) - Cross-platform solution
-- [**Flutter SDK**](/ecosystem/mobile-sdks#flutter) - Google's UI toolkit
-- [**Unity SDK**](/ecosystem/mobile-sdks#unity) - Game development
-
-### 🔗 **API Partner Integration**
-Third-party service providers
-- [**Price Data Providers**](/ecosystem/api-partners#price-data) - Real-time pricing
-- [**Analytics Platforms**](/ecosystem/api-partners#analytics) - Blockchain analytics
-- [**Node Providers**](/ecosystem/api-partners#nodes) - Infrastructure services
-- [**Oracle Networks**](/ecosystem/api-partners#oracles) - External data feeds
-- [**Security Auditors**](/ecosystem/api-partners#security) - Smart contract auditing
-
 ## 🚀 Quick Start Guide
 
-### 1. Choose Your Integration Type
+### 1. Build from Source
 
-```mermaid
-graph TD
-    A[Choose Integration] --> B[Exchange Trading]
-    A --> C[Wallet Support]
-    A --> D[DeFi Protocol]
-    A --> E[Enterprise Solution]
-
-    B --> F[API Integration]
-    C --> G[SDK Integration]
-    D --> H[Smart Contract]
-    E --> I[Custom Solution]
-```
-
-### 2. Get API Credentials
-
-Most integrations require API credentials:
-
-```javascript
-// Example configuration
-const config = {
-  // TOS Network connection
-  rpcUrl: 'https://rpc.tos.network',
-  networkId: 1,
-
-  // Partner API credentials
-  apiKey: 'your_partner_api_key',
-  secretKey: 'your_partner_secret',
-
-  // Integration settings
-  testMode: true,
-  webhookUrl: 'https://your-app.com/webhook'
-};
-```
-
-### 3. Install Required SDKs
+Clone and build the TOS Network node software:
 
 ```bash
-# Core TOS Network SDK
-npm install @tos-network/sdk
+# Clone the repository
+git clone https://github.com/tos-network/tos.git
+cd tos
 
-# Partner-specific SDKs (choose as needed)
-npm install @tos-network/exchange-sdk
-npm install @tos-network/wallet-sdk
-npm install @tos-network/bridge-sdk
-npm install @tos-network/defi-sdk
+# Build for local platform (recommended for development)
+./build_local.sh
+
+# Or build manually with cargo
+cargo build --release
 ```
 
-### 4. Basic Integration Example
+**Supported Platforms:**
+- Linux (x86_64, ARM64, ARMv7)
+- macOS (Intel x86_64, Apple Silicon arm64)
+- Windows (x86_64)
 
-```javascript
-import { TOSNetworkSDK } from '@tos-network/sdk';
-import { ExchangeIntegration } from '@tos-network/exchange-sdk';
+### 2. Configure Environment
 
-// Initialize TOS Network connection
-const tos = new TOSNetworkSDK({
-  rpcUrl: 'https://rpc.tos.network',
-  privateKey: process.env.PRIVATE_KEY
-});
-
-// Initialize exchange integration
-const exchange = new ExchangeIntegration({
-  exchange: 'binance',
-  apiKey: process.env.BINANCE_API_KEY,
-  secret: process.env.BINANCE_SECRET,
-  testnet: true
-});
-
-// Example: Get TOS price and execute trade
-async function tradeTOS() {
-  const price = await exchange.getPrice('TOS/USDT');
-  console.log(`Current TOS price: $${price}`);
-
-  // Place a buy order
-  const order = await exchange.createOrder({
-    symbol: 'TOS/USDT',
-    side: 'buy',
-    amount: 100,
-    price: price * 0.99 // 1% below market
-  });
-
-  console.log('Order placed:', order);
-}
-```
-
-## 🛠️ Integration Tools
-
-### Development Environment
+Copy and configure your environment:
 
 ```bash
-# TOS Network development tools
-npm install -g @tos-network/cli
+# Copy environment template
+cp .env.example .env
+```
 
-# Initialize new integration project
-tos-cli init my-integration --type=exchange
-cd my-integration
+Edit `.env` with your settings:
 
-# Install dependencies
-npm install
+```bash
+# Network selection
+TOS_NETWORK=testnet              # mainnet or testnet
 
-# Start development server
-npm run dev
+# Logging
+RUST_LOG=info                    # debug/info/warn/error
+
+# Daemon configuration
+TOS_RPC_BIND_ADDRESS=0.0.0.0:8080
+TOS_P2P_BIND_ADDRESS=0.0.0.0:2125
+
+# Mining configuration
+TOS_MINER_ADDRESS=your_wallet_address_here
+TOS_MINER_THREADS=4
+
+# Testnet seed nodes
+TOS_PRIORITY_NODES=157.7.65.157:2125,157.7.78.65:2125,157.7.192.216:2125
+```
+
+### 3. Run the Daemon
+
+Start the TOS Network daemon:
+
+```bash
+# Run with default settings
+./build/local/tos_daemon --network testnet
+
+# Or with custom configuration
+./build/local/tos_daemon \
+  --network testnet \
+  --dir-path /var/run/tos/data \
+  --rpc-bind-address 0.0.0.0:8080 \
+  --p2p-bind-address 0.0.0.0:2125 \
+  --priority-nodes 157.7.65.157:2125
+```
+
+### 4. Run with Docker
+
+For containerized deployment:
+
+```bash
+# Copy environment configuration
+cp .env.example .env
+
+# Start daemon only
+docker-compose up tos-daemon
+
+# Start daemon + miner
+docker-compose --profile miner up
+
+# Start all services (daemon + miner + wallet)
+docker-compose --profile miner --profile wallet up
+```
+
+### 5. Use the Wallet
+
+The TOS wallet supports account management and transactions:
+
+```bash
+# Run wallet CLI
+./build/local/tos_wallet
+
+# Example: Transfer TOS
+./build/local/tos_wallet transfer \
+  --address tos1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq8cczjp \
+  --amount 10.5
+```
+
+### 6. Start Mining
+
+Connect miner to your daemon:
+
+```bash
+# Set environment variables
+export TOS_DAEMON_URL=ws://localhost:8080
+export TOS_MINER_ADDRESS=your_wallet_address
+export TOS_MINER_THREADS=4
+
+# Start mining
+./build/local/tos_miner
+```
+
+## 🛠️ Development Tools
+
+### Project Structure
+
+```
+tos/
+├── common/     # Shared libraries (crypto, tx, rpc, network)
+├── daemon/     # Blockchain node daemon
+├── miner/      # Mining software
+├── wallet/     # Wallet application
+├── genesis/    # Genesis block generator
+├── tck/        # Test Compatibility Kit
+└── proto/      # Protocol Buffers definitions
+```
+
+### RPC Endpoints
+
+The daemon exposes HTTP/JSON-RPC on port 8080:
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Example RPC call
+curl -X POST http://localhost:8080/rpc \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_block_height","params":[],"id":1}'
 ```
 
 ### Testing Framework
 
-```javascript
-// test/integration.test.js
-import { TOSTestFramework } from '@tos-network/testing';
+TOS includes a comprehensive Test Compatibility Kit (TCK):
 
-describe('Exchange Integration', () => {
-  let testFramework;
+```bash
+# Run all tests
+cargo test --workspace
 
-  beforeEach(async () => {
-    testFramework = new TOSTestFramework({
-      network: 'testnet',
-      integration: 'binance'
-    });
+# Run specific component tests
+cargo test -p tos_daemon
+cargo test -p tos_wallet
 
-    await testFramework.setup();
-  });
-
-  it('should connect to exchange', async () => {
-    const connection = await testFramework.testConnection();
-    expect(connection.success).toBe(true);
-  });
-
-  it('should fetch TOS price', async () => {
-    const price = await testFramework.getPrice('TOS/USDT');
-    expect(price).toBeGreaterThan(0);
-  });
-});
+# TCK structure
+tck/
+├── contracts/   # 58+ test contracts
+├── tests/       # 62+ test suites
+├── specs/       # Specification tests
+├── scenarios/   # Integration scenarios
+└── fuzz/        # Fuzz testing
 ```
 
-### Monitoring and Analytics
+### Build Scripts
 
-```javascript
-// monitoring/dashboard.js
-import { IntegrationMonitor } from '@tos-network/monitoring';
+```bash
+# Local development build
+./build_local.sh
 
-const monitor = new IntegrationMonitor({
-  integrations: ['binance', 'metamask', 'uniswap'],
-  alerts: {
-    email: 'admin@yourapp.com',
-    webhook: 'https://your-app.com/alerts'
-  }
-});
+# Cross-platform release build (requires `cross`)
+cargo install cross
+./build_all.sh
 
-// Monitor integration health
-monitor.track('api_calls', { integration: 'binance', endpoint: 'getPrice' });
-monitor.track('errors', { integration: 'metamask', error: 'connection_failed' });
-
-// Generate performance reports
-const report = await monitor.generateReport('daily');
-console.log(report);
+# Docker image build
+./docker-build.sh                              # Build daemon
+./docker-build.sh --app tos_miner --tag v1.0.0 # Build miner
+./docker-build.sh --all --tag latest           # Build all
 ```
 
 ## 📋 Integration Checklist
@@ -295,51 +259,6 @@ Join our growing ecosystem of integration partners:
 - **Priority Access**: Early access to new features and APIs
 - **Revenue Sharing**: Earn from successful integrations
 - **Ecosystem Growth**: Be part of the growing TOS Network
-
-## 📊 Integration Success Metrics
-
-### Key Performance Indicators (KPIs)
-
-```javascript
-// Example metrics tracking
-const metrics = {
-  // Volume metrics
-  daily_volume: '1,250,000 TOS',
-  monthly_volume: '35,750,000 TOS',
-
-  // User metrics
-  active_users: 15420,
-  new_users: 1250,
-  retention_rate: '78.5%',
-
-  // Technical metrics
-  api_uptime: '99.9%',
-  response_time: '45ms',
-  error_rate: '0.1%',
-
-  // Business metrics
-  revenue_generated: '$125,000',
-  partner_satisfaction: '9.2/10',
-  integration_completion_rate: '94%'
-};
-```
-
-### Success Stories
-
-**Binance Integration**
-- Integrated TOS trading in 2 weeks
-- 500K+ TOS daily volume
-- 99.9% uptime since launch
-
-**MetaMask Integration**
-- 100K+ wallet connections
-- Seamless user experience
-- High user satisfaction scores
-
-**Uniswap Integration**
-- Deep liquidity pools
-- Efficient price discovery
-- Strong DeFi ecosystem growth
 
 ## 🆘 Support and Resources
 

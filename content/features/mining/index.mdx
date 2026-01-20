@@ -1,83 +1,49 @@
 ---
 title: TOS Network Mining Features
-description: Comprehensive guide to dual-track mining system featuring traditional PoW and revolutionary AI-Mining
+description: Comprehensive guide to TOS Network mining system with traditional PoW
 ---
 
 # TOS Network Mining Features
 
-TOS Network introduces the world's first **dual-track mining system**, combining traditional Proof-of-Work (PoW) with revolutionary **AI-Mining** that transforms computational waste into productive work. This innovative approach embodies TOS's core principle of **"Don't Trust, Verify it"** while maximizing network efficiency and inclusivity.
+TOS Network uses a traditional **Proof-of-Work (PoW)** mining system based on BlockDAG technology. This guide covers mining algorithms, rewards, and hardware requirements.
 
-## Dual-Track Mining Overview
+## Mining Overview
 
-### The Innovation
-
-Traditional blockchain mining wastes enormous computational power on meaningless puzzles. TOS Network revolutionizes this with a dual approach:
+TOS Network mining secures the network through computational proof-of-work while leveraging BlockDAG for improved throughput and reduced orphan rates.
 
 ```
-Traditional Mining (88% of rewards)
+TOS Mining System
 ├── Proof-of-Work consensus
-├── Network security through hashpower
-├── Standard ASIC and GPU mining
-└── Familiar mining ecosystem
-
-AI-Mining (12% of rewards)
-├── Productive AI services
-├── Real-world value creation
-├── IoT to enterprise participation
-└── Reputation-based rewards
+├── BlockDAG parallel processing
+├── TOS-Hash algorithm
+└── Dynamic difficulty adjustment
 ```
 
-### Network Security Model
+## Mining Algorithm
 
-Both mining tracks contribute to network security:
+### TOS-Hash Algorithm
 
-```rust
-pub struct DualTrackSecurity {
-    pub traditional_hashrate: HashRate,
-    pub ai_mining_participants: u32,
-    pub combined_security_score: f64,
-}
-
-impl DualTrackSecurity {
-    pub fn calculate_security_level(&self) -> SecurityLevel {
-        let pow_contribution = self.traditional_hashrate.security_contribution();
-        let ai_contribution = self.ai_mining_participants.diversity_security();
-
-        SecurityLevel {
-            base_security: pow_contribution,
-            enhanced_security: ai_contribution,
-            total_security: pow_contribution + ai_contribution,
-            attack_resistance: self.calculate_attack_resistance()
-        }
-    }
-}
-```
-
-## Traditional Mining (PoW)
-
-### Mining Algorithm
-
-TOS uses a custom **RandomX-based algorithm** optimized for both ASICs and GPUs:
+TOS uses a custom **TOS-Hash algorithm** optimized for both ASICs and GPUs:
 
 ```rust
 pub struct TOSMiningAlgorithm {
-    pub base_algorithm: RandomX,
+    pub base_algorithm: TOSHash,
     pub difficulty_adjustment: DynamicDifficulty,
-    pub block_time_target: Duration, // 15 seconds
+    pub block_time_target: Duration, // ~15 seconds
     pub mining_rewards: RewardSchedule,
 }
 
 impl TOSMiningAlgorithm {
     pub fn mine_block(&self, block_template: BlockTemplate) -> Option<Block> {
-        let nonce = 0u64;
+        let mut nonce = 0u64;
         loop {
             let hash = self.calculate_hash(&block_template, nonce);
 
             if self.meets_difficulty_target(&hash) {
                 return Some(Block {
                     header: block_template.header,
-                    nonce: nonce,
-                    hash: hash,
+                    nonce,
+                    hash,
                     timestamp: SystemTime::now(),
                 });
             }
@@ -85,68 +51,70 @@ impl TOSMiningAlgorithm {
             nonce += 1;
         }
     }
-
-    fn calculate_hash(&self, template: &BlockTemplate, nonce: u64) -> Hash256 {
-        let mut data = template.serialize();
-        data.extend_from_slice(&nonce.to_le_bytes());
-
-        self.base_algorithm.hash(&data)
-    }
 }
 ```
 
-### Mining Rewards
+### Difficulty Adjustment
 
-Traditional mining receives **88% of total daily mining rewards**:
+The network automatically adjusts mining difficulty to maintain the target block time:
+
+```rust
+pub struct DifficultyAdjustment {
+    pub target_block_time: Duration,  // 15 seconds
+    pub adjustment_interval: u64,      // blocks
+    pub max_adjustment_factor: f64,    // limits sudden changes
+}
+```
+
+## Mining Rewards
+
+### Block Rewards
+
+Mining rewards are distributed to successful block miners:
 
 ```
-Daily Traditional Mining Rewards: 59,500 TOS
-├── Block Rewards: 50,000 TOS (84%)
-├── Transaction Fees: 7,000 TOS (12%)
-├── Network Maintenance: 2,000 TOS (3%)
-└── Validator Incentives: 500 TOS (1%)
+Block Reward Structure:
+├── Block Rewards: Base mining reward
+├── Transaction Fees: Fees from included transactions
+└── BlockDAG Bonuses: Rewards for valid parallel blocks
 
-Block Reward Distribution:
+Block Types:
 ├── Normal Blocks: 100% of expected reward
-├── Side Blocks: 30% of expected reward
-├── Sync Blocks: 110% of expected reward (bonus)
-└── Orphaned Blocks: 0% reward
+├── Side Blocks: Partial reward (parallel blocks)
+└── Orphaned Blocks: No reward
 ```
 
-### Mining Hardware Requirements
+### Reward Schedule
 
-#### ASIC Mining
-```
-Minimum Requirements:
-├── Hash Rate: 1 TH/s (minimum competitive)
-├── Power Consumption: <3000W
-├── Memory: 4GB DDR4
-├── Network: Stable broadband connection
+TOS implements a gradual emission schedule to ensure long-term sustainability.
 
-Recommended Setup:
-├── Hash Rate: 10+ TH/s
-├── Power Efficiency: <50 J/TH
-├── Cooling: Industrial cooling system
-├── Pool Connection: 99.9% uptime
-```
+## Hardware Requirements
 
-#### GPU Mining
+### Minimum Requirements
+
 ```
-Minimum Requirements:
-├── GPU: NVIDIA GTX 1060 / AMD RX 570
-├── Memory: 6GB VRAM
-├── CPU: 4 cores, 3.0GHz
+Minimum Mining Hardware:
+├── CPU: 4 cores, 3.0 GHz
 ├── RAM: 8GB DDR4
-├── Storage: 100GB free space
-
-Recommended Setup:
-├── GPU: NVIDIA RTX 4090 / AMD RX 7900 XTX
-├── Memory: 24GB VRAM
-├── Multi-GPU: 6-8 cards per rig
-├── Power Supply: 2000W+ 80+ Titanium
+├── Storage: 100GB SSD
+├── Network: Stable broadband connection
+└── OS: Linux, macOS, or Windows
 ```
 
-### Mining Pool Integration
+### Recommended Setup
+
+```
+Recommended Mining Hardware:
+├── CPU: 8+ cores, 3.5+ GHz
+├── RAM: 16GB+ DDR4
+├── Storage: 500GB+ SSD
+├── Network: High-speed fiber connection
+└── GPU: Optional for enhanced performance
+```
+
+## Mining Pool Integration
+
+### Pool Connection
 
 ```javascript
 // Mining pool connection example
@@ -155,7 +123,6 @@ class TOSMiningPool {
         this.poolUrl = poolUrl;
         this.walletAddress = walletAddress;
         this.workerId = workerId;
-        this.difficulty = 1;
     }
 
     async connect() {
@@ -176,972 +143,157 @@ class TOSMiningPool {
             type: 'auth',
             wallet: this.walletAddress,
             worker: this.workerId,
-            algorithm: 'tos-randomx'
+            algorithm: 'tos-hash'
         };
 
         this.socket.send(JSON.stringify(authMessage));
     }
-
-    handlePoolMessage(message) {
-        switch (message.type) {
-            case 'job':
-                this.currentJob = message.job;
-                this.startMining(message.job);
-                break;
-
-            case 'result':
-                if (message.status === 'accepted') {
-                    console.log('Share accepted!');
-                    this.acceptedShares++;
-                } else {
-                    console.log('Share rejected:', message.error);
-                }
-                break;
-
-            case 'difficulty':
-                this.difficulty = message.difficulty;
-                break;
-        }
-    }
-
-    submitShare(nonce, hash) {
-        const submission = {
-            type: 'submit',
-            job_id: this.currentJob.id,
-            nonce: nonce,
-            hash: hash,
-            worker: this.workerId
-        };
-
-        this.socket.send(JSON.stringify(submission));
-    }
 }
 ```
 
-## AI-Mining System
+### Pool Configuration
 
-### Productive Mining Revolution
+```toml
+# Mining pool configuration
+[pool]
+url = "stratum+tcp://pool.example.com:3333"
+wallet = "tos1your-wallet-address"
+worker = "worker1"
 
-AI-Mining transforms computational power into valuable AI services:
-
-```rust
-pub struct AIMiningSystem {
-    pub task_publishers: TaskRegistry,
-    pub active_miners: MinerRegistry,
-    pub task_queue: TaskQueue,
-    pub validation_system: TaskValidation,
-    pub reward_distribution: RewardCalculator,
-}
-
-pub struct AITask {
-    pub task_id: TaskId,
-    pub task_type: TaskType,
-    pub difficulty: DifficultyLevel,
-    pub reward_amount: TokenAmount,
-    pub deadline: Timestamp,
-    pub requirements: MinerRequirements,
-    pub task_data: TaskData,
-}
-
-pub enum TaskType {
-    CodeAnalysis {
-        language: ProgrammingLanguage,
-        analysis_type: AnalysisType,
-    },
-    DataProcessing {
-        data_format: DataFormat,
-        processing_type: ProcessingType,
-    },
-    OptimizationTask {
-        optimization_target: OptimizationTarget,
-        constraints: Vec<Constraint>,
-    },
-    SecurityAudit {
-        audit_scope: AuditScope,
-        security_standards: Vec<SecurityStandard>,
-    },
-    GeneralAI {
-        model_requirements: ModelRequirements,
-        output_format: OutputFormat,
-    },
-}
+[mining]
+algorithm = "tos-hash"
+threads = 4
+intensity = 80
 ```
 
-### AI-Mining Categories
+## Mining Software
 
-#### 1. Code Analysis Tasks
+### Official Miner
 
-```rust
-pub struct CodeAnalysisTask {
-    pub source_code: String,
-    pub language: ProgrammingLanguage,
-    pub analysis_requirements: Vec<AnalysisType>,
-    pub expected_deliverables: Vec<Deliverable>,
-}
+TOS provides official mining software:
 
-pub enum AnalysisType {
-    SecurityVulnerabilities,
-    PerformanceOptimization,
-    CodeQuality,
-    ComplianceCheck,
-    DependencyAnalysis,
-    DocumentationGeneration,
-}
-
-impl CodeAnalysisTask {
-    pub fn estimate_reward(&self) -> TokenAmount {
-        let base_reward = match self.language {
-            ProgrammingLanguage::Rust => 100_000_000_000, // 100 TOS
-            ProgrammingLanguage::Java => 80_000_000_000,  // 80 TOS
-            ProgrammingLanguage::Python => 60_000_000_000, // 60 TOS
-            ProgrammingLanguage::JavaScript => 50_000_000_000, // 50 TOS
-        };
-
-        let complexity_multiplier = self.calculate_complexity_multiplier();
-        base_reward * complexity_multiplier
-    }
-}
-```
-
-**Example Tasks:**
-- Smart contract security audits
-- Code optimization suggestions
-- Automated documentation generation
-- Compliance checking against standards
-- Dependency vulnerability analysis
-
-#### 2. Data Processing Tasks
-
-```rust
-pub struct DataProcessingTask {
-    pub input_data: DataSource,
-    pub processing_requirements: ProcessingSpec,
-    pub output_format: OutputFormat,
-    pub quality_metrics: QualityRequirements,
-}
-
-pub enum ProcessingType {
-    DataCleaning {
-        remove_duplicates: bool,
-        handle_missing_values: MissingValueStrategy,
-        outlier_detection: bool,
-    },
-    StatisticalAnalysis {
-        analysis_types: Vec<StatisticalMethod>,
-        confidence_level: f64,
-    },
-    MachineLearning {
-        model_type: MLModelType,
-        training_requirements: TrainingSpec,
-    },
-    DataVisualization {
-        chart_types: Vec<ChartType>,
-        interactive: bool,
-    },
-}
-
-impl DataProcessingTask {
-    pub fn validate_solution(&self, solution: &ProcessingSolution) -> ValidationResult {
-        ValidationResult {
-            quality_score: self.calculate_quality_score(solution),
-            completeness: self.check_completeness(solution),
-            accuracy: self.verify_accuracy(solution),
-            performance: self.measure_performance(solution),
-        }
-    }
-}
-```
-
-**Example Tasks:**
-- Dataset cleaning and preprocessing
-- Statistical analysis and reporting
-- Machine learning model training
-- Data visualization creation
-- Pattern recognition in large datasets
-
-#### 3. Optimization Tasks
-
-```rust
-pub struct OptimizationTask {
-    pub objective_function: ObjectiveFunction,
-    pub constraints: Vec<Constraint>,
-    pub optimization_method: OptimizationMethod,
-    pub convergence_criteria: ConvergenceCriteria,
-}
-
-pub enum OptimizationTarget {
-    AlgorithmEfficiency {
-        time_complexity_target: BigO,
-        space_complexity_target: BigO,
-    },
-    NetworkRouting {
-        latency_minimization: bool,
-        bandwidth_optimization: bool,
-    },
-    ResourceAllocation {
-        cost_minimization: bool,
-        utilization_maximization: bool,
-    },
-    ParameterTuning {
-        model_parameters: Vec<Parameter>,
-        objective_metric: Metric,
-    },
-}
-
-impl OptimizationTask {
-    pub fn evaluate_solution(&self, solution: &OptimizationSolution) -> EvaluationResult {
-        EvaluationResult {
-            objective_value: self.calculate_objective_value(solution),
-            constraint_satisfaction: self.check_constraints(solution),
-            improvement_percentage: self.calculate_improvement(solution),
-            novelty_score: self.assess_novelty(solution),
-        }
-    }
-}
-```
-
-**Example Tasks:**
-- Algorithm performance optimization
-- Network routing optimization
-- Resource allocation problems
-- Hyperparameter tuning for ML models
-- Supply chain optimization
-
-#### 4. Security Audit Tasks
-
-```rust
-pub struct SecurityAuditTask {
-    pub audit_target: AuditTarget,
-    pub security_standards: Vec<SecurityStandard>,
-    pub audit_scope: AuditScope,
-    pub deliverable_requirements: Vec<DeliverableType>,
-}
-
-pub enum AuditTarget {
-    SmartContract {
-        contract_code: String,
-        blockchain: BlockchainType,
-        language: ContractLanguage,
-    },
-    WebApplication {
-        application_url: String,
-        authentication_methods: Vec<AuthMethod>,
-        api_endpoints: Vec<Endpoint>,
-    },
-    Infrastructure {
-        network_topology: NetworkTopology,
-        server_configurations: Vec<ServerConfig>,
-    },
-}
-
-pub enum SecurityStandard {
-    OWASP,
-    ISO27001,
-    NIST,
-    CIS,
-    Custom(CustomStandard),
-}
-
-impl SecurityAuditTask {
-    pub fn assess_audit_quality(&self, audit_report: &AuditReport) -> QualityAssessment {
-        QualityAssessment {
-            coverage_completeness: self.check_coverage(audit_report),
-            vulnerability_accuracy: self.verify_vulnerabilities(audit_report),
-            recommendation_quality: self.assess_recommendations(audit_report),
-            compliance_adherence: self.check_compliance(audit_report),
-        }
-    }
-}
-```
-
-**Example Tasks:**
-- Smart contract security audits
-- Web application penetration testing
-- Infrastructure security assessments
-- Compliance auditing against standards
-- Threat modeling and risk assessment
-
-### AI-Mining Rewards
-
-AI-Mining receives **12% of total daily mining rewards**:
-
-```
-Daily AI-Mining Rewards: 8,150 TOS
-├── High-Quality Tasks: 60% (4,890 TOS)
-├── Medium-Quality Tasks: 25% (2,037.5 TOS)
-├── Beginner Tasks: 10% (815 TOS)
-├── Validator Rewards: 5% (407.5 TOS)
-└── Network Maintenance: 5% (407.5 TOS)
-
-Reward Calculation Formula:
-base_reward × quality_multiplier × reputation_bonus × timing_bonus
-```
-
-### Miner Registration and Requirements
-
-```rust
-pub struct AIMinerRegistration {
-    pub miner_address: Address,
-    pub capabilities: Vec<Capability>,
-    pub hardware_profile: HardwareProfile,
-    pub availability: AvailabilitySchedule,
-    pub reputation_score: f64,
-    pub registration_stake: TokenAmount, // Anti-spam measure
-}
-
-pub struct HardwareProfile {
-    pub cpu_cores: u32,
-    pub ram_gb: u32,
-    pub gpu_available: bool,
-    pub gpu_memory_gb: Option<u32>,
-    pub storage_gb: u32,
-    pub network_speed_mbps: u32,
-    pub estimated_performance: PerformanceRating,
-}
-
-impl AIMinerRegistration {
-    pub fn calculate_registration_fee(&self) -> TokenAmount {
-        match self.hardware_profile.estimated_performance {
-            PerformanceRating::Basic => 1_250_000_000,    // 1.25 TOS
-            PerformanceRating::Standard => 2_500_000_000,  // 2.5 TOS
-            PerformanceRating::Advanced => 5_000_000_000,  // 5 TOS
-            PerformanceRating::Enterprise => 10_000_000_000, // 10 TOS
-        }
-    }
-}
-```
-
-### Task Validation and Quality Assurance
-
-```rust
-pub struct TaskValidationSystem {
-    pub validators: ValidatorPool,
-    pub validation_criteria: ValidationCriteria,
-    pub fraud_detection: FraudDetectionSystem,
-    pub quality_metrics: QualityMetrics,
-}
-
-pub struct ValidationCriteria {
-    pub minimum_quality_score: f64,
-    pub required_validators: u32,
-    pub consensus_threshold: f64,
-    pub time_limit: Duration,
-}
-
-impl TaskValidationSystem {
-    pub fn validate_solution(&self, solution: &TaskSolution) -> ValidationResult {
-        // Multi-layer validation process
-        let technical_validation = self.validate_technical_correctness(solution);
-        let quality_assessment = self.assess_solution_quality(solution);
-        let fraud_check = self.fraud_detection.analyze_solution(solution);
-        let peer_review = self.conduct_peer_review(solution);
-
-        ValidationResult {
-            is_valid: technical_validation && !fraud_check.is_suspicious,
-            quality_score: quality_assessment.overall_score,
-            validator_consensus: peer_review.consensus_score,
-            fraud_indicators: fraud_check.indicators,
-            detailed_feedback: self.generate_feedback(solution),
-        }
-    }
-
-    fn validate_technical_correctness(&self, solution: &TaskSolution) -> bool {
-        match &solution.task_type {
-            TaskType::CodeAnalysis => self.validate_code_analysis(solution),
-            TaskType::DataProcessing => self.validate_data_processing(solution),
-            TaskType::OptimizationTask => self.validate_optimization(solution),
-            TaskType::SecurityAudit => self.validate_security_audit(solution),
-            TaskType::GeneralAI => self.validate_general_ai(solution),
-        }
-    }
-}
-```
-
-### Anti-Fraud Measures
-
-```rust
-pub struct FraudDetectionSystem {
-    pub behavioral_analysis: BehavioralAnalyzer,
-    pub pattern_recognition: PatternMatcher,
-    pub time_analysis: TimeAnalyzer,
-    pub quality_consistency: ConsistencyChecker,
-    pub collusion_detection: CollusionDetector,
-}
-
-pub struct FraudIndicators {
-    pub submission_time_suspicious: bool,
-    pub quality_pattern_abnormal: bool,
-    pub behavioral_anomalies: Vec<Anomaly>,
-    pub potential_plagiarism: bool,
-    pub collusion_evidence: Vec<CollusionEvidence>,
-    pub overall_suspicion_score: f64,
-}
-
-impl FraudDetectionSystem {
-    pub fn analyze_solution(&self, solution: &TaskSolution) -> FraudAnalysis {
-        let time_analysis = self.time_analysis.analyze_submission_timing(solution);
-        let behavioral_analysis = self.behavioral_analysis.analyze_miner_behavior(solution.miner);
-        let pattern_analysis = self.pattern_recognition.find_suspicious_patterns(solution);
-        let consistency_check = self.quality_consistency.check_quality_consistency(solution);
-        let collusion_check = self.collusion_detection.detect_coordination(solution);
-
-        FraudAnalysis {
-            indicators: FraudIndicators {
-                submission_time_suspicious: time_analysis.is_suspicious,
-                quality_pattern_abnormal: pattern_analysis.is_abnormal,
-                behavioral_anomalies: behavioral_analysis.anomalies,
-                potential_plagiarism: pattern_analysis.plagiarism_detected,
-                collusion_evidence: collusion_check.evidence,
-                overall_suspicion_score: self.calculate_suspicion_score(&[
-                    time_analysis.score,
-                    behavioral_analysis.score,
-                    pattern_analysis.score,
-                    consistency_check.score,
-                    collusion_check.score,
-                ]),
-            },
-            recommended_action: self.determine_action(&fraud_indicators),
-        }
-    }
-}
-```
-
-## Mining Economics
-
-### Revenue Comparison
-
-```
-Traditional Mining ROI Example:
-├── Hardware Cost: $10,000 (ASIC miner)
-├── Monthly Electricity: $500
-├── Monthly Earnings: $800
-├── Monthly Profit: $300
-├── ROI Period: ~33 months
-└── Risk: Hardware obsolescence
-
-AI-Mining ROI Example:
-├── Hardware Cost: $2,000 (gaming PC)
-├── Monthly Electricity: $100
-├── Monthly Earnings: $400 (reputation dependent)
-├── Monthly Profit: $300
-├── ROI Period: ~7 months
-└── Risk: Task availability, reputation building
-```
-
-### Profitability Factors
-
-#### Traditional Mining
-- **Hardware Efficiency**: Hash rate per watt
-2. **Electricity Costs**: Primary operational expense
-3. **Network Difficulty**: Adjusts based on total hashrate
-4. **Hardware Longevity**: ASIC lifespan and efficiency
-5. **Market Volatility**: TOS price fluctuations
-
-#### AI-Mining
-- **Solution Quality**: Higher quality = higher rewards
-2. **Reputation Building**: Better reputation = more tasks
-3. **Task Specialization**: Expertise in specific domains
-4. **Time Investment**: Balance between quality and quantity
-5. **Hardware Optimization**: Efficient task processing
-
-### Economic Incentives
-
-```rust
-pub struct MiningIncentives {
-    pub traditional_incentives: TraditionalIncentives,
-    pub ai_mining_incentives: AIMiningIncentives,
-    pub cross_system_bonuses: CrossSystemBonuses,
-}
-
-pub struct TraditionalIncentives {
-    pub base_block_reward: TokenAmount,
-    pub transaction_fees: TokenAmount,
-    pub difficulty_bonuses: DifficultyBonuses,
-    pub uptime_rewards: UptimeRewards,
-}
-
-pub struct AIMiningIncentives {
-    pub task_completion_rewards: TaskRewards,
-    pub quality_bonuses: QualityBonuses,
-    pub reputation_multipliers: ReputationMultipliers,
-    pub consistency_bonuses: ConsistencyBonuses,
-    pub specialization_premiums: SpecializationPremiums,
-}
-
-pub struct CrossSystemBonuses {
-    pub dual_participation_bonus: f64, // 5% bonus for participating in both
-    pub network_security_contribution: TokenAmount,
-    pub ecosystem_growth_rewards: EcosystemRewards,
-}
-```
-
-## Mining Pool Operations
-
-### Traditional Mining Pools
-
-```javascript
-// Mining pool statistics and management
-class TOSMiningPool {
-    constructor(poolConfig) {
-        this.poolUrl = poolConfig.url;
-        this.feePercentage = poolConfig.fee; // Typically 1-3%
-        this.paymentThreshold = poolConfig.minPayout; // Minimum payout amount
-        this.paymentScheme = poolConfig.scheme; // PPS, PPLNS, etc.
-    }
-
-    async getPoolStatistics() {
-        return {
-            totalHashrate: await this.getTotalHashrate(),
-            minerCount: await this.getActiveMinerCount(),
-            blocksFound24h: await this.getRecentBlocksFound(),
-            poolFortune: await this.calculatePoolFortune(),
-            paymentScheme: this.paymentScheme,
-            poolFee: this.feePercentage,
-            estimatedEarnings: await this.calculateEstimatedEarnings()
-        };
-    }
-
-    async calculatePayouts() {
-        const miners = await this.getActiveMiners();
-        const recentBlocks = await this.getRecentBlocks();
-
-        for (const miner of miners) {
-            const shares = await this.getMinerShares(miner.address);
-            const earnings = this.calculateMinerEarnings(shares, recentBlocks);
-
-            if (earnings >= this.paymentThreshold) {
-                await this.processPayout(miner.address, earnings);
-            }
-        }
-    }
-}
-```
-
-### AI-Mining Pools
-
-```rust
-pub struct AIMiningPool {
-    pub pool_id: PoolId,
-    pub specializations: Vec<TaskType>,
-    pub quality_requirements: QualityStandards,
-    pub profit_sharing: ProfitSharingModel,
-    pub member_miners: Vec<MinerProfile>,
-}
-
-pub enum ProfitSharingModel {
-    EqualShare, // Equal distribution among participants
-    QualityWeighted, // Weighted by solution quality
-    ContributionBased, // Based on actual contribution
-    HybridModel(HybridWeights), // Combination of factors
-}
-
-impl AIMiningPool {
-    pub fn accept_task(&self, task: &AITask) -> bool {
-        // Check if task matches pool specializations
-        let specialization_match = self.specializations.contains(&task.task_type);
-
-        // Verify pool can meet quality requirements
-        let quality_capable = self.can_meet_quality_requirements(&task);
-
-        // Check member availability
-        let members_available = self.count_available_members() >= task.required_miners;
-
-        specialization_match && quality_capable && members_available
-    }
-
-    pub fn distribute_rewards(&self, task_reward: TokenAmount, contributions: &[Contribution]) -> Vec<Payout> {
-        match &self.profit_sharing {
-            ProfitSharingModel::QualityWeighted => {
-                self.distribute_by_quality(task_reward, contributions)
-            },
-            ProfitSharingModel::ContributionBased => {
-                self.distribute_by_contribution(task_reward, contributions)
-            },
-            ProfitSharingModel::HybridModel(weights) => {
-                self.distribute_hybrid(task_reward, contributions, weights)
-            },
-            _ => self.distribute_equally(task_reward, contributions)
-        }
-    }
-}
-```
-
-## Hardware Optimization
-
-### Traditional Mining Hardware
-
-#### ASIC Optimization
 ```bash
-# ASIC miner configuration example
-cat > asic_config.toml << EOF
+# Start mining
+./tos_miner --daemon-address localhost:8080 \
+            --miner-address tos1your-wallet-address \
+            --threads 4
+```
+
+### Configuration Options
+
+```toml
+# tos_miner configuration
+[daemon]
+address = "localhost:8080"
+
 [miner]
-model = "TOS-Miner-Pro-X1"
-hashrate_target = "15_TH/s"
-power_limit = 2800 # watts
-cooling_mode = "immersion"
-pool_url = "stratum+tcp://pool.tos.network:4444"
-wallet_address = "tos1your-address..."
+address = "tos1your-wallet-address"
+threads = 4
 
-[optimization]
-frequency_auto_tune = true
-voltage_scaling = true
-temperature_limit = 75 # celsius
-fan_speed_auto = true
-
-[monitoring]
-api_port = 8080
-telemetry_enabled = true
-alert_thresholds = { temperature = 80, hashrate_drop = 10 }
-EOF
-
-# Run optimized mining
-./tos-asic-miner --config asic_config.toml --optimize
+[logging]
+level = "info"
 ```
 
-#### GPU Mining Optimization
+## Mining Monitoring
+
+### Status Monitoring
+
 ```bash
-# GPU mining configuration
-cat > gpu_mining.json << EOF
+# Check mining status
+curl http://localhost:8080/mining/status
+
+# Response format
 {
-  "mining": {
-    "algorithm": "tos-randomx",
-    "pools": [
-      {
-        "url": "stratum+tcp://pool.tos.network:4444",
-        "user": "tos1your-address...",
-        "pass": "worker1"
-      }
-    ]
-  },
-  "gpu_settings": {
-    "power_limit": 80,
-    "core_clock_offset": 100,
-    "memory_clock_offset": 1000,
-    "fan_speed": 75,
-    "temperature_limit": 83
-  },
-  "optimization": {
-    "auto_tune": true,
-    "efficiency_mode": true,
-    "dual_mining": false
-  }
+    "mining_active": true,
+    "hashrate": "1.5 MH/s",
+    "difficulty": 12345678,
+    "blocks_found": 42
 }
-EOF
-
-# Launch GPU miner
-./tos-gpu-miner --config gpu_mining.json
 ```
 
-### AI-Mining Hardware
+### Performance Metrics
 
-#### Optimized Configurations by Hardware Type
+Monitor key mining metrics:
+- **Hashrate**: Mining computational power
+- **Difficulty**: Current network difficulty
+- **Blocks Found**: Successfully mined blocks
+- **Efficiency**: Power consumption per hash
 
-```python
-# AI-Mining hardware optimization
-class HardwareOptimizer:
-    def __init__(self, hardware_type):
-        self.hardware_type = hardware_type
-        self.optimization_profiles = {
-            'raspberry_pi': {
-                'max_concurrent_tasks': 1,
-                'task_types': ['simple_data_processing', 'basic_analysis'],
-                'memory_limit': '800MB',
-                'cpu_usage_limit': 80
-            },
-            'gaming_pc': {
-                'max_concurrent_tasks': 3,
-                'task_types': ['code_analysis', 'data_processing', 'optimization'],
-                'memory_limit': '8GB',
-                'cpu_usage_limit': 70,
-                'gpu_acceleration': True
-            },
-            'server_grade': {
-                'max_concurrent_tasks': 8,
-                'task_types': ['all'],
-                'memory_limit': '32GB',
-                'cpu_usage_limit': 90,
-                'distributed_processing': True
-            }
-        }
+## Network Security
 
-    def optimize_for_hardware(self):
-        profile = self.optimization_profiles[self.hardware_type]
+### Proof-of-Work Security
 
-        return {
-            'task_filter': profile['task_types'],
-            'performance_limits': {
-                'max_tasks': profile['max_concurrent_tasks'],
-                'memory_limit': profile['memory_limit'],
-                'cpu_limit': profile['cpu_usage_limit']
-            },
-            'optimization_settings': {
-                'cache_size': self.calculate_optimal_cache_size(),
-                'batch_processing': profile.get('distributed_processing', False),
-                'gpu_acceleration': profile.get('gpu_acceleration', False)
-            }
-        }
-
-    def calculate_optimal_cache_size(self):
-        # Optimize cache based on available memory
-        if self.hardware_type == 'raspberry_pi':
-            return '64MB'
-        elif self.hardware_type == 'gaming_pc':
-            return '1GB'
-        else:
-            return '4GB'
-```
-
-## Network Contribution and Security
-
-### Dual-Track Security Benefits
+TOS mining provides network security through:
 
 ```rust
 pub struct NetworkSecurity {
-    pub traditional_mining_security: PowSecurity,
-    pub ai_mining_security: AiSecurity,
-    pub combined_resilience: CombinedSecurity,
-}
-
-pub struct PowSecurity {
     pub total_hashrate: HashRate,
     pub mining_distribution: MiningDistribution,
-    pub attack_cost: AttackCostAnalysis,
-}
-
-pub struct AiSecurity {
-    pub miner_diversity: DiversityMetrics,
-    pub geographic_distribution: GeographicSpread,
-    pub reputation_based_trust: ReputationSecurity,
-    pub task_validation_strength: ValidationStrength,
+    pub attack_resistance: AttackResistance,
 }
 
 impl NetworkSecurity {
-    pub fn calculate_attack_resistance(&self) -> AttackResistance {
-        let pow_resistance = self.traditional_mining_security.calculate_51_attack_cost();
-        let ai_resistance = self.ai_mining_security.calculate_manipulation_difficulty();
-
-        AttackResistance {
-            traditional_attack_cost: pow_resistance.cost_usd,
-            ai_manipulation_difficulty: ai_resistance.difficulty_score,
-            combined_security_level: self.calculate_combined_security(),
-            attack_vectors: self.identify_attack_vectors(),
-            mitigation_strategies: self.list_mitigation_strategies(),
-        }
-    }
-
-    fn calculate_combined_security(&self) -> f64 {
-        // Dual-track system provides enhanced security through diversity
-        let pow_security_score = self.traditional_mining_security.security_score();
-        let ai_security_score = self.ai_mining_security.security_score();
-
-        // Combined security is greater than sum of parts due to diversity
-        let base_security = pow_security_score + ai_security_score;
-        let diversity_bonus = 0.25; // 25% bonus for dual-track diversity
-
-        base_security * (1.0 + diversity_bonus)
+    pub fn calculate_51_attack_cost(&self) -> u64 {
+        // Cost increases with total network hashrate
+        self.total_hashrate * self.hardware_cost_per_hash
     }
 }
 ```
 
-### Mining Contribution Metrics
+### BlockDAG Benefits
 
-```javascript
-// Track mining contributions to network health
-class MiningContributionTracker {
-    async getNetworkContributions() {
-        const traditionalStats = await this.getTraditionalMiningStats();
-        const aiMiningStats = await this.getAIMiningStats();
+BlockDAG provides additional security benefits:
+- Reduced orphan rates
+- Faster finality
+- Better throughput
 
-        return {
-            traditional_mining: {
-                hashrate_contribution: traditionalStats.hashrate,
-                blocks_mined: traditionalStats.blocks,
-                network_security_percentage: 88.0,
-                geographic_distribution: traditionalStats.geography
-            },
-            ai_mining: {
-                tasks_completed: aiMiningStats.completedTasks,
-                ai_services_provided: aiMiningStats.services,
-                network_diversity_percentage: 12.0,
-                innovation_contribution: aiMiningStats.innovation
-            },
-            combined_benefits: {
-                total_security_score: this.calculateCombinedSecurity(),
-                decentralization_level: this.calculateDecentralization(),
-                economic_efficiency: this.calculateEfficiency(),
-                environmental_impact: this.calculateEnvironmentalImpact()
-            }
-        };
-    }
+## Troubleshooting
 
-    calculateEnvironmentalImpact() {
-        return {
-            traditional_mining: {
-                energy_consumption: "High",
-                useful_output: "Network Security Only"
-            },
-            ai_mining: {
-                energy_consumption: "Productive",
-                useful_output: "Network Security + AI Services"
-            },
-            overall_improvement: "67% reduction in wasted computation"
-        };
-    }
-}
+### Common Issues
+
+**Miner Won't Connect**
+```bash
+# Check daemon status
+curl http://localhost:8080/health
+
+# Verify network connectivity
+ping localhost
 ```
 
-## Mining Monitoring and Management
+**Low Hashrate**
+- Check CPU/GPU utilization
+- Verify power settings
+- Update mining software
 
-### Comprehensive Monitoring Dashboard
+**Rejected Shares**
+- Check network latency
+- Verify wallet address format
+- Review pool configuration
 
-```javascript
-// Mining monitoring system
-class MiningMonitor {
-    constructor() {
-        this.metrics = new MetricsCollector();
-        this.alerts = new AlertSystem();
-        this.dashboard = new DashboardRenderer();
-    }
+## Best Practices
 
-    async initializeMonitoring() {
-        // Traditional mining metrics
-        this.metrics.track('hashrate', { interval: '1m' });
-        this.metrics.track('power_consumption', { interval: '5m' });
-        this.metrics.track('temperature', { interval: '30s' });
-        this.metrics.track('shares_submitted', { interval: '1m' });
-        this.metrics.track('shares_accepted', { interval: '1m' });
+### Mining Optimization
 
-        // AI-Mining metrics
-        this.metrics.track('tasks_completed', { interval: '1h' });
-        this.metrics.track('solution_quality', { interval: '1h' });
-        this.metrics.track('reputation_score', { interval: '1d' });
-        this.metrics.track('earnings_rate', { interval: '1h' });
+1. **Hardware**: Use appropriate hardware for your scale
+2. **Cooling**: Ensure adequate cooling systems
+3. **Power**: Use efficient power supplies
+4. **Network**: Maintain stable connectivity
+5. **Software**: Keep mining software updated
 
-        // Network metrics
-        this.metrics.track('network_difficulty', { interval: '15m' });
-        this.metrics.track('block_time', { interval: '15s' });
-        this.metrics.track('total_hashrate', { interval: '5m' });
-    }
+### Security
 
-    async generateDashboard() {
-        const data = await this.metrics.getLatestMetrics();
-
-        return {
-            mining_overview: {
-                traditional_mining: {
-                    status: data.hashrate > 0 ? 'Active' : 'Inactive',
-                    current_hashrate: `${data.hashrate} TH/s`,
-                    power_efficiency: `${data.power_consumption / data.hashrate} W/TH`,
-                    daily_earnings: await this.calculateDailyEarnings('traditional'),
-                    uptime: this.calculateUptime()
-                },
-                ai_mining: {
-                    status: data.tasks_completed > 0 ? 'Active' : 'Inactive',
-                    tasks_per_day: data.tasks_completed,
-                    average_quality: data.solution_quality,
-                    reputation: data.reputation_score,
-                    daily_earnings: await this.calculateDailyEarnings('ai')
-                }
-            },
-            network_health: {
-                total_hashrate: `${data.total_hashrate} TH/s`,
-                network_difficulty: data.network_difficulty,
-                average_block_time: `${data.block_time}s`,
-                ai_mining_participation: await this.getAIMiningParticipation()
-            },
-            alerts: await this.alerts.getActiveAlerts()
-        };
-    }
-}
-```
-
-### Automated Management
-
-```python
-# Automated mining management system
-class AutomatedMiningManager:
-    def __init__(self):
-        self.traditional_manager = TraditionalMiningManager()
-        self.ai_manager = AIMiningManager()
-        self.optimizer = MiningOptimizer()
-
-    async def run_automated_management(self):
-        while True:
-            # Monitor and optimize traditional mining
-            traditional_status = await self.traditional_manager.get_status()
-            if traditional_status.needs_optimization:
-                await self.optimizer.optimize_traditional_mining()
-
-            # Monitor and optimize AI-Mining
-            ai_status = await self.ai_manager.get_status()
-            if ai_status.has_available_tasks:
-                await self.ai_manager.process_available_tasks()
-
-            # Balance resources between both mining types
-            await self.balance_mining_resources()
-
-            # Check for maintenance needs
-            await self.perform_maintenance_checks()
-
-            # Wait before next cycle
-            await asyncio.sleep(300)  # 5 minutes
-
-    async def balance_mining_resources(self):
-        """Dynamically balance resources between traditional and AI mining"""
-        resource_allocation = await self.optimizer.calculate_optimal_allocation()
-
-        if resource_allocation.prefer_traditional:
-            await self.allocate_more_to_traditional()
-        elif resource_allocation.prefer_ai:
-            await self.allocate_more_to_ai()
-
-    async def optimize_for_profitability(self):
-        """Switch mining modes based on profitability"""
-        traditional_profit = await self.calculate_traditional_profit_rate()
-        ai_profit = await self.calculate_ai_profit_rate()
-
-        if ai_profit > traditional_profit * 1.1:  # 10% buffer
-            await self.increase_ai_mining_allocation()
-        elif traditional_profit > ai_profit * 1.1:
-            await self.increase_traditional_mining_allocation()
-```
-
-## Future Developments
-
-### Mining Evolution Roadmap
-
-#### Q1 2025: Enhanced AI-Mining
-- **Advanced Task Types**: Machine learning model training, complex optimization
-- **Improved Validation**: Multi-layer consensus mechanisms
-- **Mobile Mining**: Smartphone AI-Mining capabilities
-- **Pool Enhancements**: Specialized AI-Mining pools with advanced features
-
-#### Q2 2025: Cross-Chain Mining
-- **Bridge Mining**: Earn rewards for cross-chain bridge operations
-- **Multi-Chain AI**: AI tasks spanning multiple blockchain networks
-- **Interoperability Mining**: Rewards for facilitating cross-chain transactions
-
-#### Q3 2025: Quantum Preparation
-- **Quantum-Resistant Algorithms**: Preparation for quantum computing era
-- **Hybrid Consensus**: Integration of quantum-resistant mechanisms
-- **Post-Quantum Mining**: New mining algorithms for quantum security
-
-#### Q4 2025: Autonomous Mining
-- **AI-Optimized Mining**: AI systems optimizing mining operations
-- **Self-Healing Networks**: Automated recovery from mining issues
-- **Predictive Maintenance**: AI-driven hardware maintenance scheduling
-
-## Conclusion
-
-TOS Network's dual-track mining system represents a paradigm shift in blockchain consensus, combining the proven security of traditional Proof-of-Work with the productive innovation of AI-Mining. This approach maximizes network security while minimizing computational waste, creating real-world value through AI services.
-
-Whether you choose traditional mining for its predictable returns or AI-Mining for its productive innovation, TOS Network provides opportunities for miners of all scales to contribute meaningfully to the network while earning rewards.
-
-**"Don't Trust, Verify it"** - Both mining tracks contribute to TOS Network's trustless verification through different but complementary mechanisms, ensuring robust network security and continuous innovation.
+1. **Wallet Security**: Protect your mining wallet
+2. **Pool Selection**: Choose reputable mining pools
+3. **Software Verification**: Verify software signatures
+4. **Monitoring**: Implement monitoring and alerts
 
 ## Learn More
 
-- [AI-Mining Getting Started](/getting-started/ai-mining) - Begin your AI-Mining journey
-- [Mining Optimization Guide](/guides/mining-optimization) - Maximize your mining profits
-- [Hardware Requirements](/guides/mining-hardware) - Choose the right mining hardware
-- [Mining Pool Directory](/community/mining-pools) - Find the best mining pools
+- [Mining Setup Guide](/getting-started/installation)
+- [Network Configuration](/getting-started/network-config)
+- [Mining Difficulty](/features/mining-difficulty)
+- [TOS-Hash Algorithm](/features/tos-hash)
+
+---
+
+**"Don't Trust, Verify it"** - TOS Network mining provides trustless verification through Proof-of-Work consensus.

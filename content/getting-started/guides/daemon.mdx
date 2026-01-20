@@ -5,7 +5,7 @@ description: "Quick start guide to running a TOS Network daemon node - from inst
 
 # TOS Network Daemon Guide
 
-The **TOS Network Daemon** is a background program that runs continuously and keeps your blockchain node alive. It maintains the TOS ledger, connects to other peers in the network, validates transactions, and participates in the revolutionary **AI-Mining** consensus mechanism.
+The **TOS Network Daemon** is a background program that runs continuously and keeps your blockchain node alive. It maintains the TOS ledger, connects to other peers in the network, and validates transactions.
 
 This guide will help you get your TOS daemon up and running quickly, following the principle of **"Don't Trust, Verify it"**.
 
@@ -16,7 +16,6 @@ The TOS daemon (`tos_daemon`) is the core software that:
 - **Maintains the Blockchain**: Downloads, validates, and stores the TOS blockchain
 - **Network Participation**: Connects to peers across the TOS network
 - **Transaction Processing**: Validates and relays transactions
-- **AI-Mining Support**: Participates in productive AI-Mining consensus
 - **Privacy Protection**: Handles homomorphic encryption and zero-knowledge proofs
 - **API Services**: Provides JSON-RPC and WebSocket APIs for applications
 
@@ -29,27 +28,23 @@ Choose the node type that best fits your needs and resources:
 - **Security**: Most secure and trustless option - verify everything yourself
 - **Storage**: ~500GB+ (grows over time)
 - **Use Case**: Maximum security, running services, contributing to network decentralization
-- **AI-Mining**: Full participation in all AI-Mining activities
 
 ### Pruned Node
 - **Description**: Validates all blocks but discards old transaction data
 - **Storage**: ~50GB (keeps only recent state)
 - **Security**: Still validates everything, just doesn't store historical data
 - **Use Case**: Personal use with limited storage
-- **AI-Mining**: Can participate in current AI-Mining tasks
 
 ### Light Node
 - **Description**: Connects to full nodes for blockchain data
 - **Storage**: ~1GB (minimal local storage)
 - **Speed**: Fastest sync time
 - **Use Case**: Mobile devices, quick access, limited resources
-- **AI-Mining**: Limited participation (depends on connected full nodes)
 
 ### Archive Node
 - **Description**: Stores complete blockchain history with all intermediate states
 - **Storage**: 1TB+ (stores everything forever)
 - **Use Case**: Block explorers, analytics, research
-- **AI-Mining**: Full participation with historical data serving
 
 ## Quick Installation
 
@@ -185,26 +180,25 @@ node_type = "full"          # full, pruned, light, archive
 cache_size = 1024          # MB
 
 [mining]
-enable = false             # Set to true for AI-Mining
+enable = false             # Set to true for mining
 miner_address = ""         # Your mining address
-ai_threads = 4             # AI computation threads
+threads = 4                # Mining threads
 
 [logging]
 level = "info"             # trace, debug, info, warn, error
 file_path = "~/.tos/logs/daemon.log"
 ```
 
-### AI-Mining Setup
+### Mining Setup
 
-To participate in AI-Mining:
+To participate in mining:
 
 ```toml
 [mining]
 enable = true
 miner_address = "tos1your-address-here..."
-ai_threads = 4                    # Adjust based on your CPU
+threads = 4                       # Adjust based on your CPU
 gpu_enabled = true                # Enable GPU acceleration
-energy_threshold = 100            # Minimum TOS Energy to participate
 ```
 
 ### Privacy Settings
@@ -352,16 +346,16 @@ node_type = "pruned"
 tos_daemon restart
 ```
 
-#### 4. AI-Mining Not Working
+#### 4. Mining Not Working
 
-**Problem**: Not earning AI-Mining rewards
+**Problem**: Not earning mining rewards
 
 **Check**:
 ```bash
 # Verify mining is enabled
 tos_daemon mining-status
 
-# Check TOS Energy balance (needed for AI-Mining)
+# Check TOS Energy balance
 tos_daemon balance --energy
 
 # Verify miner address is correct
@@ -458,7 +452,7 @@ tar -czf tos-backup.tar.gz ~/.tos/config.toml ~/.tos/node_key.json
 Once your daemon is running:
 
 1. **Set up a Wallet**: [Wallet Setup Guide](/getting-started/wallet-setup)
-2. **Start AI-Mining**: [AI-Mining Guide](/getting-started/ai-mining)
+2. **Start Mining**: [Mining Guide](/features/mining)
 3. **Build Applications**: [Developer API](/developers-api/daemon)
 4. **Monitor Performance**: [Monitoring Guide](/tutorials/node-monitoring)
 
@@ -466,4 +460,4 @@ Once your daemon is running:
 
 **Welcome to TOS Network!** 🚀
 
-Your daemon is now part of a global network committed to **"Don't Trust, Verify it"** - where privacy, security, and productive AI-Mining create the future of blockchain technology.
+Your daemon is now part of a global network committed to **"Don't Trust, Verify it"** - where privacy, security, and decentralization create the future of blockchain technology.

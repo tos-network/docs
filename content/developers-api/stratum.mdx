@@ -1,17 +1,17 @@
 ---
 title: "Stratum Protocol"
-description: "Complete TOS Network Stratum protocol specification for mining pool integration, AI-mining support, and efficient work distribution."
+description: "Complete TOS Network Stratum protocol specification for mining pool integration, GPU-mining support, and efficient work distribution."
 ---
 
 # Stratum Protocol
 
-The TOS Network Stratum Protocol is an advanced mining communication protocol that enables efficient work distribution between mining pools and miners. Built on the principle of **"Don't Trust, Verify it"**, the protocol supports both traditional mining and AI-mining with enhanced security and performance features.
+The TOS Network Stratum Protocol is an advanced mining communication protocol that enables efficient work distribution between mining pools and miners. Built on the principle of **"Don't Trust, Verify it"**, the protocol supports both traditional mining and GPU-mining with enhanced security and performance features.
 
 ## Overview
 
 The TOS Stratum Protocol provides:
 
-- **Dual Mining Support**: Traditional hash mining and AI-task mining
+- **Dual Mining Support**: Traditional hash mining and GPU-accelerated mining
 - **Low Latency**: Optimized for real-time mining operations
 - **Efficient Communication**: Minimal bandwidth usage with JSON-RPC 2.0
 - **Security Features**: Work validation and difficulty adjustment
@@ -26,7 +26,7 @@ The TOS Stratum Protocol provides:
 - **Message Format**: Line-delimited JSON (`\n` terminated)
 - **Bidirectional**: Both client and server can initiate requests
 - **Connection**: Persistent TCP connection
-- **Default Port**: 4444 (Traditional), 4445 (AI-Mining)
+- **Default Port**: 4444
 
 ### Message Structure
 
@@ -85,7 +85,7 @@ Initialize mining session and subscribe to work notifications.
     "protocol_version": "1.0",
     "capabilities": {
       "traditional_mining": true,
-      "ai_mining": true,
+      "gpu_mining": true,
       "gpu_acceleration": true,
       "energy_payments": true
     }
@@ -130,8 +130,8 @@ Authenticate worker with pool credentials.
     "worker_info": {
       "hardware": "RTX 4090",
       "software": "TOS-Miner/1.2.0",
-      "capabilities": ["traditional", "ai_mining"],
-      "max_ai_threads": 4,
+      "capabilities": ["traditional", "gpu_mining"],
+      "max_gpu_threads": 4,
       "estimated_hashrate": "500000000" // H/s
     }
   },
@@ -190,20 +190,16 @@ Server sends new work to miners.
   }
 }
 
-// AI Mining Work
+// GPU Mining Work
 {
   "jsonrpc": "2.0",
   "method": "mining.notify",
   "params": {
-    "job_id": "ai_job_67890",
-    "work_type": "ai_mining",
-    "task_id": "task_ai_12345",
-    "task_type": "optimization", // "optimization", "verification", "analysis"
-    "task_data": {
-      "input_data": "0xinput_data_for_ai_processing",
-      "expected_output_format": "json",
-      "quality_threshold": 85.0,
-      "timeout_seconds": 300,
+    "job_id": "gpu_job_67890",
+    "work_type": "gpu",
+    "job_data": {
+      "algorithm": "tos-hash",
+      "memory_hard": true,
       "complexity_level": "intermediate"
     },
     "reward_multiplier": 1.5,
@@ -274,26 +270,19 @@ Submit mining solution to pool.
   "id": 3
 }
 
-// AI Mining Submission
+// GPU Mining Submission
 {
   "jsonrpc": "2.0",
   "method": "mining.submit",
   "params": {
     "worker_name": "worker_name",
-    "job_id": "ai_job_67890",
-    "task_id": "task_ai_12345",
-    "work_type": "ai_mining",
+    "job_id": "gpu_job_67890",
+    "work_type": "gpu",
     "solution_data": {
-      "output": {
-        "optimized_value": 87.3,
-        "convergence_steps": 1247,
-        "final_parameters": [1.25, 0.83, 2.47]
-      },
-      "quality_score": 91.5,
-      "computation_time": 245,
-      "verification_proof": "0xai_solution_proof"
+      "nonce": "507c7201",
+      "hash": "0x00000000000abc123...",
+      "computation_time": 245
     },
-    "nonce": "ai_nonce_12345",
     "timestamp": "507c7201",
     "energy_payment": true,
     "energy_amount": "75.5"
@@ -405,113 +394,45 @@ Keep-alive and latency measurement.
 }
 ```
 
-## AI Mining Extensions
+## GPU Mining Extensions
 
-### AI Task Types
-
-#### Optimization Tasks
+### GPU Mining Configuration
 
 ```json
 {
-  "task_type": "optimization",
-  "task_data": {
-    "objective_function": "minimize_energy_consumption",
-    "constraints": [
-      {"type": "inequality", "expression": "x1 + x2 <= 100"},
-      {"type": "equality", "expression": "x1 * x2 = 50"}
-    ],
-    "variables": {
-      "x1": {"min": 0, "max": 100, "type": "continuous"},
-      "x2": {"min": 0, "max": 100, "type": "continuous"}
-    },
-    "iterations_limit": 10000,
-    "precision_target": 0.001
+  "gpu_config": {
+    "device_id": 0,
+    "algorithm": "tos-hash",
+    "memory_clock": 1200,
+    "core_clock": 1800,
+    "power_limit": 250,
+    "fan_speed": 80
   },
-  "expected_output": {
-    "optimal_values": {"x1": "value", "x2": "value"},
-    "objective_value": "minimized_value",
-    "convergence_info": "details"
+  "performance_metrics": {
+    "hashrate": "125.5 MH/s",
+    "power_consumption": "220W",
+    "temperature": 65,
+    "efficiency": "0.57 MH/W"
   }
 }
 ```
 
-#### Verification Tasks
-
-```json
-{
-  "task_type": "verification",
-  "task_data": {
-    "smart_contract_bytecode": "0xcontract_bytecode",
-    "verification_rules": [
-      "no_reentrancy_vulnerabilities",
-      "integer_overflow_protection",
-      "access_control_validation"
-    ],
-    "test_cases": [
-      {
-        "input": {"amount": "1000", "recipient": "tos1addr..."},
-        "expected_behavior": "transfer_success"
-      }
-    ]
-  },
-  "expected_output": {
-    "verification_result": "pass/fail",
-    "vulnerabilities_found": ["list_of_issues"],
-    "security_score": "0-100",
-    "recommendations": ["improvement_suggestions"]
-  }
-}
-```
-
-#### Analysis Tasks
-
-```json
-{
-  "task_type": "analysis",
-  "task_data": {
-    "dataset": "0xencrypted_dataset",
-    "analysis_type": "pattern_recognition",
-    "parameters": {
-      "algorithm": "clustering",
-      "clusters": 5,
-      "convergence_threshold": 0.95
-    },
-    "privacy_preserving": true
-  },
-  "expected_output": {
-    "patterns_found": "pattern_description",
-    "confidence_score": "0-100",
-    "statistical_summary": "summary_data"
-  }
-}
-```
-
-### AI Solution Format
+### GPU Solution Format
 
 ```json
 {
   "solution_data": {
-    "task_id": "task_ai_12345",
-    "output": {
-      // Task-specific output structure
-      "result": "computed_result",
-      "metadata": {
-        "computation_time": 245,
-        "iterations_performed": 8743,
-        "convergence_achieved": true
-      }
+    "job_id": "job_12345",
+    "nonce": "507c7201",
+    "hash": "0x00000000000abc123...",
+    "metadata": {
+      "computation_time": 245,
+      "device_id": 0
     },
-    "quality_metrics": {
-      "accuracy": 91.5,
-      "efficiency": 87.2,
-      "completeness": 95.0,
-      "overall_score": 91.2
-    },
-    "verification_proof": "0xzk_proof_of_computation",
     "resource_usage": {
-      "cpu_time": 245.7,
-      "memory_peak": "2.3GB",
-      "gpu_utilization": "85%"
+      "gpu_utilization": "85%",
+      "memory_usage": "4.2GB",
+      "power_draw": "220W"
     }
   }
 }
@@ -538,26 +459,24 @@ TOS Mining Work Structure (112 bytes total):
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### AI Mining Work
+### GPU Mining Work
 
 ```
-AI Mining Work Structure (Variable length):
+GPU Mining Work Structure (128 bytes total):
 ┌─────────────────────────────────────────────────────────────┐
-│                    Task Header (64 bytes)                   │
+│                    Job Header (32 bytes)                    │
 ├─────────────────────────────────────────────────────────────┤
-│                    Task ID (32 bytes)                       │
+│                    Job ID (16 bytes)                        │
 ├─────────────────────────────────────────────────────────────┤
-│                    Task Type (4 bytes)                      │
+│                    Algorithm ID (4 bytes)                   │
 ├─────────────────────────────────────────────────────────────┤
 │                    Difficulty (8 bytes)                     │
 ├─────────────────────────────────────────────────────────────┤
 │                    Deadline (8 bytes)                       │
 ├─────────────────────────────────────────────────────────────┤
-│                    Quality Threshold (4 bytes)              │
+│                    Seed Hash (32 bytes)                     │
 ├─────────────────────────────────────────────────────────────┤
-│                    Reward Multiplier (4 bytes)              │
-├─────────────────────────────────────────────────────────────┤
-│                    Task Data (Variable length)              │
+│                    Target Hash (32 bytes)                   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -573,22 +492,22 @@ AI Mining Work Structure (Variable length):
 | -4 | Unauthorized worker | Worker not authorized |
 | -5 | Invalid solution | Solution validation failed |
 | -6 | Stale work | Work is too old |
-| -7 | Invalid task | AI task validation failed |
-| -8 | Quality too low | AI solution quality insufficient |
-| -9 | Timeout exceeded | AI task took too long |
+| -7 | Invalid nonce | Nonce validation failed |
+| -8 | Hash mismatch | Computed hash does not match |
+| -9 | Timeout exceeded | Work submission took too long |
 | -10 | Resource limit | Computing resource limit exceeded |
 
-### AI Mining Specific Errors
+### GPU Mining Specific Errors
 
 | Code | Message | Description |
 |------|---------|-------------|
-| -101 | AI capability required | Worker doesn't support AI mining |
-| -102 | Task type unsupported | AI task type not supported |
-| -103 | Verification failed | AI solution verification failed |
-| -104 | Quality threshold not met | Solution quality below threshold |
-| -105 | Computation timeout | AI task exceeded time limit |
-| -106 | Resource exhausted | Insufficient computational resources |
-| -107 | Proof invalid | Zero-knowledge proof validation failed |
+| -101 | GPU capability required | Worker doesn't support GPU mining |
+| -102 | Algorithm unsupported | Mining algorithm not supported |
+| -103 | Verification failed | Solution verification failed |
+| -104 | Memory insufficient | Insufficient GPU memory |
+| -105 | Computation timeout | Mining job exceeded time limit |
+| -106 | Device error | GPU device error occurred |
+| -107 | Driver incompatible | GPU driver version incompatible |
 
 ### Error Response Examples
 
@@ -608,17 +527,17 @@ AI Mining Work Structure (Variable length):
   "id": 3
 }
 
-// AI mining error
+// GPU mining error
 {
   "jsonrpc": "2.0",
   "error": {
     "code": -104,
-    "message": "Quality threshold not met",
+    "message": "Memory insufficient",
     "data": {
-      "task_id": "task_ai_12345",
-      "achieved_quality": 82.3,
-      "required_quality": 85.0,
-      "suggestion": "Improve computation accuracy"
+      "job_id": "job_12345",
+      "required_memory": "8GB",
+      "available_memory": "4GB",
+      "suggestion": "Increase GPU memory or reduce workload"
     }
   },
   "id": 3
@@ -730,7 +649,7 @@ class TosStratumClient {
       protocol_version: '1.0',
       capabilities: {
         traditional_mining: true,
-        ai_mining: true,
+        gpu_mining: true,
         energy_payments: true
       }
     });
@@ -749,7 +668,7 @@ class TosStratumClient {
       worker_info: {
         hardware: 'RTX 4090',
         software: 'TOS-Miner/1.2.0',
-        capabilities: ['traditional', 'ai_mining']
+        capabilities: ['traditional', 'gpu_mining']
       }
     });
   }
@@ -817,8 +736,8 @@ class TosStratumClient {
   handleNewWork(work) {
     if (work.work_type === 'traditional') {
       this.processTraditionalWork(work);
-    } else if (work.work_type === 'ai_mining') {
-      this.processAIWork(work);
+    } else if (work.work_type === 'gpu') {
+      this.processGPUWork(work);
     }
   }
 
@@ -827,9 +746,9 @@ class TosStratumClient {
     console.log('New traditional work:', work.job_id);
   }
 
-  processAIWork(work) {
-    // Implement AI mining logic
-    console.log('New AI work:', work.job_id, work.task_type);
+  processGPUWork(work) {
+    // Implement GPU mining logic
+    console.log('New GPU work:', work.job_id);
   }
 }
 
@@ -894,19 +813,19 @@ def validate_traditional_work(work_data, solution):
 
     return hash_int < target
 
-def validate_ai_solution(task_data, solution):
-    """Validate AI mining solution"""
+def validate_gpu_solution(job_data, solution):
+    """Validate GPU mining solution"""
 
-    # Check quality score
-    if solution['quality_score'] < task_data['quality_threshold']:
-        return False, 'Quality threshold not met'
+    # Check hash result
+    if not verify_hash(solution['hash'], job_data['target']):
+        return False, 'Hash does not meet target'
 
-    # Verify computation proof
-    if not verify_computation_proof(solution['verification_proof'], task_data):
-        return False, 'Computation proof invalid'
+    # Verify nonce
+    if not verify_nonce(solution['nonce'], job_data):
+        return False, 'Nonce verification failed'
 
     # Check solution format
-    if not validate_solution_format(solution['output'], task_data['expected_output_format']):
+    if not validate_solution_format(solution, job_data):
         return False, 'Invalid solution format'
 
     return True, 'Valid solution'
@@ -1026,4 +945,4 @@ class StratumRateLimiter:
 }
 ```
 
-The TOS Network Stratum Protocol provides efficient, secure, and feature-rich communication between mining pools and miners, supporting both traditional and AI mining while maintaining the core principle of "Don't Trust, Verify it." The protocol ensures optimal performance and fair reward distribution in the decentralized mining ecosystem.
+The TOS Network Stratum Protocol provides efficient, secure, and feature-rich communication between mining pools and miners, supporting both traditional and GPU mining while maintaining the core principle of "Don't Trust, Verify it." The protocol ensures optimal performance and fair reward distribution in the decentralized mining ecosystem.

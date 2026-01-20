@@ -15,7 +15,7 @@ Complete history of TOS Network protocol upgrades, hard forks, and major improve
 **Status**: ✅ Active on Mainnet
 
 ### Key Features
-- Enhanced AI-Mining algorithms with 40% efficiency improvement
+- Enhanced mining algorithms with 40% efficiency improvement
 - Advanced privacy features with ring signatures
 - Cross-chain bridge protocol integration
 - Smart contract gas optimization
@@ -29,7 +29,7 @@ Complete history of TOS Network protocol upgrades, hard forks, and major improve
 **Consensus**: 97.8% miner approval
 
 #### Major Changes
-- **AI-Mining Enhancement**: New quality scoring algorithm
+- **Mining Enhancement**: New difficulty adjustment algorithm
 - **Privacy Upgrade**: Ring signature implementation
 - **Cross-Chain**: Ethereum and BSC bridge support
 - **Performance**: 60% faster transaction processing
@@ -38,22 +38,6 @@ Complete history of TOS Network protocol upgrades, hard forks, and major improve
 #### Technical Specifications
 
 ```rust
-// New AI-Mining quality calculation
-pub fn calculate_quality_score_v3(
-    solution_accuracy: f64,
-    computational_efficiency: f64,
-    network_contribution: f64,
-    time_factor: f64
-) -> f64 {
-    let base_score = solution_accuracy * 0.4 +
-                     computational_efficiency * 0.3 +
-                     network_contribution * 0.2;
-
-    let time_bonus = if time_factor < 0.8 { 0.1 } else { 0.0 };
-
-    (base_score + time_bonus).min(10.0)
-}
-
 // Ring signature implementation
 pub struct RingSignature {
     pub ring_size: usize,
@@ -69,9 +53,6 @@ pub struct RingSignature {
 ```bash
 # Update mining software
 ./tos-miner --version  # Should show v3.1+
-
-# Update AI-Mining tasks
-./tos-miner --update-ai-algorithms
 
 # Verify upgrade
 ./tos-miner --check-network-version
@@ -107,7 +88,6 @@ if (version >= "3.1.0") {
 
 #### Major Changes
 - **Smart Contracts**: RVM (Rust Virtual Machine) launch
-- **AI-Mining**: Introduction of AI-Mining protocol
 - **Scalability**: BlockDAG optimizations
 - **Energy Model**: Dynamic energy consumption system
 
@@ -140,29 +120,6 @@ impl RVMExecutor {
 }
 ```
 
-#### AI-Mining Launch
-
-```python
-# Initial AI-Mining task types
-SUPPORTED_TASKS = {
-    'image_classification': {
-        'reward_multiplier': 1.0,
-        'complexity': 'medium',
-        'min_accuracy': 0.85
-    },
-    'natural_language_processing': {
-        'reward_multiplier': 1.2,
-        'complexity': 'high',
-        'min_accuracy': 0.80
-    },
-    'time_series_prediction': {
-        'reward_multiplier': 1.1,
-        'complexity': 'medium',
-        'min_accuracy': 0.90
-    }
-}
-```
-
 #### Migration Guide
 
 **For Node Operators**:
@@ -179,7 +136,6 @@ SUPPORTED_TASKS = {
 
 #### Upgrade Results
 - ✅ Smart contracts: 500+ contracts deployed in first month
-- ✅ AI-Mining: 15,000+ participants joined
 - ✅ Network stability: 99.9% uptime maintained
 
 ---
@@ -358,9 +314,8 @@ pub enum PQCScheme {
 
 #### Planned Features
 - **Sharding**: Horizontal scaling implementation
-- **AI-Mining 2.0**: Advanced AI task marketplace
 - **Zero-Knowledge**: zkSNARK integration
-- **Consensus**: Hybrid PoW/PoS mechanism
+- **Consensus**: Enhanced PoW mechanism
 
 ## 📊 Upgrade Statistics
 
@@ -420,7 +375,6 @@ tos-version-check --contract ./MyContract.java --target-version 3.1
 
 # Output:
 # ✅ Contract compatible with TOS v3.1
-# ⚠️  Consider using new AI-Mining APIs
 # ✅ Gas optimizations available
 ```
 

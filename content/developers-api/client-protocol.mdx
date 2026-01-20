@@ -89,7 +89,7 @@ const networkInfo = await client.request({
   "difficulty": 15000000,
   "hash_rate": "125.5 TH/s",
   "peer_count": 45,
-  "ai_mining_ratio": 0.42,
+  "gpu_mining_ratio": 0.42,
   "energy_efficiency": 0.85
 }
 ```
@@ -213,7 +213,7 @@ const miningResult = await client.request({
   params: {
     miner_address: "tos1miner-address...",
     threads: 4,
-    ai_mining: true,
+    gpu_mining: true,
     gpu_devices: [0, 1]
   }
 });
@@ -436,8 +436,8 @@ const miningSubscription = client.subscribe('mining_events', (event) => {
     case 'difficulty_adjustment':
       console.log('Difficulty adjusted:', event.new_difficulty);
       break;
-    case 'ai_mining_reward':
-      console.log('AI mining reward:', event.reward_amount);
+    case 'mining_reward':
+      console.log('Mining reward:', event.reward_amount);
       break;
   }
 });
@@ -483,7 +483,7 @@ Response:
   "transaction_count": 156,
   "size": 1048576,
   "miner": "tos1miner-address...",
-  "ai_mining": true
+  "gpu_mining": true
 }
 ```
 
@@ -726,11 +726,11 @@ class TOSNetworkClient:
         return self.call('create_address', {'wallet_name': wallet_name})
 
     # Mining methods
-    def start_mining(self, miner_address: str, threads: int = 4, ai_mining: bool = True) -> Dict[str, Any]:
+    def start_mining(self, miner_address: str, threads: int = 4, gpu_mining: bool = True) -> Dict[str, Any]:
         return self.call('start_mining', {
             'miner_address': miner_address,
             'threads': threads,
-            'ai_mining': ai_mining
+            'gpu_mining': gpu_mining
         })
 
     def stop_mining(self) -> Dict[str, Any]:

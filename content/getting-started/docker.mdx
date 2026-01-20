@@ -231,7 +231,7 @@ services:
       - TOS_DAEMON_URL=http://tos-daemon:8080
       - TOS_MINING_ADDRESS=tos1your-mining-address-here...
       - TOS_MINING_THREADS=4
-      - TOS_AI_MINING_ENABLED=true
+      - TOS_GPU_MINING_ENABLED=true
     depends_on:
       tos-daemon:
         condition: service_healthy
@@ -470,7 +470,7 @@ services:
       - TOS_NETWORK=devnet
       - TOS_LOG_LEVEL=debug
       - TOS_MINING_ENABLED=true
-      - TOS_AI_MINING_ENABLED=true
+      - TOS_GPU_MINING_ENABLED=true
       - TOS_INSTANT_FINALITY=true
     command: ["tos-daemon", "start", "--dev"]
     networks:

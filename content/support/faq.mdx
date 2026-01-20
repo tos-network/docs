@@ -1,6 +1,6 @@
 ---
 title: Frequently Asked Questions
-description: Common questions and answers about TOS Network, AI-Mining, smart contracts, and development
+description: Common questions and answers about TOS Network, smart contracts, and development
 ---
 
 # Frequently Asked Questions
@@ -11,10 +11,10 @@ Find quick answers to the most common questions about TOS Network. Can't find wh
 
 ### What is TOS Network?
 
-TOS Network is a next-generation blockchain that combines traditional Proof-of-Work mining with AI-Mining, creating a unique ecosystem where computational power contributes to both network security and artificial intelligence advancement.
+TOS Network is a next-generation blockchain that uses Proof-of-Work mining with BlockDAG technology for enhanced scalability and security.
 
 **Key Features**:
-- **Hybrid Mining**: Traditional PoW + AI-Mining
+- **Proof-of-Work Mining**: Secure and decentralized consensus
 - **BlockDAG Architecture**: Enhanced scalability and parallelization
 - **Smart Contracts**: Java-based contracts running on RVM (Rust Virtual Machine)
 - **Privacy Features**: Ring signatures and confidential transactions
@@ -31,9 +31,9 @@ graph LR
 ```
 
 **Unique Advantages**:
-1. **Dual-purpose Mining**: Computational power serves blockchain security AND AI research
-2. **Energy Efficiency**: AI-Mining utilizes otherwise "wasted" computational cycles
-3. **Real-world Value**: AI tasks have practical applications beyond just mining
+1. **BlockDAG Architecture**: Enhanced scalability through parallel block processing
+2. **Privacy Features**: Advanced cryptographic privacy protections
+3. **Energy Model**: Gas-free transactions through energy staking
 4. **Developer-friendly**: Java smart contracts with familiar syntax
 
 ### What is the TOS token used for?
@@ -41,15 +41,13 @@ graph LR
 **Primary Uses**:
 - **Transaction Fees**: Pay for network transactions
 - **Smart Contract Execution**: Gas fees for contract operations
-- **AI-Mining Rewards**: Earnings from AI task completion
+- **Mining Rewards**: Block rewards for miners
 - **Staking**: Governance participation and validation
 - **Cross-chain Transfers**: Bridge fees for multi-chain operations
 
 **Tokenomics**:
 - **Total Supply**: 21,000,000 TOS (same as Bitcoin)
-- **Current Circulation**: ~8,945,123 TOS
 - **Block Reward**: 50 TOS (halving every 210,000 blocks)
-- **AI-Mining Bonus**: Up to 30% additional rewards
 
 ### Is TOS Network environmentally friendly?
 
@@ -72,138 +70,9 @@ const energyComparison = {
 ```
 
 **Environmental Benefits**:
-- **4,600x more energy efficient** per transaction than Bitcoin
-- **Dual-purpose computation** reduces overall energy waste
-- **AI-Mining optimization** continuously improves efficiency
-- **Renewable energy incentives** for AI-Mining participants
-
-## 🤖 AI-Mining Questions
-
-### What is AI-Mining and how does it work?
-
-AI-Mining is TOS Network's innovative consensus mechanism where miners contribute computational power to solve real-world AI tasks while simultaneously securing the blockchain.
-
-**How it Works**:
-1. **Task Assignment**: Network assigns AI tasks (image recognition, NLP, etc.)
-2. **Computation**: Miners process tasks using CPU/GPU resources
-3. **Quality Scoring**: Solutions evaluated for accuracy and efficiency
-4. **Rewards**: High-quality solutions earn TOS tokens
-5. **Network Security**: Mining also validates blockchain transactions
-
-### What types of AI tasks are available?
-
-**Current Task Categories**:
-
-| Task Type | Difficulty | Reward Multiplier | Hardware Needs |
-|-----------|------------|-------------------|----------------|
-| **Image Classification** | Medium | 1.0x | GPU recommended |
-| **Natural Language Processing** | High | 1.2x | GPU + RAM |
-| **Time Series Prediction** | Medium | 1.1x | CPU sufficient |
-| **Computer Vision** | High | 1.3x | High-end GPU |
-| **Speech Recognition** | Medium | 1.0x | GPU recommended |
-| **Anomaly Detection** | Low | 0.9x | CPU sufficient |
-
-**Example Task**:
-```python
-# Image classification task example
-task = {
-    'type': 'image_classification',
-    'dataset': 'medical_xrays',
-    'classes': ['normal', 'pneumonia', 'covid19'],
-    'images': 1000,
-    'target_accuracy': 0.92,
-    'reward': 15.5,  # TOS tokens
-    'deadline': '2024-10-25T12:00:00Z'
-}
-```
-
-### What hardware do I need for AI-Mining?
-
-**Minimum Requirements**:
-- **CPU**: 4 cores, 2.5GHz+
-- **RAM**: 8GB
-- **Storage**: 50GB SSD
-- **GPU**: GTX 1060 or equivalent (recommended)
-- **Internet**: Stable broadband connection
-
-**Recommended Setups**:
-
-```yaml
-budget_setup:
-  cpu: "AMD Ryzen 5 5600X"
-  ram: "16GB DDR4"
-  gpu: "RTX 3060"
-  estimated_daily_earnings: "3-5 TOS"
-
-performance_setup:
-  cpu: "AMD Ryzen 9 7900X"
-  ram: "32GB DDR5"
-  gpu: "RTX 4080"
-  estimated_daily_earnings: "12-18 TOS"
-
-professional_setup:
-  cpu: "AMD Threadripper PRO"
-  ram: "128GB DDR4"
-  gpu: "RTX 4090 x2"
-  estimated_daily_earnings: "35-50 TOS"
-```
-
-### How much can I earn with AI-Mining?
-
-**Earnings depend on**:
-- Hardware performance
-- Quality score consistency
-- Task selection strategy
-- Network participation level
-- Energy costs
-
-**Example Calculations**:
-```javascript
-// Daily earnings estimation
-function estimateEarnings(hashRate, qualityScore, powerCost) {
-  const baseReward = hashRate * 0.0001; // Base mining
-  const aiBonus = baseReward * (qualityScore / 10) * 0.3; // AI bonus
-  const grossEarnings = baseReward + aiBonus;
-  const energyCost = powerCost * 24; // Daily energy cost
-
-  return grossEarnings - energyCost;
-}
-
-// Example: RTX 3080 setup
-const dailyEarnings = estimateEarnings(
-  120, // TH/s equivalent
-  8.5, // Quality score
-  0.15 // $0.15/kWh
-);
-// Result: ~8-12 TOS per day
-```
-
-### How is AI task quality measured?
-
-**Quality Scoring Algorithm**:
-```rust
-pub fn calculate_quality_score(
-    accuracy: f64,           // 0.0 to 1.0
-    efficiency: f64,         // Speed factor
-    innovation: f64,         // Algorithm novelty
-    consistency: f64         // Historical performance
-) -> f64 {
-    let weights = [0.4, 0.25, 0.2, 0.15];
-    let scores = [accuracy, efficiency, innovation, consistency];
-
-    weights.iter()
-          .zip(scores.iter())
-          .map(|(w, s)| w * s)
-          .sum::<f64>()
-          .min(10.0)
-}
-```
-
-**Scoring Factors**:
-- **Accuracy** (40%): Correctness of AI solution
-- **Efficiency** (25%): Speed and resource optimization
-- **Innovation** (20%): Novel approaches and improvements
-- **Consistency** (15%): Historical performance track record
+- **More energy efficient** per transaction than traditional PoW
+- **BlockDAG efficiency** reduces computational waste
+- **Optimized algorithms** continuously improve efficiency
 
 ## 🔗 Smart Contracts & Development
 
@@ -388,7 +257,6 @@ tx_hash = contract.functions.transfer(
 | **Wallet API** | Wallet management | `/v1/wallet` | [Docs](/developers-api/wallet) |
 | **Index API** | Blockchain data | `/v1/index` | [Docs](/developers-api/index-api) |
 | **Mini API** | Mobile/IoT | `/v1/mini` | [Docs](/developers-api/mini-api) |
-| **AI-Mining API** | Mining operations | `/v1/ai-mining` | [Docs](/developers-api/ai-mining) |
 
 **Example API Usage**:
 ```javascript
@@ -524,56 +392,6 @@ const txHash = await tos.wallet.sendTransaction({
 });
 ```
 
-### Why is my AI-Mining not working?
-
-**Troubleshooting Checklist**:
-
-1. **Check Hardware Requirements**:
-```bash
-# GPU status
-nvidia-smi
-
-# CPU info
-lscpu | grep "Model name"
-
-# Memory usage
-free -h
-```
-
-2. **Verify Network Connection**:
-```bash
-# Test RPC connection
-curl -X POST https://rpc.tos.network \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tos_blockNumber","params":[],"id":1}'
-```
-
-3. **Check Mining Configuration**:
-```toml
-# ~/.tos/miner.toml
-[ai_mining]
-enabled = true
-gpu_enabled = true
-max_memory_usage = 0.8
-worker_threads = 8
-
-[network]
-rpc_url = "https://rpc.tos.network"
-worker_address = "your_wallet_address"
-```
-
-4. **Monitor Logs**:
-```bash
-# Check miner logs
-tail -f ~/.tos/logs/miner.log
-
-# Look for common issues:
-# - CUDA initialization errors
-# - Network connectivity issues
-# - Task downloading failures
-# - Quality score problems
-```
-
 ### How do I troubleshoot smart contract deployment failures?
 
 **Common Issues**:
@@ -659,53 +477,11 @@ public void batchTransfer(Address[] recipients, BigInteger[] amounts) {
 
 ### Where can I buy/sell TOS tokens?
 
-**Supported Exchanges**:
-
-| Exchange | Type | Trading Pairs | Features |
-|----------|------|---------------|----------|
-| **Binance** | CEX | TOS/USDT, TOS/BTC | High liquidity |
-| **Coinbase** | CEX | TOS/USD | Fiat gateway |
-| **KuCoin** | CEX | TOS/USDT | Advanced trading |
-| **TOSSwap** | DEX | TOS/ETH, TOS/USDC | Native DEX |
-| **Uniswap V3** | DEX | TOS/ETH | DeFi ecosystem |
-
-**Trading Examples**:
-```javascript
-// TOSSwap (native DEX)
-const quote = await tosSwap.getQuote({
-  tokenIn: 'USDT',
-  tokenOut: 'TOS',
-  amountIn: '1000'
-});
-
-const swapTx = await tosSwap.swap({
-  tokenIn: 'USDT',
-  tokenOut: 'TOS',
-  amountIn: '1000',
-  amountOutMin: quote.amountOutMin,
-  slippage: 0.5 // 0.5%
-});
-```
+TOS Network is currently in development. Exchange listings will be announced through community governance voting once the mainnet is launched. Stay tuned to our official channels for updates.
 
 ### What is the current market cap and price?
 
-**Live Market Data** (Example):
-```javascript
-const marketData = {
-  price: '$0.52',
-  marketCap: '$4.65M',
-  volume24h: '$1.2M',
-  circulatingSupply: '8,945,123 TOS',
-  maxSupply: '21,000,000 TOS',
-  rank: 387,
-  priceChange24h: '+12.4%'
-};
-```
-
-**Where to Track**:
-- [CoinMarketCap](https://coinmarketcap.com/currencies/tos-network/)
-- [CoinGecko](https://coingecko.com/en/coins/tos-network)
-- [TOSSwap Analytics](https://analytics.tosswap.io/)
+TOS Network is currently in development and has not yet launched on any exchanges. Price and market data will be available after the mainnet launch and exchange listings.
 
 ### How do staking and governance work?
 
@@ -842,9 +618,8 @@ tos-cli wallet backup \
 ### Is there a mobile wallet app?
 
 **TOS Mobile Wallet**:
-- **iOS**: Available on App Store
-- **Android**: Available on Google Play
-- **Features**: Full wallet functionality, AI-Mining monitoring, DeFi access
+
+Mobile wallet applications are currently in development. Official releases will be announced on our website and social channels.
 
 **Mobile SDK Integration**:
 ```swift
@@ -867,14 +642,16 @@ println("Balance: $balance TOS")
 
 ### What DeFi protocols are available?
 
-**Native DeFi Ecosystem**:
+**Native DeFi Ecosystem** (Planned):
 
-| Protocol | Type | TVL | Features |
-|----------|------|-----|----------|
-| **TOSSwap** | DEX | $45M | AMM, Liquidity Mining |
-| **TOSLend** | Lending | $23M | Borrowing, Lending |
-| **TOSFarm** | Yield Farming | $18M | LP staking, Rewards |
-| **TOSBridge** | Cross-chain | $12M | Multi-chain assets |
+| Protocol | Type | Features |
+|----------|------|----------|
+| **TOSSwap** | DEX | AMM, Liquidity Mining |
+| **TOSLend** | Lending | Borrowing, Lending |
+| **TOSFarm** | Yield Farming | LP staking, Rewards |
+| **TOSBridge** | Cross-chain | Multi-chain assets |
+
+These DeFi protocols are planned for development after mainnet launch.
 
 **DeFi Integration Example**:
 ```javascript

@@ -17,7 +17,7 @@ TOS Network's tokenomics are designed around the core principle of **"Don't Trus
 | **Ticker** | TOS |
 | **Maximum Supply** | 21,000,000 TOS |
 | **Initial Supply** | 0 TOS (No premine) |
-| **Consensus** | Proof of Work + AI-Mining |
+| **Consensus** | Proof of Work (BlockDAG) |
 | **Block Time** | 15 seconds |
 
 ### Token Utility
@@ -38,7 +38,7 @@ TOS follows a carefully designed emission curve to ensure long-term sustainabili
 Total Supply: 21,000,000 TOS
 Initial Block Reward: 50 TOS
 Halving Interval: Every 210,000 blocks (~36.5 days)
-Mining Algorithm: TOS-Hash + AI-Mining
+Mining Algorithm: TOS-Hash
 ```
 
 ### Block Reward Structure
@@ -62,41 +62,9 @@ pub fn calculate_block_reward(block_height: u64) -> u64 {
 
 Each block reward is distributed as follows:
 
-- **80%** - Block Miner (Traditional or AI-Mining)
+- **80%** - Block Miner
 - **15%** - Network Development Fund
 - **5%** - Community Treasury
-
-## AI-Mining Economics
-
-### Dual Reward System
-
-TOS Network supports both traditional mining and AI-Mining with balanced incentives:
-
-| Mining Type | Base Reward | Difficulty Modifier | Energy Efficiency |
-|-------------|-------------|-------------------|------------------|
-| **Traditional Mining** | 100% | 1.0x | Standard |
-| **AI-Mining** | 110% | 1.1x | Enhanced |
-
-### AI-Mining Bonus Structure
-
-```python
-def calculate_ai_mining_reward(base_reward, quality_score, innovation_score):
-    """
-    Calculate AI-Mining reward based on work quality
-
-    Args:
-        base_reward: Standard mining reward
-        quality_score: Work quality (0.0 to 1.0)
-        innovation_score: Innovation metric (0.0 to 1.0)
-
-    Returns:
-        Total reward including quality bonuses
-    """
-    quality_bonus = base_reward * (quality_score * 0.1)  # Up to 10% bonus
-    innovation_bonus = base_reward * (innovation_score * 0.05)  # Up to 5% bonus
-
-    return base_reward + quality_bonus + innovation_bonus
-```
 
 ## Supply Distribution Forecast
 
@@ -161,7 +129,6 @@ TOS Network generates value through multiple mechanisms:
 
 - **Transaction Fees**: Direct network usage
 - **Smart Contract Execution**: DApp ecosystem growth
-- **AI-Mining Services**: Productive work marketplace
 - **Cross-chain Operations**: Interoperability features
 - **Privacy Services**: Confidential transaction premiums
 
@@ -170,16 +137,14 @@ TOS Network generates value through multiple mechanisms:
 **Quarterly Burns** (Starting Year 2):
 - 25% of transaction fees burned
 - 10% of smart contract gas burned
-- 5% of AI-mining service fees burned
 
 ```python
 def calculate_quarterly_burn(quarter_data):
     """Calculate tokens to be burned each quarter"""
     transaction_burn = quarter_data['transaction_fees'] * 0.25
     smart_contract_burn = quarter_data['smart_contract_gas'] * 0.10
-    ai_mining_burn = quarter_data['ai_mining_fees'] * 0.05
 
-    total_burn = transaction_burn + smart_contract_burn + ai_mining_burn
+    total_burn = transaction_burn + smart_contract_burn
     return min(total_burn, quarter_data['max_burn_limit'])
 ```
 
@@ -198,7 +163,6 @@ Minimum Hashrate Requirement = 1 PH/s
 | Attack Vector | Required Resources | Economic Cost | Success Probability |
 |---------------|-------------------|---------------|-------------------|
 | **51% Attack** | >50% network hashrate | $10M+ annually | Low (BlockDAG resistant) |
-| **AI-Mining Manipulation** | Advanced AI systems | $5M+ setup | Very Low (quality verification) |
 | **Smart Contract Exploit** | Code vulnerabilities | Variable | Low (formal verification) |
 
 ## Governance Token Features
@@ -230,7 +194,7 @@ pub fn calculate_voting_power(
 
 | Project | Max Supply | Consensus | Halving Period | Premine |
 |---------|------------|-----------|----------------|---------|
-| **TOS Network** | 21M | PoW + AI | ~36.5 days | 0% |
+| **TOS Network** | 21M | PoW (BlockDAG) | ~36.5 days | 0% |
 | **Bitcoin** | 21M | PoW | ~4 years | 0% |
 | **Ethereum** | Unlimited | PoS | None | 72M |
 | **Monero** | ~18.4M + tail | PoW | Dynamic | 0% |
@@ -242,7 +206,6 @@ pub fn calculate_voting_power(
 **Revenue Diversification**:
 - Block rewards (decreasing)
 - Transaction fees (increasing)
-- AI-mining marketplace (growing)
 - DeFi ecosystem fees (expanding)
 
 **Deflationary Pressure**:
@@ -268,7 +231,7 @@ Better Security → More Confidence → Greater Adoption
 
 ### Mitigation Strategies
 
-- **Diversified Mining**: Traditional + AI-mining
+- **Diversified Mining**: Decentralized PoW mining
 - **Adaptive Parameters**: Dynamic difficulty adjustment
 - **Treasury Reserves**: Emergency funding
 - **Quantum Resistance**: Post-quantum cryptography research
@@ -277,7 +240,7 @@ Better Security → More Confidence → Greater Adoption
 
 ### Phase 1: Optimization (2024-2025)
 - Enhanced energy model
-- Improved AI-mining rewards
+- Improved mining rewards
 - Cross-chain token bridges
 
 ### Phase 2: Expansion (2025-2026)
@@ -292,6 +255,6 @@ Better Security → More Confidence → Greater Adoption
 
 ## Conclusion
 
-TOS Network's tokenomics are designed for long-term sustainability, combining the proven scarcity model of Bitcoin with innovative AI-mining rewards and energy-based transactions. Our transparent, mathematically verifiable approach ensures that **"Don't Trust, Verify it"** applies to every aspect of our economic model.
+TOS Network's tokenomics are designed for long-term sustainability, combining the proven scarcity model of Bitcoin with innovative mining rewards and energy-based transactions. Our transparent, mathematically verifiable approach ensures that **"Don't Trust, Verify it"** applies to every aspect of our economic model.
 
 The combination of deflationary mechanisms, productive work incentives, and governance features creates a robust economic foundation for the TOS ecosystem's growth and success.

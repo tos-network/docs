@@ -315,7 +315,7 @@ Example:
   "upgrade_name": "TOS Network v3.0",
   "activation_height": 3500000,
   "features": [
-    "Enhanced AI-Mining algorithms",
+    "Enhanced mining algorithms",
     "Cross-chain bridge integration",
     "Advanced privacy features"
   ],
@@ -502,14 +502,14 @@ const governance = new TOSGovernance(provider);
 
 const proposal = await governance.createProposal({
   type: ProposalType.ParameterChange,
-  title: "Increase AI-Mining Reward Multiplier",
+  title: "Increase Mining Reward Multiplier",
   description: `
-    Proposal to increase AI-Mining reward multiplier from 1.1x to 1.3x
-    to incentivize more AI-Mining participation and improve network
-    computational diversity.
+    Proposal to increase mining reward multiplier from 1.1x to 1.3x
+    to incentivize more mining participation and improve network
+    decentralization.
   `,
   changes: {
-    parameter: "ai_mining_multiplier",
+    parameter: "mining_multiplier",
     currentValue: "1.1",
     proposedValue: "1.3"
   },

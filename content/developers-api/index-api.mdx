@@ -67,13 +67,13 @@ GET /blocks/search
 - `tx_count_max` (int): Maximum transaction count
 - `size_min` (int): Minimum block size in bytes
 - `size_max` (int): Maximum block size in bytes
-- `has_ai_mining` (bool): Filter for AI-mined blocks
+- `has_gpu_mining` (bool): Filter for GPU-mined blocks
 - `limit` (int): Results per page (max 1000)
 - `offset` (int): Pagination offset
 
 **Example Request:**
 ```http
-GET /blocks/search?height_min=2800000&height_max=2900000&has_ai_mining=true&limit=100
+GET /blocks/search?height_min=2800000&height_max=2900000&has_gpu_mining=true&limit=100
 ```
 
 **Response:**
@@ -89,8 +89,7 @@ GET /blocks/search?height_min=2800000&height_max=2900000&has_ai_mining=true&limi
       "size": 2048,
       "difficulty": 18796541234567,
       "reward": "50.000000",
-      "ai_mined": true,
-      "ai_task_count": 3,
+      "gpu_mined": true,
       "total_fees": "0.125000",
       "tips_referenced": ["tip1_hash...", "tip2_hash..."]
     }
@@ -162,7 +161,7 @@ POST /transactions/analytics
       "by_type": {
         "transfer": 140567,
         "smart_contract": 12345,
-        "ai_mining": 3877
+        "mining_reward": 3877
       }
     }
   },
@@ -283,51 +282,6 @@ GET /mining/pools/analytics
       "solo": 10.8
     },
     "decentralization_index": 0.76
-  }
-}
-```
-
-### AI-Mining Performance
-
-```http
-GET /ai-mining/performance
-```
-
-**Parameters:**
-- `time_range` (string): Analysis period
-- `task_type` (string): Specific AI task type
-- `quality_min` (float): Minimum quality score
-
-**Response:**
-```json
-{
-  "performance_metrics": {
-    "total_tasks_completed": 15678,
-    "average_quality_score": 8.7,
-    "average_completion_time": "2.3 hours",
-    "success_rate": 94.5,
-    "total_rewards_distributed": "45678.901234"
-  },
-  "task_categories": [
-    {
-      "category": "machine_learning",
-      "count": 8934,
-      "average_reward": "12.345678",
-      "average_quality": 9.1,
-      "top_performers": [
-        {
-          "address": "tos1ai_worker123...",
-          "tasks_completed": 145,
-          "average_quality": 9.8,
-          "total_earned": "1876.543210"
-        }
-      ]
-    }
-  ],
-  "trends": {
-    "quality_improvement": "+5.2% monthly",
-    "participation_growth": "+12.8% monthly",
-    "reward_efficiency": "+8.1% monthly"
   }
 }
 ```
@@ -695,7 +649,7 @@ ws.onopen = function() {
       'blocks.new',
       'transactions.large_amount',
       'mining.difficulty_change',
-      'ai_mining.task_complete'
+      'mining.block_found'
     ],
     filters: {
       'transactions.large_amount': { min_amount: '1000.0' }
@@ -720,7 +674,7 @@ ws.onmessage = function(event) {
     "hash": "new_block_hash_def456...",
     "miner": "tos1miner456...",
     "transaction_count": 67,
-    "ai_mined": true,
+    "gpu_mined": true,
     "reward": "50.000000"
   }
 }

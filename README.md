@@ -4,13 +4,13 @@ This repository contains all documentation about TOS Network (OpenSystem Network
 
 ## About TOS Network
 
-TOS is the world's first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts - guided by the principle **"Don't Trust, Verify it"**.
+TOS is a BlockDAG with Privacy, Scalability, and Smart Contracts - guided by the principle **"Don't Trust, Verify it"**.
 
-Built from scratch with a focus on trustless verification, scalability, and revolutionary AI-powered mining, TOS Network is a decentralized blockchain that eliminates trust through cryptographic proof and verification.
+Built from scratch with a focus on trustless verification and scalability, TOS Network is a decentralized blockchain that eliminates trust through cryptographic proof and verification.
 
 ## Key Features
 
-- **🧠 AI-Mining System**: World's first dual-track mining combining traditional PoW with productive AI services
+- **🤖 A2A Integration**: Agent-to-Agent protocol enabling autonomous agent interactions
 - **🔒 Privacy**: Homomorphic Encryption and Zero-Knowledge Proofs for complete privacy
 - **⚡ Scalability**: BlockDAG architecture with enhanced performance
 - **🚀 Smart Contracts**: Rust Virtual Machine (RVM) with Java 8 compatibility

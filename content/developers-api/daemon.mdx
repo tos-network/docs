@@ -206,7 +206,7 @@ Get block template for mining.
   "method": "get_block_template",
   "params": {
     "address": "tos1miner-address...",
-    "ai_mining": true
+    "gpu_mining": true
   },
   "id": 1
 }
@@ -307,9 +307,9 @@ Get block information by hash.
     "total_size": 1048576,
     "transaction_count": 156,
     "transactions": ["0xtx1...", "0xtx2..."],
-    "ai_mining_data": {
-      "task_completed": true,
-      "quality_score": 87.5,
+    "mining_data": {
+      "block_found": true,
+      "shares_submitted": 125,
       "bonus_reward": "500000000000"
     },
     "cumulative_difficulty": "0x9f8e7d6c5b4a"
@@ -628,7 +628,7 @@ Get mining work for specific miner.
   "method": "get_miner_work",
   "params": {
     "address": "tos1miner...",
-    "work_type": "ai_mining" // "traditional" or "ai_mining"
+    "work_type": "gpu" // "cpu" or "gpu"
   },
   "id": 1
 }
@@ -684,7 +684,7 @@ Get connected peer information.
         "ping": 45,
         "version": "1.2.0",
         "user_agent": "TOS Node/1.2.0",
-        "supports_ai_mining": true
+        "supports_gpu_mining": true
       }
       // ... more peers
     ],
@@ -773,12 +773,12 @@ Subscribe to real-time events.
   "id": 2
 }
 
-// Subscribe to AI mining events
+// Subscribe to mining events
 {
   "jsonrpc": "2.0",
   "method": "subscribe",
   "params": {
-    "event": "ai_mining_task"
+    "event": "mining_status"
   },
   "id": 3
 }
@@ -829,21 +829,19 @@ Subscribe to real-time events.
 }
 ```
 
-#### AI Mining Task Event
+#### Mining Status Event
 
 ```javascript
 // Event notification
 {
   "jsonrpc": "2.0",
-  "method": "ai_mining_task",
+  "method": "mining_status",
   "params": {
-    "event_type": "task_published", // "task_published", "task_completed", "solution_submitted"
-    "task_id": "ai_task_12345",
-    "task_type": "optimization",
-    "reward": "10000000000000",
-    "deadline": 1672531500,
-    "publisher": "tos1publisher...",
-    "miner": "tos1miner..." // Only for solution_submitted/task_completed
+    "event_type": "block_found", // "block_found", "share_submitted", "difficulty_change"
+    "block_height": 1250001,
+    "hashrate": "150 GH/s",
+    "difficulty": "0x1a2b3c4d5e6f",
+    "miner": "tos1miner..."
   }
 }
 ```
@@ -962,7 +960,7 @@ Get smart contract storage state.
 | -32006 | Transaction rejected | Validation failed |
 | -32007 | Network congestion | High network load |
 | -32008 | Mining error | Mining operation failed |
-| -32009 | AI task error | AI mining task failed |
+| -32009 | GPU task error | GPU mining task failed |
 
 ## Implementation Examples
 

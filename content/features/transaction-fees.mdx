@@ -182,9 +182,9 @@ pub enum TransactionType {
         gas_base: 30000,
         complexity_modifier: ComplexityModifier,
     },
-    AIMiningTask {
+    MiningReward {
         gas_base: 40000,
-        task_complexity_gas: TaskComplexityGas,
+        complexity_gas: ComplexityGas,
     },
 }
 
@@ -317,7 +317,7 @@ impl EnergyConsumption {
             TransactionType::SmartContractCall { .. } => self.base_costs.smart_contract_call,
             TransactionType::ContractDeployment { .. } => self.base_costs.contract_deployment,
             TransactionType::EnergyStaking { .. } => self.base_costs.energy_staking,
-            TransactionType::AIMiningTask { .. } => self.base_costs.ai_task_submission,
+            TransactionType::MiningReward { .. } => self.base_costs.mining_reward,
         }
     }
 }

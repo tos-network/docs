@@ -497,60 +497,6 @@ tos-wallet contract history \
     --address tos1contract-address...
 ```
 
-## AI-Mining Integration
-
-### AI-Mining Operations
-
-```bash
-# Register as AI miner
-tos-wallet ai-mining register \
-    --capabilities "code-analysis,data-processing" \
-    --hardware-profile hardware.json
-
-# Check available tasks
-tos-wallet ai-mining list-tasks
-
-# Accept AI task
-tos-wallet ai-mining accept-task \
-    --task-id task-123 \
-    --stake-amount 10
-
-# Submit solution
-tos-wallet ai-mining submit-solution \
-    --task-id task-123 \
-    --solution solution.json
-
-# Check mining statistics
-tos-wallet ai-mining stats
-
-# Withdraw mining rewards
-tos-wallet ai-mining withdraw-rewards
-```
-
-### AI-Mining Configuration
-
-Create `hardware.json`:
-
-```json
-{
-  "cpu_cores": 8,
-  "ram_gb": 16,
-  "gpu_available": false,
-  "storage_gb": 100,
-  "network_speed_mbps": 100,
-  "specializations": [
-    "security-audit",
-    "code-optimization",
-    "data-analysis"
-  ],
-  "availability": {
-    "hours_per_day": 12,
-    "timezone": "UTC",
-    "max_concurrent_tasks": 2
-  }
-}
-```
-
 ## Security Features
 
 ### Security Operations
@@ -629,10 +575,9 @@ echo "Checking wallet balance..."
 BALANCE=$(safe_wallet_cmd balance | jq -r '.total')
 echo "Current balance: $BALANCE TOS"
 
-# Auto-collect mining rewards if balance is low
+# Check if balance is low
 if (( $(echo "$BALANCE < 100" | bc -l) )); then
-    echo "Balance low, collecting mining rewards..."
-    safe_wallet_cmd ai-mining withdraw-rewards
+    echo "Balance low, consider adding funds..."
 fi
 
 # Auto-stake excess balance for energy
@@ -1064,6 +1009,6 @@ Key benefits of the CLI wallet:
 ## Next Steps
 
 - [Smart Contract Development](/getting-started/smart-contract-development) - Build applications using CLI tools
-- [AI-Mining Guide](/getting-started/ai-mining) - Integrate AI-Mining operations
+- [Mining Guide](/features/mining) - Start mining TOS
 - [Network Configuration](/getting-started/network-config) - Configure CLI for different networks
 - [Automation Examples](/guides/automation) - Advanced automation patterns

@@ -5,13 +5,13 @@ description: How to contribute to TOS Network development, documentation, and co
 
 # TOS Network Contributors Guide
 
-Join the TOS Network community and help build the future of AI-powered blockchain technology. This guide covers everything you need to know to start contributing.
+Join the TOS Network community and help build the future of private, scalable blockchain technology. This guide covers everything you need to know to start contributing.
 
 ## 🌟 Ways to Contribute
 
 ### 💻 **Code Contributions**
 - Core protocol development
-- AI-Mining algorithm improvements
+- Mining algorithm improvements
 - Smart contract tooling
 - API and SDK enhancements
 - Bug fixes and optimizations
@@ -80,13 +80,8 @@ chmod +x .githooks/*
 # Build core components
 cargo build --release
 
-# Build AI-Mining components
-cd ai-mining
-pip install -r requirements.txt
-python setup.py build
-
 # Build web components
-cd ../web-interface
+cd web-interface
 npm install
 npm run build
 ```
@@ -101,10 +96,9 @@ tos/
 │   ├── crypto/          # Cryptographic primitives
 │   ├── network/         # P2P networking
 │   └── storage/         # Blockchain storage
-├── ai-mining/           # AI-Mining implementation
-│   ├── algorithms/      # AI algorithms
-│   ├── quality/         # Quality scoring
-│   └── marketplace/     # Task marketplace
+├── mining/              # Mining implementation
+│   ├── algorithms/      # Mining algorithms
+│   └── pool/            # Pool protocol support
 ├── smart-contracts/     # RVM and contract system
 │   ├── rvm/            # Rust Virtual Machine
 │   ├── stdlib/         # Standard library
@@ -274,7 +268,7 @@ describe('Mining Efficiency', () => {
 cargo test --all
 
 # Python tests
-cd ai-mining
+cd tools
 python -m pytest tests/
 
 # JavaScript tests
@@ -295,20 +289,20 @@ npm test
 **Required Documentation**:
 ```markdown
 <!-- For new features -->
-## New Feature: AI-Mining Quality Scoring v2
+## New Feature: Privacy Enhanced Transactions v2
 
 ### Overview
 Brief description of the feature...
 
 ### Usage Example
 ```rust
-let scorer = QualityScorer::new(ScorerConfig::default());
-let score = scorer.calculate_score(&task_result)?;
+let tx = Transaction::new_private(sender, recipient, amount);
+let proof = tx.generate_zk_proof()?;
 ```
 
 ### API Reference
-- `QualityScorer::new(config)` - Creates new scorer
-- `calculate_score(result)` - Calculates quality score
+- `Transaction::new_private(...)` - Creates new private transaction
+- `generate_zk_proof()` - Generates zero-knowledge proof
 
 ### Migration Guide
 Steps to migrate from v1 to v2...
@@ -337,16 +331,15 @@ Fixes #123
 
 **Examples**:
 ```bash
-git commit -m "feat(ai-mining): implement quality scoring v2
+git commit -m "feat(privacy): implement enhanced transaction privacy v2
 
-Add new quality scoring algorithm that considers:
-- Solution accuracy
-- Computational efficiency
-- Network contribution
-- Time factors
+Add improved privacy features that include:
+- Better homomorphic encryption
+- Optimized ZK proofs
+- Faster verification
+- Reduced proof size
 
-This improves scoring fairness and incentivizes
-better AI-Mining participation.
+This improves privacy and transaction efficiency.
 
 Fixes #456"
 ```
@@ -546,13 +539,13 @@ npm install -g typedoc
 **Technical Documentation**:
 - [Rust Book](https://doc.rust-lang.org/book/)
 - [Blockchain Fundamentals](https://docs.tos.network/features/)
-- [AI-Mining Guide](https://docs.tos.network/tutorials/ai-mining-optimization)
+- [Mining Guide](https://docs.tos.network/features/mining)
 
 **Video Tutorials**:
 - TOS Network Architecture Overview
 - Contributing to Open Source Projects
 - Rust for Blockchain Development
-- AI-Mining Algorithm Development
+- Privacy Features Deep Dive
 
 **Community Workshops**:
 - Monthly contributor onboarding
@@ -576,19 +569,19 @@ npm install -g typedoc
 - Cross-chain bridge improvements
 - Performance optimizations
 
-### AI-Mining Development
+### Mining Development
 
 **Skills Needed**:
-- Python/PyTorch/TensorFlow
-- Machine learning expertise
+- Rust programming
+- Cryptography knowledge
 - Distributed computing
 - Algorithm optimization
 
 **Current Needs**:
-- New AI task types
-- Quality scoring improvements
-- Distributed training protocols
-- Energy efficiency optimizations
+- Mining algorithm improvements
+- Pool protocol enhancements
+- Performance optimizations
+- ASIC-resistance research
 
 ### Infrastructure & DevOps
 
@@ -638,7 +631,7 @@ npm install -g typedoc
 - **Lead**: @apac-lead
 - **Time Zone**: UTC+5 to UTC+12
 - **Languages**: English, Chinese, Japanese, Korean
-- **Focus**: AI-Mining, mobile applications
+- **Focus**: Mining pools, mobile applications
 
 ### Community Events
 
@@ -651,7 +644,7 @@ npm install -g typedoc
 **Upcoming Events**:
 - **TOSHack 2024**: December 1-3, Virtual
 - **TOS Network Conference**: March 2025, San Francisco
-- **AI-Mining Summit**: June 2025, Singapore
+- **Privacy Summit**: June 2025, Singapore
 
 ## 📞 Getting Help
 
@@ -670,7 +663,7 @@ npm install -g typedoc
 
 **Office Hours**:
 - **Core Development**: Tuesdays, 2 PM UTC
-- **AI-Mining**: Thursdays, 10 AM UTC
+- **Mining & Privacy**: Thursdays, 10 AM UTC
 - **Community Support**: Fridays, 6 PM UTC
 
 ### Mentorship Program

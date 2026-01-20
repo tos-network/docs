@@ -464,18 +464,18 @@ public class PrivacyEnabledContract {
 }
 ```
 
-### 2. AI-Mining Integration
+### 2. Mining Rewards Integration
 
 ```java
-public class AIMiningContract {
-    public void validateAIWork(
-        String taskId,
+public class MiningRewardsContract {
+    public void validateWork(
+        String blockId,
         EncryptedSolution solution,
         ZKProof workProof
     ) {
-        // Validate AI mining work submissions
-        if (validateAIWorkProof(taskId, solution, workProof)) {
-            rewardMiner(getCaller(), calculateReward(taskId));
+        // Validate mining work submissions
+        if (validateWorkProof(blockId, solution, workProof)) {
+            rewardMiner(getCaller(), calculateReward(blockId));
         }
     }
 }

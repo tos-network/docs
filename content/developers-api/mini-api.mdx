@@ -139,7 +139,7 @@ GET /network/status
   "difficulty": 18796541234567,
   "active_addresses": 89234,
   "total_supply": "8945123.000000",
-  "ai_mining_percentage": 42.0
+  "mining_percentage": 42.0
 }
 ```
 
@@ -218,30 +218,23 @@ POST /mining/submit
 }
 ```
 
-## AI-Mining Integration
+## Mining Integration
 
-### AI Task Information
+### Mining Status Information
 
 ```http
-GET /ai-mining/tasks/available
+GET /mining/status
 ```
 
 **Response:**
 ```json
 {
-  "tasks": [
-    {
-      "task_id": "ai_task_123",
-      "type": "machine_learning",
-      "difficulty": "medium",
-      "estimated_time": "2 hours",
-      "reward": "12.500000",
-      "requirements": {
-        "min_ram": "8GB",
-        "min_gpu": "GTX 1060",
-        "frameworks": ["tensorflow", "pytorch"]
-      },
-      "deadline": "2024-03-21T10:30:00Z"
+  "mining": {
+    "status": "active",
+    "difficulty": "medium",
+    "block_height": 123456,
+    "hashrate": "150 GH/s",
+    "last_block_time": "2024-03-21T10:30:00Z"
     }
   ],
   "total_available": 42
@@ -251,7 +244,7 @@ GET /ai-mining/tasks/available
 ### Submit AI Work
 
 ```http
-POST /ai-mining/submit
+POST /mining/submit
 ```
 
 **Request:**

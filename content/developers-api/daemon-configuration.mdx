@@ -46,12 +46,11 @@ pruning_enabled = false
 max_log_files = 10
 
 [mining]
-# AI-Mining configuration
+# Mining configuration
 enable = false
 miner_address = "tos1your-mining-address..."
-ai_threads = 4
+threads = 4
 gpu_enabled = true
-energy_threshold = 100
 
 [privacy]
 # Privacy and encryption settings
@@ -195,7 +194,7 @@ archive_compression = true
 archive_path = "~/.tos/archive"
 ```
 
-## AI-Mining Configuration
+## Mining Configuration
 
 ### Basic Mining Setup
 
@@ -209,9 +208,7 @@ cpu_threads = 4  # Adjust based on your CPU
 gpu_enabled = true
 gpu_devices = [0, 1]  # GPU device indices
 
-# AI-Mining parameters
-ai_model_cache = 2048  # MB
-ai_batch_size = 32
+# Mining parameters
 difficulty_target = "auto"
 ```
 
@@ -223,11 +220,6 @@ difficulty_target = "auto"
 memory_pool_size = 512  # MB
 work_queue_size = 100
 submission_timeout = 30
-
-# Energy management
-energy_threshold = 100
-energy_regeneration_rate = 1.0
-use_energy_optimization = true
 
 # Mining strategy
 prefer_high_fee_transactions = true
@@ -776,9 +768,9 @@ tos_daemon connection-stats
 traceroute seed1.tos.network
 ```
 
-### AI-Mining Issues
+### Mining Issues
 
-**Problem**: AI-Mining not earning rewards
+**Problem**: Mining not earning rewards
 
 ```bash
 # Check mining status
@@ -787,17 +779,11 @@ tos_daemon mining-status
 # Verify TOS Energy balance
 tos_daemon balance --energy
 
-# Check AI computation logs
-grep "ai_mining" ~/.tos/logs/daemon.log
-
-# Test AI computation capability
-tos_daemon test-ai-mining
-
 # Verify miner address
 tos_daemon verify-address tos1your-address...
 ```
 
-**Problem**: GPU not detected for AI-Mining
+**Problem**: GPU not detected for mining
 
 ```bash
 # Check GPU availability

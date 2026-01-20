@@ -9,6 +9,5 @@ export default {
   'wallet-setup': 'Wallet Setup',
   'cli-wallet': 'CLI Wallet',
   'first-transaction': 'First Transaction',
-  'ai-mining': 'AI-Mining Setup',
   'smart-contract-development': 'Smart Contract Development'
 }

@@ -5,7 +5,7 @@ description: Comprehensive guide to TOS Network Software Development Kits for Ja
 
 # TOS Network SDKs
 
-TOS Network provides comprehensive Software Development Kits (SDKs) for multiple programming languages, making it easy to integrate TOS Network features into your applications. Each SDK provides full access to TOS Network's privacy features, AI-Mining capabilities, smart contracts, and energy management.
+TOS Network provides comprehensive Software Development Kits (SDKs) for multiple programming languages, making it easy to integrate TOS Network features into your applications. Each SDK provides full access to TOS Network's privacy features, smart contracts, and energy management.
 
 ## Available SDKs
 
@@ -109,33 +109,6 @@ const execution = await contract.execute('transfer', [
 });
 ```
 
-### AI-Mining Integration
-
-```typescript
-// Register as AI miner
-await tos.aiMining.registerMiner({
-    capabilities: ['code-analysis', 'data-processing'],
-    hardwareProfile: {
-        cpuCores: 8,
-        ramGB: 16,
-        gpuAvailable: false
-    }
-});
-
-// Get available tasks
-const tasks = await tos.aiMining.getAvailableTasks({
-    difficulty: 'intermediate',
-    categories: ['code-analysis']
-});
-
-// Submit solution
-const submission = await tos.aiMining.submitSolution({
-    taskId: 'task-123',
-    solution: solutionData,
-    stakeAmount: '10.0'
-});
-```
-
 ### Energy Management
 
 ```typescript
@@ -190,11 +163,6 @@ tos.on('transaction', {
     address: 'tos1your-address...'
 }, (transaction) => {
     console.log('New transaction:', transaction);
-});
-
-// Subscribe to AI-Mining events
-tos.aiMining.on('taskCompleted', (event) => {
-    console.log('Task completed:', event.taskId);
 });
 ```
 
@@ -316,55 +284,6 @@ class TokenContract(SmartContract):
         return await self.call_method('balanceOf', [address])
 ```
 
-### AI-Mining Integration
-
-```python
-from tos_network.ai_mining import AIMiner
-
-class AITaskProcessor:
-    def __init__(self, tos_network):
-        self.tos = tos_network
-        self.miner = AIMiner(tos_network)
-
-    async def register_miner(self):
-        """Register as AI miner"""
-        await self.miner.register(
-            capabilities=['code_analysis', 'data_processing'],
-            hardware_profile={
-                'cpu_cores': 8,
-                'ram_gb': 16,
-                'gpu_available': False
-            }
-        )
-
-    async def process_tasks(self):
-        """Process available AI tasks"""
-        tasks = await self.miner.get_available_tasks(
-            difficulty='intermediate'
-        )
-
-        for task in tasks:
-            if self.can_handle_task(task):
-                solution = await self.solve_task(task)
-                await self.miner.submit_solution(
-                    task_id=task.id,
-                    solution=solution,
-                    stake_amount='10.0'
-                )
-
-    def can_handle_task(self, task):
-        """Check if we can handle this task type"""
-        return task.category in ['code_analysis', 'data_processing']
-
-    async def solve_task(self, task):
-        """Solve AI task (implement your logic here)"""
-        # Implement task-specific solving logic
-        if task.category == 'code_analysis':
-            return await self.analyze_code(task.data)
-        elif task.category == 'data_processing':
-            return await self.process_data(task.data)
-```
-
 ### Data Analysis and Monitoring
 
 ```python
@@ -391,17 +310,6 @@ class TOSAnalytics:
             'average_amount': df['amount'].mean(),
             'privacy_percentage': len(df[df['privacy_level'] == 'maximum']) / len(df) * 100,
             'energy_usage_percentage': len(df[df['payment_method'] == 'energy']) / len(df) * 100
-        }
-
-    async def monitor_ai_mining_performance(self):
-        """Monitor AI mining performance"""
-        stats = await self.analytics.get_ai_mining_stats()
-
-        return {
-            'total_tasks_completed': stats.total_tasks,
-            'average_quality_score': stats.avg_quality,
-            'total_earnings': stats.total_earnings,
-            'reputation_score': stats.reputation
         }
 ```
 
@@ -536,79 +444,6 @@ func (t *TokenContract) GetBalance(ctx context.Context, address string) (uint64,
     }
 
     return balance, nil
-}
-```
-
-### AI-Mining Implementation
-
-```go
-package aimining
-
-import (
-    "context"
-    "github.com/tos-network/go-tos/aimining"
-    "github.com/tos-network/go-tos/types"
-)
-
-type AIMiner struct {
-    client *aimining.Client
-}
-
-func NewAIMiner(tosClient *client.Client) *AIMiner {
-    return &AIMiner{
-        client: aimining.New(tosClient),
-    }
-}
-
-func (a *AIMiner) RegisterMiner(ctx context.Context, capabilities []string) error {
-    return a.client.Register(ctx, &aimining.MinerProfile{
-        Capabilities: capabilities,
-        HardwareProfile: &types.HardwareProfile{
-            CPUCores:     8,
-            RAMGB:        16,
-            GPUAvailable: false,
-        },
-    })
-}
-
-func (a *AIMiner) ProcessTasks(ctx context.Context) error {
-    tasks, err := a.client.GetAvailableTasks(ctx, &aimining.TaskFilter{
-        Difficulty: types.DifficultyIntermediate,
-        Categories: []string{"code_analysis", "data_processing"},
-    })
-    if err != nil {
-        return err
-    }
-
-    for _, task := range tasks {
-        solution, err := a.solveTask(ctx, task)
-        if err != nil {
-            continue // Skip failed tasks
-        }
-
-        _, err = a.client.SubmitSolution(ctx, &aimining.SolutionSubmission{
-            TaskID:      task.ID,
-            Solution:    solution,
-            StakeAmount: "10.0",
-        })
-        if err != nil {
-            return err
-        }
-    }
-
-    return nil
-}
-
-func (a *AIMiner) solveTask(ctx context.Context, task *types.AITask) ([]byte, error) {
-    // Implement task-specific solving logic
-    switch task.Category {
-    case "code_analysis":
-        return a.analyzeCode(task.Data)
-    case "data_processing":
-        return a.processData(task.Data)
-    default:
-        return nil, fmt.Errorf("unsupported task category: %s", task.Category)
-    }
 }
 ```
 
@@ -751,74 +586,6 @@ public class TokenContract extends SmartContract {
             this.from = from;
             this.to = to;
             this.amount = amount;
-        }
-    }
-}
-```
-
-### AI-Mining Integration
-
-```java
-import com.tosnetwork.sdk.aimining.AIMiner;
-import com.tosnetwork.sdk.aimining.types.*;
-
-public class AITaskProcessor {
-    private AIMiner miner;
-
-    public AITaskProcessor(TOSNetwork tos) {
-        this.miner = tos.aiMining();
-    }
-
-    public void registerMiner() throws Exception {
-        MinerProfile profile = MinerProfile.builder()
-            .capabilities(Arrays.asList("code_analysis", "data_processing"))
-            .hardwareProfile(HardwareProfile.builder()
-                .cpuCores(8)
-                .ramGB(16)
-                .gpuAvailable(false)
-                .build())
-            .build();
-
-        miner.register(profile);
-    }
-
-    public void processTasks() throws Exception {
-        TaskFilter filter = TaskFilter.builder()
-            .difficulty(Difficulty.INTERMEDIATE)
-            .categories(Arrays.asList("code_analysis"))
-            .build();
-
-        List<AITask> tasks = miner.getAvailableTasks(filter);
-
-        for (AITask task : tasks) {
-            if (canHandleTask(task)) {
-                TaskSolution solution = solveTask(task);
-
-                SolutionSubmission submission = SolutionSubmission.builder()
-                    .taskId(task.getId())
-                    .solution(solution)
-                    .stakeAmount("10.0")
-                    .build();
-
-                miner.submitSolution(submission);
-            }
-        }
-    }
-
-    private boolean canHandleTask(AITask task) {
-        return Arrays.asList("code_analysis", "data_processing")
-                     .contains(task.getCategory());
-    }
-
-    private TaskSolution solveTask(AITask task) {
-        // Implement task-specific solving logic
-        switch (task.getCategory()) {
-            case "code_analysis":
-                return analyzeCode(task.getData());
-            case "data_processing":
-                return processData(task.getData());
-            default:
-                throw new UnsupportedOperationException("Unsupported task category: " + task.getCategory());
         }
     }
 }
@@ -967,90 +734,6 @@ impl TokenContract {
 }
 ```
 
-### AI-Mining Implementation
-
-```rust
-use tos_network_sdk::ai_mining::{AIMiner, MinerProfile, TaskFilter, SolutionSubmission};
-use tos_network_sdk::types::{HardwareProfile, Difficulty};
-
-pub struct AITaskProcessor {
-    miner: AIMiner,
-}
-
-impl AITaskProcessor {
-    pub fn new(tos: TOSNetwork) -> Self {
-        Self {
-            miner: AIMiner::new(tos),
-        }
-    }
-
-    pub async fn register_miner(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let profile = MinerProfile {
-            capabilities: vec!["code_analysis".to_string(), "data_processing".to_string()],
-            hardware_profile: HardwareProfile {
-                cpu_cores: 8,
-                ram_gb: 16,
-                gpu_available: false,
-                storage_gb: 100,
-                network_speed_mbps: 100,
-            },
-            availability: Default::default(),
-        };
-
-        self.miner.register(profile).await?;
-        Ok(())
-    }
-
-    pub async fn process_tasks(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let filter = TaskFilter {
-            difficulty: Some(Difficulty::Intermediate),
-            categories: Some(vec!["code_analysis".to_string()]),
-            ..Default::default()
-        };
-
-        let tasks = self.miner.get_available_tasks(filter).await?;
-
-        for task in tasks {
-            if self.can_handle_task(&task) {
-                let solution = self.solve_task(&task).await?;
-
-                let submission = SolutionSubmission {
-                    task_id: task.id,
-                    solution,
-                    stake_amount: "10.0".to_string(),
-                };
-
-                self.miner.submit_solution(submission).await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn can_handle_task(&self, task: &AITask) -> bool {
-        matches!(task.category.as_str(), "code_analysis" | "data_processing")
-    }
-
-    async fn solve_task(&self, task: &AITask) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        match task.category.as_str() {
-            "code_analysis" => self.analyze_code(&task.data).await,
-            "data_processing" => self.process_data(&task.data).await,
-            _ => Err("Unsupported task category".into()),
-        }
-    }
-
-    async fn analyze_code(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // Implement code analysis logic
-        Ok(vec![])
-    }
-
-    async fn process_data(&self, data: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        // Implement data processing logic
-        Ok(vec![])
-    }
-}
-```
-
 ## SDK Comparison
 
 ### Feature Comparison
@@ -1059,7 +742,6 @@ impl AITaskProcessor {
 |---------|------------|--------|----|----- |------|
 | **Wallet Operations** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Smart Contracts** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **AI-Mining** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Privacy Features** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Energy Management** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Real-time Events** | ✅ | ✅ | ✅ | ✅ | ✅ |

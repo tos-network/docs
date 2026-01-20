@@ -30,7 +30,7 @@ Welcome to smart contract development on TOS Network! This comprehensive guide w
 ### TOS Network Features
 - **Energy Payments**: Use staked TOS energy for gas-free contract execution
 - **BlockDAG Integration**: Parallel contract execution across multiple blocks
-- **AI-Mining Integration**: Smart contracts can publish and consume AI tasks
+- **DeFi Integration**: Smart contracts can interact with DeFi protocols
 - **Advanced Cryptography**: Built-in support for privacy-preserving operations
 
 ## Development Environment Setup
@@ -455,14 +455,14 @@ public class EnergyEfficientVoting {
 }
 ```
 
-### AI-Mining Integration
+### Task Marketplace Example
 
 ```java
 @Contract
-public class AITaskMarketplace {
+public class TaskMarketplace {
 
     @State
-    private Map<String, AITask> tasks;
+    private Map<String, Task> tasks;
 
     @State
     private Map<String, Solution> solutions;
@@ -484,7 +484,7 @@ public class AITaskMarketplace {
         // Transfer reward to contract as escrow
         TOSToken.transferFrom(publisher, Context.getAddress(), reward);
 
-        tasks.put(taskId, new AITask(
+        tasks.put(taskId, new Task(
             taskId,
             description,
             taskType,
@@ -493,9 +493,6 @@ public class AITaskMarketplace {
             deadline,
             TaskStatus.OPEN
         ));
-
-        // Publish to AI-Mining network
-        AIMining.publishTask(taskId, description, taskType, reward, deadline);
 
         emit(new TaskPublished(taskId, publisher, reward));
     }
@@ -510,7 +507,7 @@ public class AITaskMarketplace {
         require(tasks.containsKey(taskId), "Task not found");
         require(Context.verifyProof(qualityProof), "Invalid quality proof");
 
-        AITask task = tasks.get(taskId);
+        Task task = tasks.get(taskId);
         require(task.status == TaskStatus.OPEN, "Task not open");
         require(Context.getTimestamp() < task.deadline, "Task deadline passed");
 
@@ -532,7 +529,7 @@ public class AITaskMarketplace {
         require(tasks.containsKey(taskId), "Task not found");
         require(solutions.containsKey(taskId), "No solution submitted");
 
-        AITask task = tasks.get(taskId);
+        Task task = tasks.get(taskId);
         require(Context.getCaller().equals(task.publisher), "Only publisher can accept");
 
         Solution solution = solutions.get(taskId);
@@ -1192,8 +1189,6 @@ console.log('Execution time:', report.executionTime);
 ### Community Resources
 - **Developer Discord**: Real-time help and discussions
 - **GitHub Repository**: Open-source contracts and tools
-- **Stack Overflow**: Tagged questions and answers
-- **YouTube Tutorials**: Video guides and walkthroughs
 
 ### Sample Projects
 ```bash
@@ -1206,7 +1201,7 @@ git clone https://github.com/tos-network/contract-examples.git
 ├── gaming-contracts/        # NFT games, tournaments
 ├── dao-governance/          # Voting, proposals, treasury
 ├── privacy-contracts/       # Confidential computations
-└── ai-integration/          # AI-Mining marketplace contracts
+└── marketplace/             # Marketplace contracts
 ```
 
 ## Conclusion

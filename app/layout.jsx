@@ -5,8 +5,8 @@ import 'nextra-theme-docs/style.css'
 
 export const metadata = {
   title: 'TOS Network Documentation',
-  description: 'OpenSystem Network - The Open Economic Operating System. World\'s first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts',
-  keywords: ['TOS', 'blockchain', 'AI-mining', 'privacy', 'smart contracts', 'documentation'],
+  description: 'OpenSystem Network - The Open Economic Operating System. BlockDAG with Privacy, Scalability, and Smart Contracts',
+  keywords: ['TOS', 'blockchain', 'privacy', 'smart contracts', 'documentation', 'A2A'],
   author: 'TOS Network Team'
 }
 
@@ -46,9 +46,9 @@ export default async function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="theme-color" content="#00d4ff" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
-        <meta name="description" content="TOS Network Documentation - OpenSystem Network: The Indestructible Topology with AI-Mining, Privacy, and Smart Contracts" />
+        <meta name="description" content="TOS Network Documentation - OpenSystem Network: The Indestructible Topology with Privacy and Smart Contracts" />
         <meta property="og:title" content="TOS Network Documentation" />
-        <meta property="og:description" content="World's first BlockDAG with Privacy, Scalability, AI-Mining, and Smart Contracts" />
+        <meta property="og:description" content="BlockDAG with Privacy, Scalability, and Smart Contracts" />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
       </Head>

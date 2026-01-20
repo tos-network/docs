@@ -26,7 +26,6 @@ Comprehensive information about the TOS Network's current status, statistics, an
 🟢 Network Status: HEALTHY
 🟢 Block Production: NORMAL (15.2s avg)
 🟢 Transaction Processing: NORMAL
-🟢 AI-Mining: ACTIVE (42% of blocks)
 🟢 Consensus: STABLE
 ```
 
@@ -45,45 +44,31 @@ Comprehensive information about the TOS Network's current status, statistics, an
 - **Address Analytics**: Balance, history, transaction patterns
 - **Smart Contract Viewer**: Bytecode, ABI, execution logs
 - **Mining Statistics**: Hashrate, difficulty, pool distribution
-- **AI-Mining Metrics**: Task quality, reward distribution
 
 ## Network Statistics
 
-### Current Metrics (Live)
+TOS Network is currently in development. Live network statistics will be available after mainnet launch.
+
+### API Response Format (Example)
 
 ```json
 {
   "network": {
-    "block_height": 2891540,
-    "block_time_avg": "15.2s",
-    "hashrate": "125.5 PH/s",
-    "difficulty": 18796541234567,
-    "active_addresses": 89234,
-    "total_transactions": 15678923
+    "block_height": "<current_height>",
+    "block_time_avg": "15s (target)",
+    "hashrate": "<live_data>",
+    "difficulty": "<live_data>",
+    "active_addresses": "<live_data>",
+    "total_transactions": "<live_data>"
   },
   "mining": {
-    "traditional_hashrate": "72.8 PH/s",
-    "ai_mining_hashrate": "52.7 PH/s",
-    "ai_mining_percentage": 42.0,
-    "active_miners": 12845
-  },
-  "economics": {
-    "circulating_supply": "8,945,123 TOS",
-    "total_burned": "15,678 TOS",
-    "energy_staked": "1,234,567 TOS",
-    "avg_transaction_fee": "0.001 TOS"
+    "traditional_hashrate": "<live_data>",
+    "mining_hashrate": "<live_data>",
+    "mining_percentage": "<live_data>",
+    "active_miners": "<live_data>"
   }
 }
 ```
-
-### Historical Performance
-
-| Metric | 24h | 7d | 30d |
-|--------|-----|----|----|
-| **Average Block Time** | 15.1s | 15.3s | 15.0s |
-| **Transaction Volume** | 45,678 | 289,456 | 1,234,567 |
-| **Network Hashrate** | +2.3% | +15.7% | +45.2% |
-| **AI-Mining Adoption** | 42% | 38% | 35% |
 
 ## Node Information
 
@@ -96,19 +81,6 @@ addnode=seed2.tos.network:2080
 addnode=seed3.tos.network:2080
 addnode=seed4.tos.network:2080
 addnode=seed5.tos.network:2080
-```
-
-### Geographic Distribution
-
-```
-Node Distribution by Region:
-
-North America: ████████████░░░░░░░░ 35%
-Europe:       ████████████████░░░░ 28%
-Asia:         ██████████████░░░░░░ 25%
-South America: ████░░░░░░░░░░░░░░░░ 7%
-Africa:       ██░░░░░░░░░░░░░░░░░░ 3%
-Oceania:      ██░░░░░░░░░░░░░░░░░░ 2%
 ```
 
 ### Node Requirements
@@ -129,23 +101,7 @@ Oceania:      ██░░░░░░░░░░░░░░░░░░ 2%
 
 ## Mining Pools
 
-### Official Pools
-
-| Pool Name | Location | Fee | Hashrate | Website |
-|-----------|----------|-----|----------|---------|
-| **TOS Pool Official** | Global | 1% | 35.2 PH/s | [pool.tos.network](https://pool.tos.network) |
-| **TOS Asia** | Singapore | 1.5% | 28.7 PH/s | [asia.tospool.io](https://asia.tospool.io) |
-| **TOS Europe** | Germany | 1% | 22.1 PH/s | [eu.tospool.io](https://eu.tospool.io) |
-| **TOS Americas** | USA | 1.2% | 18.9 PH/s | [us.tospool.io](https://us.tospool.io) |
-
-### AI-Mining Pools
-
-| Pool Name | Specialization | Quality Score | Reward Bonus |
-|-----------|----------------|---------------|--------------|
-| **AI-Pool Pro** | Machine Learning | 9.2/10 | +12% |
-| **Compute Collective** | Data Analysis | 8.8/10 | +8% |
-| **Neural Network** | Deep Learning | 9.5/10 | +15% |
-| **Smart Mining** | General AI | 8.5/10 | +6% |
+Mining pools will be available after mainnet launch. Community members interested in running pools can follow our documentation for pool operator setup.
 
 ## API Endpoints
 
@@ -196,7 +152,7 @@ curl -X POST https://mainnet-rpc.tos.network \
 
 | Version | Date | Features |
 |---------|------|----------|
-| **v2.1.0** | 2024-03-15 | Enhanced AI-Mining algorithms |
+| **v2.1.0** | 2024-03-15 | Performance improvements |
 | **v2.0.5** | 2024-02-28 | Smart contract gas optimization |
 | **v2.0.0** | 2024-01-20 | BlockDAG stability improvements |
 
@@ -212,14 +168,7 @@ curl -X POST https://mainnet-rpc.tos.network \
 
 ### Network Security
 
-```
-Security Metrics:
-
-51% Attack Cost:     $15M+ annually
-Double Spend Risk:   < 0.001%
-Finality Time:       6 confirmations (~90 seconds)
-Reorg Depth:         < 3 blocks (99.9% of time)
-```
+TOS Network implements multiple security layers including BlockDAG consensus and cryptographic verification. Detailed security metrics will be published after mainnet launch and security audits.
 
 ### Bug Bounty Program
 
@@ -234,10 +183,11 @@ Reorg Depth:         < 3 blocks (99.9% of time)
 
 ### Official Channels
 
+- **Home Page**: [https://tos.network](https://tos.network)
 - **Discord**: [https://discord.gg/tos-network](https://discord.gg/tos-network)
 - **Telegram**: [https://t.me/tos_network](https://t.me/tos_network)
 - **Twitter**: [https://twitter.com/tos_network](https://twitter.com/tos_network)
-- **Reddit**: [https://reddit.com/r/TOSNetwork](https://reddit.com/r/TOSNetwork)
+- **GitHub**: [https://github.com/tos-network](https://github.com/tos-network)
 
 ### Developer Resources
 

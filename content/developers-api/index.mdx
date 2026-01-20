@@ -1,6 +1,6 @@
 ---
 title: TOS Network Developer API
-description: Complete API documentation for building applications on TOS Network with privacy, smart contracts, and AI-Mining
+description: Complete API documentation for building applications on TOS Network with privacy, smart contracts, and mining
 ---
 
 import { Callout } from 'nextra/components'
@@ -14,7 +14,7 @@ Welcome to the TOS Network Developer API documentation. This comprehensive guide
 The TOS Network API provides access to:
 
 - 🔒 **Privacy-First Transactions**: Complete financial privacy with encrypted balances
-- 🧠 **AI-Mining Integration**: Participate in or publish AI tasks
+- ⛏️ **Mining Integration**: Participate in PoW mining
 - ⚡ **Energy Management**: Gas-free transactions through staking
 - 🚀 **Smart Contracts**: Java 8 compatible smart contracts with RVM
 - 📊 **BlockDAG Data**: Access to parallel blockchain structure
@@ -115,8 +115,8 @@ const status = await tos.network.getStatus();
   "staked_supply": "2100000000000000",
   "energy_generation_rate": "500.5",
   "network_difficulty": {
-    "ai_mining": "0x1a2b3c4d",
-    "traditional": "0x5e6f7a8b"
+    "gpu_mining": "0x1a2b3c4d",
+    "cpu_mining": "0x5e6f7a8b"
   }
 }
 */
@@ -458,120 +458,6 @@ const events = await tos.contracts.getEvents({
 });
 ```
 
-### AI-Mining API
-
-#### Task Publication
-
-```javascript
-// Publish AI task for miners
-const task = await tos.aiMining.publishTask({
-    title: 'Code Security Audit',
-    description: 'Audit smart contract for vulnerabilities',
-    task_type: 'code_analysis',
-    difficulty: 'intermediate',
-    reward: '50000000000000', // 50,000 TOS in nanoTOS
-    deadline: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
-    requirements: {
-        reputation_minimum: 3.0,
-        specialized_skills: ['security', 'smart_contracts']
-    },
-    task_data: {
-        contract_code: contractSource,
-        focus_areas: ['reentrancy', 'overflow', 'access_control']
-    }
-});
-
-/* Returns:
-{
-  "task_id": "task_uuid",
-  "status": "published",
-  "reward_pool": "50000000000000",
-  "deadline": 1640995200,
-  "estimated_miners": 15,
-  "publication_fee": "1000000000" // In nanoTOS
-}
-*/
-```
-
-#### Miner Registration
-
-```javascript
-// Register as AI miner
-const minerRegistration = await tos.aiMining.registerMiner({
-    miner_address: 'tos1miner-address...',
-    capabilities: ['code_analysis', 'data_processing', 'optimization'],
-    hardware_profile: {
-        cpu_cores: 8,
-        ram_gb: 32,
-        gpu_available: false
-    },
-    availability: {
-        hours_per_day: 12,
-        timezone: 'UTC'
-    }
-});
-
-// Get available tasks for miner
-const availableTasks = await tos.aiMining.getAvailableTasks({
-    miner_address: 'tos1miner-address...',
-    difficulty_preference: 'intermediate',
-    task_type_filter: ['code_analysis']
-});
-
-// Submit solution
-const submission = await tos.aiMining.submitSolution({
-    task_id: 'task_uuid',
-    solution_data: {
-        analysis_report: analysisResults,
-        vulnerabilities_found: vulnList,
-        recommendations: recommendations
-    },
-    miner_address: 'tos1miner-address...',
-    stake_amount: '10000000000000' // Stake for solution quality
-});
-```
-
-#### Mining Statistics
-
-```javascript
-// Get miner performance statistics
-const minerStats = await tos.aiMining.getMinerStats('tos1miner-address...');
-
-/* Returns:
-{
-  "miner_address": "tos1miner-address...",
-  "reputation_score": 4.2,
-  "total_tasks_completed": 127,
-  "total_earnings": "2500000000000000",
-  "success_rate": 0.94,
-  "average_quality_score": 87.5,
-  "specializations": ["code_analysis", "security_audit"],
-  "performance_trend": "improving",
-  "rank": 23 // Global ranking
-}
-*/
-
-// Get network-wide AI mining statistics
-const networkStats = await tos.aiMining.getNetworkStats();
-
-/* Returns:
-{
-  "total_active_miners": 1247,
-  "total_published_tasks": 5671,
-  "total_completed_tasks": 4892,
-  "average_task_completion_time": "4.2 hours",
-  "total_rewards_distributed": "12500000000000000",
-  "quality_score_average": 84.2,
-  "categories": {
-    "code_analysis": 1432,
-    "data_processing": 1876,
-    "optimization": 891,
-    "security_audit": 693
-  }
-}
-*/
-```
-
 ## Advanced Features
 
 ### WebSocket API
@@ -592,13 +478,6 @@ ws.subscribe('transactions', {
     address: 'tos1your-address...'
 }, (transaction) => {
     console.log('New transaction:', transaction);
-});
-
-// Subscribe to AI mining events
-ws.subscribe('ai_mining', {
-    event_types: ['task_published', 'solution_submitted', 'task_completed']
-}, (event) => {
-    console.log('AI Mining event:', event);
 });
 
 // Subscribe to energy events
@@ -675,8 +554,8 @@ const analytics = await tos.analytics.getNetworkMetrics({
     "side_block_percentage": 12.7
   },
   "mining": {
-    "ai_mining_percentage": 12.0,
-    "traditional_mining_percentage": 88.0,
+    "gpu_mining_percentage": 12.0,
+    "cpu_mining_percentage": 88.0,
     "total_hashrate": "1.5 TH/s",
     "difficulty_adjustment": "+2.3%"
   },
@@ -717,25 +596,22 @@ async def send_private_payment():
 
     return tx_hash
 
-# AI Mining integration
-async def start_ai_mining():
+# Mining integration
+async def start_mining():
     # Register as miner
-    await tos.ai_mining.register_miner({
-        'capabilities': ['code_analysis', 'data_processing'],
+    await tos.mining.register_miner({
         'hardware_profile': {
             'cpu_cores': 8,
-            'ram_gb': 16
+            'ram_gb': 16,
+            'gpu_available': True
         }
     })
 
-    # Get and process tasks
-    while True:
-        tasks = await tos.ai_mining.get_available_tasks()
-
-        for task in tasks:
-            if task['difficulty'] == 'beginner':
-                solution = process_ai_task(task)
-                await tos.ai_mining.submit_solution(task['id'], solution)
+    # Start mining
+    await tos.mining.start({
+        'threads': 4,
+        'gpu_enabled': True
+    })
 ```
 
 ### Java SDK
@@ -819,7 +695,7 @@ try {
 | `PRIVACY_LEVEL_NOT_SUPPORTED` | Privacy feature unavailable | Use supported privacy level |
 | `NETWORK_CONGESTION` | Network overloaded | Retry with higher fee/energy |
 | `CONTRACT_EXECUTION_FAILED` | Smart contract error | Check contract parameters |
-| `AI_TASK_TIMEOUT` | AI mining task expired | Submit solutions faster |
+| `MINING_TIMEOUT` | Mining task expired | Submit solutions faster |
 | `REPUTATION_TOO_LOW` | Insufficient miner reputation | Complete more tasks successfully |
 
 ## Testing and Development
@@ -851,7 +727,7 @@ const testContract = await tosTestnet.contracts.deploy({
 
 ```bash
 # Start local TOS node for development
-tos-node --dev --port 8080 --enable-mining --ai-mining-tasks
+tos-node --dev --port 8080 --enable-mining
 
 # Connect SDK to local node
 const tosLocal = new TOSNetwork({
@@ -990,5 +866,5 @@ Whether you're building a simple wallet application or a complex DeFi protocol, 
 
 - [Smart Contract Development](/getting-started/smart-contract-development) - Build Java smart contracts
 - [Privacy Integration Guide](/developers-api/privacy-integration) - Implement privacy features
-- [AI-Mining API Reference](/developers-api/ai-mining) - Complete AI-Mining integration
+- [Mining API Reference](/developers-api/stratum) - Mining pool protocol
 - [Energy Management Guide](/developers-api/energy-management) - Optimize transaction costs
