@@ -1,0 +1,338 @@
+---
+title: Governance Contract
+description: Decentralized governance with proposals and voting in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Governance Contract
+
+A decentralized governance system that enables proposal creation, voting, and execution for on-chain decision making.
+
+## Features
+
+- **Proposal Creation**: Anyone with voting power can create proposals
+- **Token-Weighted Voting**: Voting power based on token holdings
+- **Quorum Requirements**: Minimum participation for valid votes
+- **Time-Locked Voting**: Configurable voting periods
+- **Proposal Execution**: Automatic execution of passed proposals
+- **Cancellation**: Proposals can be cancelled by proposer or admin
+
+## Instruction Format
+
+All instructions use format: `[opcode:1][params:N]`
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | Init | `[admin:32][quorum:8][voting_period:8]` |
+| 0x01 | SetVotingPower | `[caller:32][user:32][power:8]` |
+| 0x02 | CreateProposal | `[proposer:32][current_time:8]` |
+| 0x03 | Vote | `[voter:32][proposal_id:32][support:1][current_time:8]` |
+| 0x04 | Execute | `[caller:32][proposal_id:32][current_time:8]` |
+| 0x05 | Cancel | `[caller:32][proposal_id:32]` |
+
+## Storage Layout
+
+```rust
+// Global state
+const KEY_ADMIN: &[u8] = b"admin";          // Admin address
+const KEY_QUORUM: &[u8] = b"quorum";        // Minimum votes required
+const KEY_VOTING_PERIOD: &[u8] = b"vp";     // Voting duration in seconds
+const KEY_PROPOSAL_COUNT: &[u8] = b"pc";    // Total proposals created
+
+// Per-user state
+const KEY_VOTING_POWER_PREFIX: &[u8] = b"pow:";   // pow:{address} -> voting power
+
+// Per-proposal state
+const KEY_PROPOSAL_PREFIX: &[u8] = b"prop:";      // prop:{id} -> proposal data
+const KEY_VOTE_PREFIX: &[u8] = b"vote:";          // vote:{proposal_id}{voter} -> voted
+```
+
+## Proposal Status
+
+```rust
+const STATUS_ACTIVE: u8 = 1;      // Voting in progress
+const STATUS_SUCCEEDED: u8 = 2;   // Passed, ready for execution
+const STATUS_DEFEATED: u8 = 3;    // Failed to reach quorum or majority
+const STATUS_EXECUTED: u8 = 4;    // Successfully executed
+const STATUS_CANCELLED: u8 = 5;   // Cancelled by proposer or admin
+```
+
+## Core Implementation
+
+### Initialize Governance
+
+```rust
+fn init(admin: &Address, quorum: u64, voting_period: u64) -> entrypoint::Result<()> {
+    storage_write(KEY_ADMIN, admin)?;
+    storage_write(KEY_QUORUM, &quorum.to_le_bytes())?;
+    storage_write(KEY_VOTING_PERIOD, &voting_period.to_le_bytes())?;
+    storage_write(KEY_PROPOSAL_COUNT, &0u64.to_le_bytes())?;
+
+    log("Governance initialized");
+    Ok(())
+}
+```
+
+### Set Voting Power
+
+```rust
+/// Admin function to set a user's voting power
+fn set_voting_power(
+    caller: &Address,
+    user: &Address,
+    power: u64
+) -> entrypoint::Result<()> {
+    let admin = read_admin()?;
+    if *caller != admin {
+        return Err(OnlyAdmin);
+    }
+
+    let key = make_voting_power_key(user);
+    storage_write(&key, &power.to_le_bytes())?;
+
+    log("Voting power set");
+    Ok(())
+}
+```
+
+### Create Proposal
+
+```rust
+fn create_proposal(
+    proposer: &Address,
+    current_time: u64
+) -> entrypoint::Result<()> {
+    let count = read_u64(KEY_PROPOSAL_COUNT);
+    let voting_period = read_u64(KEY_VOTING_PERIOD);
+
+    // Generate unique proposal ID
+    let mut proposal_id = [0u8; 32];
+    for i in 0..32 {
+        proposal_id[i] = proposer[i];
+    }
+    proposal_id[0] ^= (count & 0xFF) as u8;
+    proposal_id[1] ^= ((count >> 8) & 0xFF) as u8;
+
+    // Proposal data structure:
+    // [status:1][votes_for:8][votes_against:8][end_time:8][proposer:32] = 57 bytes
+    let mut proposal_data = [0u8; 57];
+    proposal_data[0] = STATUS_ACTIVE;
+    // votes_for and votes_against start at 0
+    let end_time = current_time + voting_period;
+    proposal_data[17..25].copy_from_slice(&end_time.to_le_bytes());
+    proposal_data[25..57].copy_from_slice(proposer);
+
+    let key = make_proposal_key(&proposal_id);
+    storage_write(&key, &proposal_data)?;
+
+    // Increment proposal count
+    storage_write(KEY_PROPOSAL_COUNT, &(count + 1).to_le_bytes())?;
+
+    set_return_data(&proposal_id);
+    log("Proposal created");
+    Ok(())
+}
+```
+
+### Cast Vote
+
+```rust
+fn vote(
+    voter: &Address,
+    proposal_id: &ProposalId,
+    support: bool,
+    current_time: u64,
+) -> entrypoint::Result<()> {
+    // Read proposal
+    let proposal_key = make_proposal_key(proposal_id);
+    let mut proposal_data = [0u8; 57];
+    let len = storage_read(&proposal_key, &mut proposal_data);
+    if len != 57 {
+        return Err(ProposalNotFound);
+    }
+
+    // Check proposal is active
+    if proposal_data[0] != STATUS_ACTIVE {
+        return Err(VotingEnded);
+    }
+
+    // Check voting period hasn't ended
+    let end_time = u64::from_le_bytes(proposal_data[17..25].try_into().unwrap());
+    if current_time >= end_time {
+        return Err(VotingEnded);
+    }
+
+    // Check voter hasn't already voted
+    let vote_key = make_vote_key(proposal_id, voter);
+    let mut vote_buffer = [0u8; 1];
+    if storage_read(&vote_key, &mut vote_buffer) > 0 {
+        return Err(AlreadyVoted);
+    }
+
+    // Get voter's voting power
+    let voting_power = read_voting_power(voter);
+    if voting_power == 0 {
+        return Err(InsufficientVotingPower);
+    }
+
+    // Record vote
+    if support {
+        let votes_for = u64::from_le_bytes(proposal_data[1..9].try_into().unwrap());
+        proposal_data[1..9].copy_from_slice(&(votes_for + voting_power).to_le_bytes());
+    } else {
+        let votes_against = u64::from_le_bytes(proposal_data[9..17].try_into().unwrap());
+        proposal_data[9..17].copy_from_slice(&(votes_against + voting_power).to_le_bytes());
+    }
+
+    // Save updated proposal and vote record
+    storage_write(&proposal_key, &proposal_data)?;
+    storage_write(&vote_key, &[1u8])?;
+
+    log("Vote recorded");
+    Ok(())
+}
+```
+
+### Execute Proposal
+
+```rust
+fn execute_proposal(
+    proposal_id: &ProposalId,
+    current_time: u64
+) -> entrypoint::Result<()> {
+    let proposal_key = make_proposal_key(proposal_id);
+    let mut proposal_data = [0u8; 57];
+    let len = storage_read(&proposal_key, &mut proposal_data);
+    if len != 57 {
+        return Err(ProposalNotFound);
+    }
+
+    // Check voting has ended
+    let end_time = u64::from_le_bytes(proposal_data[17..25].try_into().unwrap());
+    if current_time < end_time {
+        return Err(VotingNotStarted);  // Voting still in progress
+    }
+
+    // Check if proposal succeeded
+    let votes_for = u64::from_le_bytes(proposal_data[1..9].try_into().unwrap());
+    let votes_against = u64::from_le_bytes(proposal_data[9..17].try_into().unwrap());
+    let quorum = read_u64(KEY_QUORUM);
+
+    // Must meet quorum AND have majority
+    if votes_for < quorum || votes_for <= votes_against {
+        return Err(CannotExecute);
+    }
+
+    // Mark as executed
+    proposal_data[0] = STATUS_EXECUTED;
+    storage_write(&proposal_key, &proposal_data)?;
+
+    log("Proposal executed");
+    Ok(())
+}
+```
+
+### Cancel Proposal
+
+```rust
+fn cancel_proposal(
+    caller: &Address,
+    proposal_id: &ProposalId
+) -> entrypoint::Result<()> {
+    let proposal_key = make_proposal_key(proposal_id);
+    let mut proposal_data = [0u8; 57];
+    let len = storage_read(&proposal_key, &mut proposal_data);
+    if len != 57 {
+        return Err(ProposalNotFound);
+    }
+
+    // Check authorization (admin or proposer can cancel)
+    let admin = read_admin()?;
+    let mut proposer = [0u8; 32];
+    proposer.copy_from_slice(&proposal_data[25..57]);
+
+    if *caller != proposer && *caller != admin {
+        return Err(NotAuthorized);
+    }
+
+    // Cannot cancel executed proposals
+    if proposal_data[0] == STATUS_EXECUTED {
+        return Err(CannotExecute);
+    }
+
+    // Mark as cancelled
+    proposal_data[0] = STATUS_CANCELLED;
+    storage_write(&proposal_key, &proposal_data)?;
+
+    log("Proposal cancelled");
+    Ok(())
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1401 | OnlyAdmin | Caller is not admin |
+| 1402 | ProposalNotFound | Proposal ID doesn't exist |
+| 1403 | VotingNotStarted | Voting period not ended |
+| 1404 | VotingEnded | Voting period has ended |
+| 1405 | AlreadyVoted | Voter already cast vote |
+| 1406 | InsufficientVotingPower | Voter has no voting power |
+| 1407 | CannotExecute | Proposal didn't pass |
+| 1408 | NotAuthorized | Caller not authorized |
+
+## Usage Example
+
+```rust
+// 1. Initialize governance (quorum: 1000, voting period: 7 days)
+let init_data = [0u8; 49];
+init_data[0] = 0;
+init_data[1..33].copy_from_slice(&admin_address);
+init_data[33..41].copy_from_slice(&1000u64.to_le_bytes());
+init_data[41..49].copy_from_slice(&604800u64.to_le_bytes()); // 7 days
+
+// 2. Set voting power for users
+let power_data = [0u8; 73];
+power_data[0] = 1;
+power_data[1..33].copy_from_slice(&admin_address);
+power_data[33..65].copy_from_slice(&user_address);
+power_data[65..73].copy_from_slice(&500u64.to_le_bytes());
+
+// 3. Create a proposal
+let propose_data = [0u8; 41];
+propose_data[0] = 2;
+propose_data[1..33].copy_from_slice(&proposer_address);
+propose_data[33..41].copy_from_slice(&current_time.to_le_bytes());
+
+// 4. Vote on proposal
+let vote_data = [0u8; 74];
+vote_data[0] = 3;
+vote_data[1..33].copy_from_slice(&voter_address);
+vote_data[33..65].copy_from_slice(&proposal_id);
+vote_data[65] = 1; // Support
+vote_data[66..74].copy_from_slice(&current_time.to_le_bytes());
+
+// 5. Execute passed proposal (after voting period)
+let execute_data = [0u8; 73];
+execute_data[0] = 4;
+execute_data[1..33].copy_from_slice(&caller_address);
+execute_data[33..65].copy_from_slice(&proposal_id);
+execute_data[65..73].copy_from_slice(&after_voting_time.to_le_bytes());
+```
+
+## Governance Best Practices
+
+1. **Quorum Setting**: Set quorum high enough to prevent minority takeover
+2. **Voting Period**: Allow sufficient time for community participation
+3. **Timelock**: Consider adding execution delay for passed proposals
+4. **Vote Delegation**: Allow users to delegate voting power
+5. **Proposal Threshold**: Require minimum voting power to create proposals
+
+## Related Examples
+
+- [Staking](/smart-contracts/examples/staking) - Stake tokens for voting power
+- [Multisig Wallet](/smart-contracts/examples/multisig) - Multi-party authorization

@@ -1,0 +1,306 @@
+---
+title: VRF Random
+description: Using verifiable randomness in TAKO contracts
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# VRF Random Contract
+
+This example demonstrates how to use TOS's native VRF (Verifiable Random Function) syscalls for provably fair randomness.
+
+## Full Source Code
+
+```rust
+//! VRF Randomness Example Contract for TAKO
+//!
+//! Generates verifiable random numbers, verifies proofs,
+//! and stores results in contract storage.
+
+#![no_std]
+#![no_main]
+
+use tako_sdk::{
+    get_block_hash, log, storage_write,
+    vrf_public_key, vrf_random, vrf_verify,
+    SUCCESS,
+};
+
+const KEY_RANDOM: &[u8] = b"vrf_random";
+const KEY_PRE_OUTPUT: &[u8] = b"vrf_pre_output";
+const KEY_PROOF: &[u8] = b"vrf_proof";
+const KEY_PUBLIC_KEY: &[u8] = b"vrf_public_key";
+const KEY_BLOCK_HASH: &[u8] = b"vrf_block_hash";
+const KEY_VERIFIED: &[u8] = b"vrf_verified";
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Use block hash as seed
+    let block_hash = get_block_hash();
+    let seed = block_hash.as_slice();
+
+    // Generate VRF random number
+    let output = match vrf_random(seed) {
+        Ok(output) => output,
+        Err(_) => {
+            log("vrf_random failed");
+            return 1;
+        }
+    };
+
+    // Get the VRF public key for this block
+    let public_key = match vrf_public_key() {
+        Ok(pk) => pk,
+        Err(_) => {
+            log("vrf_public_key failed");
+            return 2;
+        }
+    };
+
+    // Verify the random number (proves it's valid)
+    if vrf_verify(
+        &public_key,
+        &block_hash,
+        &output.pre_output,
+        &output.proof
+    ).is_err() {
+        log("vrf_verify failed");
+        return 3;
+    }
+
+    // Store all VRF data for transparency
+    if storage_write(KEY_RANDOM, &output.random).is_err()
+        || storage_write(KEY_PRE_OUTPUT, &output.pre_output).is_err()
+        || storage_write(KEY_PROOF, &output.proof).is_err()
+        || storage_write(KEY_PUBLIC_KEY, &public_key).is_err()
+        || storage_write(KEY_BLOCK_HASH, &block_hash).is_err()
+        || storage_write(KEY_VERIFIED, &[1u8]).is_err()
+    {
+        log("storage_write failed");
+        return 4;
+    }
+
+    log("vrf_random ok");
+    log("vrf_verify ok");
+
+    SUCCESS
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Understanding VRF
+
+### What is VRF?
+
+VRF (Verifiable Random Function) produces random numbers that are:
+
+1. **Unpredictable** - No one can know the output before it's generated
+2. **Verifiable** - Anyone can verify the output is correct
+3. **Unmanipulable** - The generator cannot choose the output
+
+### VRF Output Structure
+
+```rust
+pub struct VRFOutput {
+    /// 32-byte random value (use this for game logic)
+    pub random: [u8; 32],
+
+    /// Pre-output for verification
+    pub pre_output: [u8; 32],
+
+    /// Cryptographic proof (64 bytes)
+    pub proof: [u8; 64],
+}
+```
+
+## Practical Examples
+
+### Dice Roll
+
+```rust
+fn roll_dice() -> u8 {
+    let seed = get_block_hash();
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // Map to 1-6
+    (output.random[0] % 6) + 1
+}
+```
+
+### Coin Flip
+
+```rust
+fn flip_coin() -> bool {
+    let seed = get_block_hash();
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // true = heads, false = tails
+    output.random[0] % 2 == 0
+}
+```
+
+### Random Selection from List
+
+```rust
+fn pick_winner(participants: u32) -> u32 {
+    let seed = get_block_hash();
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // Convert first 4 bytes to u32
+    let random_u32 = u32::from_le_bytes([
+        output.random[0],
+        output.random[1],
+        output.random[2],
+        output.random[3],
+    ]);
+
+    // Map to participant index
+    random_u32 % participants
+}
+```
+
+### NFT Rarity
+
+```rust
+enum Rarity {
+    Common,
+    Rare,
+    Epic,
+    Legendary,
+}
+
+fn determine_rarity() -> Rarity {
+    let seed = get_block_hash();
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // Use first 2 bytes for 0-9999 range
+    let roll = u16::from_le_bytes([
+        output.random[0],
+        output.random[1],
+    ]) % 10000;
+
+    match roll {
+        0..=49 => Rarity::Legendary,    // 0.5%
+        50..=499 => Rarity::Epic,       // 4.5%
+        500..=1999 => Rarity::Rare,     // 15%
+        _ => Rarity::Common,            // 80%
+    }
+}
+```
+
+## Gambling Game Example
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+const OP_PLAY: u8 = 0x01;
+const KEY_HOUSE_BALANCE: &[u8] = b"house";
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 2];
+    let len = get_input_data(&mut input);
+
+    if len == 0 {
+        return 1;
+    }
+
+    match input[0] {
+        OP_PLAY => play_game(input[1]), // input[1] = choice (0=low, 1=high)
+        _ => 1,
+    }
+}
+
+fn play_game(choice: u8) -> u64 {
+    let player = get_tx_sender();
+    let bet = get_call_value();
+
+    if bet == 0 {
+        log("No bet placed");
+        return 2;
+    }
+
+    // Generate VRF random
+    let seed = get_block_hash();
+    let output = match vrf_random(&seed) {
+        Ok(o) => o,
+        Err(_) => return 3,
+    };
+
+    // Verify (optional but recommended for transparency)
+    let pk = vrf_public_key().unwrap();
+    if vrf_verify(&pk, &seed, &output.pre_output, &output.proof).is_err() {
+        return 4;
+    }
+
+    // Roll: 0-49 = low, 50-99 = high
+    let roll = output.random[0] % 100;
+    let player_wins = (roll < 50 && choice == 0) || (roll >= 50 && choice == 1);
+
+    if player_wins {
+        // Payout 1.95x (house edge 2.5%)
+        let payout = bet.saturating_mul(195) / 100;
+        let _ = transfer(&player, payout);
+        log("Player wins!");
+    } else {
+        log("House wins");
+    }
+
+    // Log the roll for verification
+    log_u64(roll as u64, choice as u64, bet, 0, 0);
+
+    SUCCESS
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Verification
+
+Anyone can verify VRF outputs are correct:
+
+```rust
+// Stored data from contract
+let public_key = storage_read(KEY_PUBLIC_KEY);
+let block_hash = storage_read(KEY_BLOCK_HASH);
+let pre_output = storage_read(KEY_PRE_OUTPUT);
+let proof = storage_read(KEY_PROOF);
+
+// Verify the random was generated correctly
+assert!(vrf_verify(&public_key, &block_hash, &pre_output, &proof).is_ok());
+```
+
+## Gas Costs
+
+| Operation | Compute Units | Approx. Cost |
+|-----------|:-------------:|:------------:|
+| vrf_random | 10,000 | $0.01 |
+| vrf_verify | 5,000 | $0.005 |
+| vrf_public_key | 100 | $0.0001 |
+
+## Best Practices
+
+1. **Always verify** VRF outputs for high-stakes applications
+2. **Store proofs** for transparency and auditing
+3. **Use unique seeds** - include contract address or transaction data
+4. **Log results** for user verification
+5. **Consider timing** - VRF uses current block data
+
+## Security Notes
+
+- VRF randomness is based on the current block
+- Block producers cannot predict VRF output before generating
+- For extremely high-stakes games, consider commit-reveal patterns
+- Multiple games in same block may have related randomness (use different seeds)

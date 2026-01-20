@@ -1,0 +1,313 @@
+---
+title: Smart Contracts (TAKO)
+description: Build smart contracts on TOS Network using Rust and the TAKO runtime
+---
+
+import { Cards } from 'nextra/components'
+import { Card } from '../../components/card'
+import Icons from '../../components/icons'
+
+# TAKO Smart Contracts
+
+TOS Network smart contracts are written in **Rust** and compiled to **TBPFv3** bytecode, running on the **TAKO runtime** - an eBPF-inspired virtual machine designed for high-performance blockchain execution.
+
+## Why TAKO?
+
+| Feature | TAKO (TOS) | Solidity (EVM) | Rust (Solana) |
+|---------|:----------:|:--------------:|:-------------:|
+| **Language** | Rust | Solidity | Rust |
+| **Runtime** | TBPFv3 (eBPF) | EVM | BPF |
+| **Memory Safety** | Compile-time | Runtime | Compile-time |
+| **Native Syscalls** | Yes | No | Yes |
+| **Performance** | High | Medium | High |
+| **Learning Curve** | Medium | Medium | Medium |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Your Rust Contract                     │
+│                     (uses tako_sdk)                         │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ compile (cargo-tako)
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    TBPFv3 Bytecode (.so)                    │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ deploy
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      TAKO Runtime                           │
+│  ┌──────────────┬───────────────┬────────────────────────┐ │
+│  │   Executor   │   Storage     │      Syscalls          │ │
+│  │   (TBPFv3)   │   (RocksDB)   │  (Native Features)     │ │
+│  └──────────────┴───────────────┴────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    TOS Blockchain                           │
+│           (BlockDAG, Consensus, State)                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+### 1. Install Platform Tools
+
+```bash
+# Install TOS Platform Tools
+curl -sSf https://tos.network/install.sh | sh
+
+# Verify installation
+cargo-tako --version
+```
+
+### 2. Create a New Contract
+
+```bash
+# Create new contract project
+cargo-tako new my_contract
+cd my_contract
+```
+
+### 3. Write Your Contract
+
+```rust
+//! src/lib.rs
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    log("Hello, TOS!");
+    SUCCESS
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+### 4. Build and Deploy
+
+```bash
+# Build the contract
+cargo-tako build
+
+# Deploy to testnet
+tos_wallet deploy_contract ./target/deploy/my_contract.so
+```
+
+## Contract Structure
+
+Every TAKO contract has:
+
+### Required Elements
+
+```rust
+#![no_std]        // No standard library (blockchain environment)
+#![no_main]       // No main function (uses entrypoint)
+
+use tako_sdk::*;  // Import TAKO SDK
+
+// Entry point - called when contract is invoked
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Your contract logic here
+    SUCCESS
+}
+
+// Panic handler - required for no_std
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+### Return Values
+
+```rust
+// Success - transaction succeeds
+return SUCCESS;  // 0
+
+// Error - transaction fails
+return ERROR;    // 1
+
+// Custom error codes
+return 1001;     // Application-specific errors
+```
+
+## Available Features
+
+<Cards>
+  <Card
+    title="TAKO SDK"
+    subtitle="Core SDK functions for storage, transfers, and logging"
+    href="/smart-contracts/tako-sdk"
+    icon={<Icons.Code />}
+  />
+  <Card
+    title="Syscalls API"
+    subtitle="Native TOS features: VRF, Referrals, Privacy"
+    href="/smart-contracts/syscalls"
+    icon={<Icons.Cpu />}
+  />
+  <Card
+    title="Contract Examples"
+    subtitle="Hello World, ERC20, Counter, and more"
+    href="/smart-contracts/examples"
+    icon={<Icons.Code />}
+  />
+  <Card
+    title="Deployment Guide"
+    subtitle="Build, test, and deploy your contracts"
+    href="/smart-contracts/deployment"
+    icon={<Icons.Mining />}
+  />
+</Cards>
+
+## Key Concepts
+
+### Storage
+
+Contracts have persistent storage accessible via key-value operations:
+
+```rust
+// Write to storage
+storage_write(b"my_key", &value_bytes)?;
+
+// Read from storage
+let mut buffer = [0u8; 32];
+let len = storage_read(b"my_key", &mut buffer);
+```
+
+### Cross-Contract Calls (CPI)
+
+Contracts can call other contracts:
+
+```rust
+// Call another contract
+let result = cpi_call(
+    &target_contract,  // Contract address
+    &input_data,       // Call data
+    &mut return_data,  // Return buffer
+)?;
+```
+
+### Native Syscalls
+
+Access TOS native features directly:
+
+```rust
+// VRF Randomness
+let random = vrf_random(&seed)?;
+
+// Referral queries
+let uplines = tos_get_uplines(&user, 3)?;
+
+// Transfers
+transfer(&recipient, amount)?;
+```
+
+## Development Tools
+
+### Platform Tools (v1.54)
+
+Located at `~/.cache/tos/v1.54/`:
+
+```
+├── llvm/     (clang 20.1.7-rust-dev)
+├── rust/     (rustc 1.89.0-dev, cargo-tako 0.3.1)
+└── version.md
+```
+
+### Cargo Configuration
+
+Every contract needs `.cargo/config.toml`:
+
+```toml
+[build]
+target = "tbpfv3-tos-tos"
+
+[target.tbpfv3-tos-tos]
+rustflags = [
+    "-C", "link-arg=-z", "-C", "link-arg=notext",
+]
+```
+
+### Rust Toolchain
+
+`rust-toolchain.toml`:
+
+```toml
+[toolchain]
+channel = "1.89.0-dev"
+```
+
+## Gas Costs
+
+| Operation | Compute Units | Approx. Cost |
+|-----------|:-------------:|:------------:|
+| Basic operation | 1 CU | ~$0.00001 |
+| Storage read | 200 CU | ~$0.002 |
+| Storage write | 20,000 CU | ~$0.02 |
+| Log message | 100 CU | ~$0.001 |
+| Transfer | 1,000 CU | ~$0.01 |
+| CPI call | 10,000 CU | ~$0.1 |
+| VRF random | 10,000 CU | ~$0.01 |
+
+## Best Practices
+
+### 1. Use Checked Arithmetic
+
+```rust
+// Good - handles overflow
+let result = amount.checked_add(fee).ok_or(ERR_OVERFLOW)?;
+
+// Bad - can panic
+let result = amount + fee;
+```
+
+### 2. Validate All Inputs
+
+```rust
+// Validate at entry
+if amount == 0 {
+    return ERR_INVALID_AMOUNT;
+}
+
+if is_zero_address(&recipient) {
+    return ERR_INVALID_ADDRESS;
+}
+```
+
+### 3. Emit Events for Important State Changes
+
+```rust
+// Log important operations
+log("Transfer executed");
+log_u64(amount, from_balance, to_balance, 0, 0);
+```
+
+### 4. Handle All Error Cases
+
+```rust
+match storage_write(key, &value) {
+    Ok(_) => SUCCESS,
+    Err(e) => {
+        log("Storage write failed");
+        e
+    }
+}
+```
+
+## Next Steps
+
+1. **[TAKO SDK Reference](/smart-contracts/tako-sdk)** - Learn the core SDK functions
+2. **[Syscalls API](/smart-contracts/syscalls)** - Access native TOS features
+3. **[Examples](/smart-contracts/examples)** - Study working contract code
+4. **[Deployment Guide](/smart-contracts/deployment)** - Deploy your first contract

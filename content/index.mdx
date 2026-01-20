@@ -20,15 +20,16 @@ OpenSystem Network is a decentralized blockchain that eliminates trust through c
 The project embodies the fundamental blockchain principle that **trust should be eliminated through verification**. Every aspect of the system—from transactions and balances to mining rewards and smart contract execution—provides cryptographic proof rather than requiring trust in centralized authorities.
 
 To achieve this, TOS has implemented innovative features including:
-- **Rust Virtual Machine (RVM)** - Java 8 compatible blockchain virtual machine
-- **Proof-of-Work Mining** - Secure and decentralized consensus
+- **TAKO Smart Contracts** - Rust-based smart contracts with eBPF-inspired runtime
+- **Ultra-Low Gas** - $0.001 per transaction, 100x cheaper than competitors
+- **1-Second Finality** - Fastest confirmation in the industry
+- **Native Privacy (UNO)** - Protocol-level encrypted transfers
+- **Native Features** - VRF randomness, referral system, batch transfers, scheduled tasks
 - **BlockDAG architecture** with enhanced scalability and security
 - **Homomorphic Encryption** and **Zero-Knowledge Proofs** for complete privacy
 - **TOS Energy Model (TEM)** - Stake-to-earn energy for gas-free transactions
 
-Our breakthrough innovations include the production-ready **Rust Virtual Machine** that provides familiar Java development experience while maintaining blockchain security.
-
-Built using Rust and powered by Tokio async runtime, TOS is designed to be fast, efficient, and secure.
+Built using Rust throughout the stack and powered by Tokio async runtime, TOS is designed to be fast, efficient, and secure.
 
 ## Key Features
 
@@ -105,15 +106,15 @@ Built using Rust and powered by Tokio async runtime, TOS is designed to be fast,
 
 <Cards>
   <Card
-    title="Rust Virtual Machine"
-    subtitle="Java 8 compatible blockchain VM with enterprise-grade security and performance."
-    href="/features/smart-contracts/rvm"
+    title="TAKO Runtime"
+    subtitle="eBPF-inspired smart contract runtime with Rust development and ultra-low gas costs."
+    href="/smart-contracts"
     icon={<Icons.Cpu />}
   />
   <Card
     title="Smart Contracts"
-    subtitle="Easily code and create decentralized programs with familiar Java development."
-    href="/features/smart-contracts"
+    subtitle="Write smart contracts in Rust with familiar patterns and native blockchain features."
+    href="/smart-contracts"
     icon={<Icons.Code />}
   />
   <Card
@@ -193,9 +194,9 @@ Nobody except you can see how much you own and how much you spend - all verified
 **Scalability** and **security** are addressed using our [BlockDAG](/features/scalability/blockdag) architecture.
 With a low block time target, we minimize orphaned blocks through BlockDAG, allowing higher block count, faster confirmation, better security, and more transactions per second.
 
-### Smart Contracts with RVM
-[Smart Contracts](/features/smart-contracts) are powered by our production-ready **Rust Virtual Machine (RVM)** with full Java 8 compatibility.
-This provides developers with a familiar environment while ensuring deterministic execution and enterprise-grade security.
+### Smart Contracts with TAKO
+[Smart Contracts](/smart-contracts) are powered by **TAKO**, our eBPF-inspired smart contract runtime.
+Write contracts in Rust using the `tako_sdk` crate, with access to native features like VRF randomness, referral rewards, and batch transfers.
 
 ### Confidential Assets & DeFi
 [Confidential Assets](/features/privacy/confidential-assets) allow creation of truly decentralized tokens with the same level of privacy and decentralization as TOS.

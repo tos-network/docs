@@ -16,7 +16,7 @@ The TOS Network API provides access to:
 - 🔒 **Privacy-First Transactions**: Complete financial privacy with encrypted balances
 - ⛏️ **Mining Integration**: Participate in PoW mining
 - ⚡ **Energy Management**: Gas-free transactions through staking
-- 🚀 **Smart Contracts**: Java 8 compatible smart contracts with RVM
+- 🚀 **Smart Contracts**: Rust smart contracts with TAKO runtime
 - 📊 **BlockDAG Data**: Access to parallel blockchain structure
 - 🔐 **Zero-Knowledge Proofs**: Advanced cryptographic operations
 
@@ -378,9 +378,9 @@ const txWithEnergy = await tos.transactions.createWithEnergy({
 #### Deploy Contract
 
 ```javascript
-// Deploy Java smart contract
+// Deploy Rust smart contract
 const deployResult = await tos.contracts.deploy({
-    bytecode: contractBytecode, // Compiled Java bytecode
+    bytecode: contractBytecode, // Compiled TAKO bytecode (.wasm)
     constructor_args: ['arg1', 'arg2'],
     energy_limit: 1000000,
     wallet_id: 'wallet_uuid'
@@ -864,7 +864,7 @@ Whether you're building a simple wallet application or a complex DeFi protocol, 
 
 ## Next Steps
 
-- [Smart Contract Development](/getting-started/smart-contract-development) - Build Java smart contracts
+- [Smart Contract Development](/getting-started/smart-contract-development) - Build Rust smart contracts
 - [Privacy Integration Guide](/developers-api/privacy-integration) - Implement privacy features
 - [Mining API Reference](/developers-api/stratum) - Mining pool protocol
 - [Energy Management Guide](/developers-api/energy-management) - Optimize transaction costs

@@ -18,7 +18,7 @@ TOS Network is a revolutionary blockchain platform built on the principle **"Don
 - 🔒 **Complete Privacy**: Encrypted balances and transaction amounts
 - ⛏️ **PoW Mining**: Earn rewards through proof-of-work mining
 - ⚡ **High Performance**: Fast transactions with BlockDAG
-- 🚀 **Smart Contracts**: Java 8 compatible programming with RVM
+- 🚀 **Smart Contracts**: Rust programming with TAKO runtime
 - ⚖️ **Energy Model**: Stake TOS for gas-free transactions
 
 ## Quick Start Paths
@@ -83,13 +83,13 @@ TOS uses Proof-of-Work mining enhanced with BlockDAG technology:
 - **Secure Consensus**: Proven PoW security model
 - **Decentralized**: Anyone can participate in mining
 
-### 4. Java Smart Contracts
+### 4. Rust Smart Contracts
 
-Smart contracts on TOS use familiar Java 8 syntax:
+Smart contracts on TOS are written in Rust with the TAKO runtime:
 
-- **No new languages** to learn for Java developers
-- **Enterprise security** with comprehensive sandboxing
-- **High performance** with the Rust Virtual Machine (RVM)
+- **Memory safety** with Rust's compile-time guarantees
+- **Ultra-low gas** at $0.001 per transaction average
+- **Native features** including VRF, referrals, batch transfers
 - **Privacy integration** for confidential smart contracts
 
 ## Network Information
@@ -97,7 +97,7 @@ Smart contracts on TOS use familiar Java 8 syntax:
 ### Mainnet
 - **Network Name**: TOS Mainnet
 - **Launch**: Production ready with full features
-- **Block Time**: 15 seconds average
+- **Block Time**: 1 second (instant finality)
 - **Max TPS**: 2,500+ transactions per second
 - **Explorer**: https://explorer.tos.network
 
@@ -147,7 +147,7 @@ The official TOS wallet provides complete privacy and security:
   />
   <Card
     title="Smart Contract IDE"
-    subtitle="Integrated development environment for Java contracts"
+    subtitle="Integrated development environment for Rust contracts"
     href="/getting-started/smart-contract-ide"
   />
   <Card
@@ -197,12 +197,12 @@ The official TOS wallet provides complete privacy and security:
 
 - **[Development Environment Setup](/getting-started/dev-environment)**
    - Installing TOS development tools
-   - Setting up Java development
+   - Setting up Rust development
    - Connecting to testnet
    - Running local nodes
 
 2. **[Your First Smart Contract](/getting-started/first-smart-contract)**
-   - Writing Java smart contracts
+   - Writing Rust smart contracts
    - Deploying to testnet
    - Interacting with contracts
    - Testing and debugging

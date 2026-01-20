@@ -1,0 +1,487 @@
+---
+title: Weighted Pool
+description: Balancer-style multi-asset weighted AMM pool in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Weighted Pool Contract
+
+A Balancer-style AMM that supports pools with multiple tokens (2-8) at arbitrary weights, enabling index fund-like behavior and customizable exposure.
+
+## Features
+
+- **Multi-Asset Pools**: 2-8 tokens per pool
+- **Custom Weights**: Any weight distribution (e.g., 80/20, 60/20/20)
+- **Weighted Math**: Generalized constant product formula
+- **Single-Sided Liquidity**: Add/remove single tokens
+- **Protocol Fees**: Swap fees distributed to LPs
+
+## Weighted AMM vs Standard AMM
+
+```
+Standard AMM (Uniswap):
+- 2 tokens only
+- Fixed 50/50 weight
+- Formula: x * y = k
+
+Weighted AMM (Balancer):
+- 2-8 tokens
+- Any weight distribution
+- Formula: ∏(B_i^w_i) = k
+```
+
+## The Weighted Math Invariant
+
+```
+Value Function: V = ∏(B_i^w_i)
+
+Where:
+- B_i = Balance of token i
+- w_i = Weight of token i (sum of all weights = 1)
+- V = Pool invariant (constant during swaps)
+
+Price of token i in terms of token j:
+P_ij = (B_j / w_j) / (B_i / w_i)
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitPool | `[tokens:32*N][weights:8*N][swap_fee:4]` |
+| 0x01 | JoinPool | `[amounts:8*N][min_bpt:8]` |
+| 0x02 | ExitPool | `[bpt_amount:8][min_amounts:8*N]` |
+| 0x03 | SwapExactIn | `[token_in:32][token_out:32][amount:8][min_out:8]` |
+| 0x04 | SwapExactOut | `[token_in:32][token_out:32][amount:8][max_in:8]` |
+| 0x05 | JoinSingleAsset | `[token:32][amount:8][min_bpt:8]` |
+| 0x06 | ExitSingleAsset | `[token:32][bpt_amount:8][min_out:8]` |
+
+## Storage Layout
+
+```rust
+const KEY_TOKENS: &[u8] = b"tokens";       // Array of token hashes
+const KEY_WEIGHTS: &[u8] = b"weights";     // Normalized weights (sum = 1e18)
+const KEY_BALANCES: &[u8] = b"balances";   // Token balances
+const KEY_BPT: &[u8] = b"bpt";             // Pool token (BPT)
+const KEY_SWAP_FEE: &[u8] = b"swap_fee";   // Basis points
+const KEY_PAUSED: &[u8] = b"paused";
+```
+
+## Constants
+
+```rust
+const WEIGHT_PRECISION: u128 = 1_000_000_000_000_000_000; // 1e18
+const MIN_WEIGHT: u128 = WEIGHT_PRECISION / 100;         // 1%
+const MAX_WEIGHT: u128 = WEIGHT_PRECISION * 99 / 100;    // 99%
+const MIN_TOKENS: usize = 2;
+const MAX_TOKENS: usize = 8;
+const MIN_SWAP_FEE: u16 = 1;      // 0.01%
+const MAX_SWAP_FEE: u16 = 1000;   // 10%
+```
+
+## Core Implementation
+
+### Initialize Pool
+
+```rust
+fn init_pool(
+    caller: &Address,
+    tokens: &[Hash],
+    weights: &[u128],    // Must sum to WEIGHT_PRECISION
+    swap_fee: u16
+) -> entrypoint::Result<Hash> {
+    require_admin(caller)?;
+
+    let n = tokens.len();
+
+    // Validate token count
+    if n < MIN_TOKENS || n > MAX_TOKENS {
+        return Err(InvalidTokenCount);
+    }
+    if weights.len() != n {
+        return Err(ArrayLengthMismatch);
+    }
+
+    // Validate swap fee
+    if swap_fee < MIN_SWAP_FEE || swap_fee > MAX_SWAP_FEE {
+        return Err(InvalidSwapFee);
+    }
+
+    // Validate weights sum to 1e18
+    let weight_sum: u128 = weights.iter().sum();
+    if weight_sum != WEIGHT_PRECISION {
+        return Err(WeightsSumInvalid);
+    }
+
+    // Validate individual weights
+    for &w in weights {
+        if w < MIN_WEIGHT || w > MAX_WEIGHT {
+            return Err(InvalidWeight);
+        }
+    }
+
+    // Check for duplicate tokens
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if tokens[i] == tokens[j] {
+                return Err(DuplicateTokens);
+            }
+        }
+    }
+
+    // Normalize weights
+    let normalized_weights: Vec<u128> = weights.iter()
+        .map(|&w| w.checked_mul(WEIGHT_PRECISION).unwrap()
+            .checked_div(weight_sum).unwrap())
+        .collect();
+
+    // Create BPT (Balancer Pool Token)
+    let bpt = asset_create(
+        b"Weighted Pool Token",
+        b"BPT",
+        18,
+        0,
+        true,  // mintable
+        true,  // burnable
+        true   // transferable
+    )?;
+
+    // Store configuration
+    storage_write(KEY_TOKENS, &tokens.encode())?;
+    storage_write(KEY_WEIGHTS, &normalized_weights.encode())?;
+    storage_write(KEY_BPT, &bpt)?;
+    storage_write(KEY_SWAP_FEE, &swap_fee.to_le_bytes())?;
+
+    // Initialize balances to zero
+    let balances = vec![0u128; n];
+    storage_write(KEY_BALANCES, &balances.encode())?;
+
+    log("Weighted pool initialized");
+    Ok(bpt)
+}
+```
+
+### Calculate Invariant
+
+```rust
+/// Calculate pool invariant: ∏(B_i^w_i)
+fn calculate_invariant(balances: &[u128], weights: &[u128]) -> u128 {
+    // Use logarithms to avoid overflow
+    // V = exp(Σ(w_i * ln(B_i)))
+
+    let mut log_sum: i128 = 0;
+
+    for i in 0..balances.len() {
+        if balances[i] == 0 {
+            return 0;
+        }
+
+        // Weighted log: w_i * ln(B_i)
+        let log_balance = ln(balances[i]);
+        let weighted_log = (weights[i] as i128)
+            .checked_mul(log_balance).unwrap()
+            .checked_div(WEIGHT_PRECISION as i128).unwrap();
+
+        log_sum = log_sum.checked_add(weighted_log).unwrap();
+    }
+
+    // exp(log_sum)
+    exp(log_sum) as u128
+}
+```
+
+### Swap Exact In
+
+```rust
+/// Swap exact amount of token in for variable amount out
+fn swap_exact_in(
+    caller: &Address,
+    token_in: &Hash,
+    token_out: &Hash,
+    amount_in: u64,
+    min_amount_out: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    check_not_paused()?;
+
+    let tokens = load_tokens()?;
+    let weights = load_weights()?;
+    let mut balances = load_balances()?;
+    let swap_fee = read_u16(KEY_SWAP_FEE);
+
+    // Find token indices
+    let in_idx = find_token_index(&tokens, token_in)?;
+    let out_idx = find_token_index(&tokens, token_out)?;
+
+    if in_idx == out_idx {
+        return Err(SameToken);
+    }
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *token_in {
+        return Err(InvalidLock);
+    }
+    if lock.amount < amount_in {
+        return Err(InsufficientAmount);
+    }
+
+    // Calculate swap fee
+    let fee = (amount_in as u128)
+        .checked_mul(swap_fee as u128).unwrap()
+        .checked_div(10000).unwrap();
+    let amount_in_after_fee = (amount_in as u128).checked_sub(fee).unwrap();
+
+    // Calculate amount out using weighted math
+    // amount_out = B_out * (1 - (B_in / (B_in + amount_in))^(w_in/w_out))
+    let balance_in = balances[in_idx];
+    let balance_out = balances[out_idx];
+    let weight_in = weights[in_idx];
+    let weight_out = weights[out_idx];
+
+    let base = balance_in
+        .checked_mul(WEIGHT_PRECISION).unwrap()
+        .checked_div(balance_in.checked_add(amount_in_after_fee).unwrap()).unwrap();
+
+    let exponent = weight_in
+        .checked_mul(WEIGHT_PRECISION).unwrap()
+        .checked_div(weight_out).unwrap();
+
+    let power = pow(base, exponent);
+
+    let amount_out = balance_out
+        .checked_mul(WEIGHT_PRECISION.checked_sub(power).unwrap()).unwrap()
+        .checked_div(WEIGHT_PRECISION).unwrap() as u64;
+
+    if amount_out < min_amount_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Update balances
+    balances[in_idx] = balances[in_idx].checked_add(amount_in as u128).unwrap();
+    balances[out_idx] = balances[out_idx].checked_sub(amount_out as u128).unwrap();
+    save_balances(&balances)?;
+
+    // Transfer tokens
+    lock_use(caller, token_in, amount_in, lock_id)?;
+    transfer(caller, token_out, amount_out)?;
+
+    log("Swap completed");
+    Ok(amount_out)
+}
+```
+
+### Join Pool (Proportional)
+
+```rust
+/// Join pool with proportional amounts of all tokens
+fn join_pool(
+    caller: &Address,
+    amounts: &[u64],
+    min_bpt_out: u64,
+    lock_ids: &[u64]
+) -> entrypoint::Result<u64> {
+    let tokens = load_tokens()?;
+    let weights = load_weights()?;
+    let mut balances = load_balances()?;
+    let bpt = read_hash(KEY_BPT)?;
+
+    if amounts.len() != tokens.len() || lock_ids.len() != tokens.len() {
+        return Err(ArrayLengthMismatch);
+    }
+
+    let bpt_supply = get_total_supply(&bpt) as u128;
+
+    let bpt_out: u64;
+
+    if bpt_supply == 0 {
+        // First join - use geometric mean of amounts
+        let invariant = calculate_invariant(
+            &amounts.iter().map(|&a| a as u128).collect::<Vec<_>>(),
+            &weights
+        );
+        bpt_out = invariant as u64;
+    } else {
+        // Calculate BPT based on minimum ratio increase
+        let mut min_ratio = u128::MAX;
+
+        for i in 0..tokens.len() {
+            if amounts[i] == 0 {
+                continue;
+            }
+
+            let ratio = (amounts[i] as u128)
+                .checked_mul(WEIGHT_PRECISION).unwrap()
+                .checked_div(balances[i]).unwrap();
+
+            if ratio < min_ratio {
+                min_ratio = ratio;
+            }
+        }
+
+        bpt_out = bpt_supply
+            .checked_mul(min_ratio).unwrap()
+            .checked_div(WEIGHT_PRECISION).unwrap() as u64;
+    }
+
+    if bpt_out < min_bpt_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Transfer tokens and update balances
+    for i in 0..tokens.len() {
+        if amounts[i] > 0 {
+            let lock = get_lock_info(lock_ids[i])?;
+            if lock.owner != *caller || lock.asset != tokens[i] {
+                return Err(InvalidLock);
+            }
+
+            lock_use(caller, &tokens[i], amounts[i], lock_ids[i])?;
+            balances[i] = balances[i].checked_add(amounts[i] as u128).unwrap();
+        }
+    }
+
+    save_balances(&balances)?;
+
+    // Mint BPT
+    mint(&bpt, caller, bpt_out)?;
+
+    log("Joined pool");
+    Ok(bpt_out)
+}
+```
+
+### Join Single Asset
+
+```rust
+/// Join pool with only one token (pays higher fee)
+fn join_single_asset(
+    caller: &Address,
+    token_in: &Hash,
+    amount_in: u64,
+    min_bpt_out: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    let tokens = load_tokens()?;
+    let weights = load_weights()?;
+    let mut balances = load_balances()?;
+    let bpt = read_hash(KEY_BPT)?;
+    let swap_fee = read_u16(KEY_SWAP_FEE);
+
+    let token_idx = find_token_index(&tokens, token_in)?;
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *token_in {
+        return Err(InvalidLock);
+    }
+
+    let bpt_supply = get_total_supply(&bpt) as u128;
+    let balance_in = balances[token_idx];
+    let weight_in = weights[token_idx];
+
+    // Calculate BPT out for single-sided join
+    // bpt_out = supply * ((1 + amount_in/balance_in)^weight_in - 1)
+    // Apply fee to the "swap" portion
+
+    let ratio = (amount_in as u128)
+        .checked_mul(WEIGHT_PRECISION).unwrap()
+        .checked_div(balance_in).unwrap();
+
+    // Calculate swap fee on imbalanced portion
+    let taxable_amount = amount_in as u128
+        - (amount_in as u128)
+            .checked_mul(weight_in).unwrap()
+            .checked_div(WEIGHT_PRECISION).unwrap();
+
+    let fee = taxable_amount
+        .checked_mul(swap_fee as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    let amount_after_fee = (amount_in as u128).checked_sub(fee).unwrap();
+
+    // Calculate new balance ratio
+    let new_balance = balance_in.checked_add(amount_after_fee).unwrap();
+    let balance_ratio = new_balance
+        .checked_mul(WEIGHT_PRECISION).unwrap()
+        .checked_div(balance_in).unwrap();
+
+    // power = balance_ratio^weight_in
+    let power = pow(balance_ratio, weight_in);
+
+    let bpt_out = bpt_supply
+        .checked_mul(power.saturating_sub(WEIGHT_PRECISION)).unwrap()
+        .checked_div(WEIGHT_PRECISION).unwrap() as u64;
+
+    if bpt_out < min_bpt_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Transfer token and update balance
+    lock_use(caller, token_in, amount_in, lock_id)?;
+    balances[token_idx] = new_balance;
+    save_balances(&balances)?;
+
+    // Mint BPT
+    mint(&bpt, caller, bpt_out)?;
+
+    log("Single asset join");
+    Ok(bpt_out)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 2201 | InvalidTokenCount | Must be 2-8 tokens |
+| 2202 | WeightsSumInvalid | Weights must sum to 1e18 |
+| 2203 | InvalidWeight | Weight outside 1%-99% |
+| 2204 | DuplicateTokens | Token appears twice |
+| 2205 | InvalidSwapFee | Fee outside valid range |
+| 2206 | SameToken | Cannot swap token for itself |
+| 2207 | SlippageExceeded | Output below minimum |
+
+## Usage Example
+
+```rust
+// 1. Create 80/20 ETH/USDC pool
+let tokens = [eth, usdc];
+let weights = [800_000_000_000_000_000, 200_000_000_000_000_000]; // 80%, 20%
+let bpt = init_pool(&admin, &tokens, &weights, 30)?; // 0.3% fee
+
+// 2. First LP adds initial liquidity (sets prices)
+let locks = [
+    lock_asset(eth, 80e18, contract, 10000)?,   // 80 ETH
+    lock_asset(usdc, 40_000e6, contract, 10000)? // 40,000 USDC
+];
+// Implies ETH price = 40000/80 * (20/80) = $2000
+let bpt_amount = join_pool(&user, &[80e18, 40_000e6], 0, &locks)?;
+
+// 3. Swap 1 ETH for USDC
+let swap_lock = lock_asset(eth, 1e18, contract, 10000)?;
+let usdc_out = swap_exact_in(&user, &eth, &usdc, 1e18, 1900e6, swap_lock)?;
+// Weighted math gives different slippage than 50/50 pool
+
+// 4. Single-sided join with just ETH
+let eth_lock = lock_asset(eth, 10e18, contract, 10000)?;
+let bpt = join_single_asset(&user, &eth, 10e18, 0, eth_lock)?;
+```
+
+## Weight Examples
+
+| Pool Type | Weights | Use Case |
+|-----------|---------|----------|
+| 50/50 | ETH:USDC = 50:50 | Standard pair |
+| 80/20 | ETH:USDC = 80:20 | ETH-heavy exposure |
+| 60/20/20 | ETH:BTC:USDC = 60:20:20 | Diversified |
+| 33/33/34 | TRI = 33:33:34 | Equal weight index |
+
+## Related Examples
+
+- [AMM DEX](/smart-contracts/examples/amm-dex) - Standard constant product
+- [StableSwap](/smart-contracts/examples/stableswap) - Curve-style for stables
+- [Yield Vault](/smart-contracts/examples/yield-vault) - LP token strategies

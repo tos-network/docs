@@ -1,0 +1,204 @@
+---
+title: Native Batch Transfer
+description: Send to up to 500 recipients in a single transaction
+---
+
+# Native Batch Transfer
+
+TOS allows sending to **up to 500 recipients** in a single transaction, with a **50% gas discount** compared to individual transfers.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| Transfers transaction (multi-target) | Implemented |
+| Max 500 recipients per transaction | Implemented |
+| 50% gas discount | Implemented |
+
+## Why Batch Transfer?
+
+| Scenario | Individual (TRON) | TOS Batch | Savings |
+|----------|:-----------------:|:---------:|:-------:|
+| 10 transfers | $1.00 | $0.005 | 99.5% |
+| 100 transfers | $10.00 | $0.05 | 99.5% |
+| 500 transfers | $50.00 | $0.25 | 99.5% |
+
+## Use Cases
+
+- **Referral distributions** - Pay multiple uplines at once
+- **Airdrops** - Distribute tokens to hundreds of addresses
+- **Payroll** - Batch salary payments
+- **Gaming** - Settle multiple players simultaneously
+- **Dividends** - Distribute rewards to holders
+
+## Transaction Format
+
+```rust
+pub struct BatchTransfer {
+    /// Asset type (TOS or token)
+    pub asset: Hash,
+
+    /// List of (recipient, amount) pairs
+    pub transfers: Vec<(Address, u64)>,
+}
+
+pub mod BatchLimits {
+    /// Maximum recipients per transaction
+    pub const MAX_BATCH_SIZE: usize = 500;
+
+    /// Gas discount percentage
+    pub const BATCH_GAS_DISCOUNT: u64 = 50;
+}
+```
+
+## CLI Usage
+
+```bash
+# Batch transfer from file
+tos_wallet batch_transfer --asset TOS --file recipients.csv
+
+# recipients.csv format:
+# address,amount
+# tos1abc123...,1000000000
+# tos1def456...,500000000
+```
+
+## SDK Usage
+
+```javascript
+// JavaScript
+const recipients = [
+    { address: 'tos1abc...', amount: 1000_00000000 },
+    { address: 'tos1def...', amount: 500_00000000 },
+    { address: 'tos1ghi...', amount: 250_00000000 },
+];
+
+const tx = await tos.batchTransfer({
+    asset: 'TOS',
+    transfers: recipients
+});
+```
+
+## Smart Contract Usage
+
+```rust
+use tako_sdk::*;
+
+/// Distribute referral rewards using batch transfer
+fn distribute_to_uplines(investor: &[u8; 32], amount: u64) {
+    // Get uplines
+    let (uplines, count) = get_uplines(investor, 10).unwrap_or_default();
+    let rates = [10, 5, 3, 2, 1, 1, 1, 1, 1, 1]; // percentages
+
+    let mut transfers = Vec::new();
+
+    for i in 0..(count as usize).min(10) {
+        let reward = amount * rates[i] / 100;
+        if reward > 0 {
+            transfers.push((uplines[i], reward));
+        }
+    }
+
+    // Execute all transfers in one syscall
+    batch_transfer(TOS_ASSET, transfers).ok();
+}
+```
+
+## Gas Calculation
+
+```rust
+/// Gas for batch transfer
+fn calculate_batch_gas(count: usize) -> u64 {
+    let base = 1_000;  // Base transfer cost
+    let per_recipient = 500;  // Discounted per-recipient cost
+
+    base + (per_recipient * count as u64)
+}
+
+// Examples:
+// 10 recipients:  1,000 + 5,000 = 6,000 gas (~$0.006)
+// 100 recipients: 1,000 + 50,000 = 51,000 gas (~$0.05)
+// 500 recipients: 1,000 + 250,000 = 251,000 gas (~$0.25)
+```
+
+## Atomicity
+
+Batch transfers are **atomic** - all succeed or all fail:
+
+```rust
+pub enum BatchResult {
+    /// All transfers succeeded
+    Success { count: usize },
+
+    /// Batch failed (none executed)
+    Failed { reason: BatchError },
+}
+
+pub enum BatchError {
+    /// Insufficient balance for total
+    InsufficientBalance,
+
+    /// Too many recipients (>500)
+    TooManyRecipients,
+
+    /// Invalid recipient address
+    InvalidAddress { index: usize },
+
+    /// Zero amount
+    ZeroAmount { index: usize },
+}
+```
+
+## Airdrop Example
+
+```rust
+/// Airdrop tokens to multiple addresses
+fn airdrop(recipients: Vec<[u8; 32]>, amount_each: u64) {
+    let transfers: Vec<_> = recipients
+        .into_iter()
+        .map(|addr| (addr, amount_each))
+        .collect();
+
+    // Split into chunks of 500 if needed
+    for chunk in transfers.chunks(500) {
+        batch_transfer(TOKEN_ASSET, chunk.to_vec()).ok();
+    }
+}
+```
+
+## Comparison
+
+| Feature | TOS Batch | TRON | BSC | Solana |
+|---------|:---------:|:----:|:---:|:------:|
+| Native support | **Yes** | No | No | Yes |
+| Max recipients | **500** | N/A | N/A | ~20 |
+| Gas discount | **50%** | N/A | N/A | Minimal |
+| Atomicity | **Yes** | N/A | N/A | Yes |
+
+## Limits
+
+| Limit | Value |
+|-------|:-----:|
+| Max recipients | 500 |
+| Min amount per recipient | 1 (smallest unit) |
+| Max total amount | Sender's balance |
+| Gas limit per batch | 1,000,000 |
+
+## Error Handling
+
+```javascript
+try {
+    const result = await tos.batchTransfer({
+        asset: 'TOS',
+        transfers: recipients
+    });
+    console.log(`Transferred to ${result.count} recipients`);
+} catch (error) {
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+        console.log('Not enough balance for batch');
+    } else if (error.code === 'TOO_MANY_RECIPIENTS') {
+        // Split into multiple batches
+        await batchInChunks(recipients, 500);
+    }
+}
+```

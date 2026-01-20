@@ -1,0 +1,260 @@
+---
+title: Fast Finality
+description: TOS Network achieves 1-second transaction finality with BlockDAG architecture
+---
+
+# 1-Second Transaction Finality
+
+TOS Network achieves **1-second finality** through its BlockDAG architecture and BFT consensus, providing instant confirmation for all transactions.
+
+## Why Fast Finality Matters
+
+### Gaming Scenario
+```
+User clicks "Place Bet" → Waits for confirmation → Sees result
+
+Ethereum (12s + multi-block): 30+ seconds wait, poor UX
+BSC (3s + multi-block):       15+ seconds wait, acceptable
+TOS (1s single-block):        1 second wait, excellent UX
+```
+
+### Referral Distribution Scenario
+```
+User invests → Uplines receive reward notification
+
+TOS 1-second finality: Instant feedback, no perceived wait
+```
+
+## Comparison with Other Chains
+
+| Blockchain | Block Time | Finality | TPS | Wait Time |
+|------------|:----------:|:--------:|:---:|:---------:|
+| Ethereum | 12s | 12 minutes | 30 | 12 min |
+| TRON | 3s | 3s | 2,000 | 3s |
+| BSC | 3s | 15s | 300 | 15s |
+| Solana | 0.4s | 0.4s | 65,000 | Sub-1s |
+| Polygon | 2s | Minutes | 7,000 | Minutes |
+| **TOS** | **1s** | **1s** | **10,000+** | **1s** |
+
+**TOS Advantage**: Same finality as Solana, with 5x the TPS of TRON and native privacy/referral features.
+
+## How It Works
+
+### BlockDAG Consensus
+
+TOS uses a Block Directed Acyclic Graph (BlockDAG) structure where multiple blocks can exist at the same height, eliminating orphan blocks and maximizing throughput.
+
+```
+Traditional Blockchain:
+Block 1 → Block 2 → Block 3 → Block 4
+          (orphan) ↗
+
+TOS BlockDAG:
+       ↗ Block 2a ↘
+Block 1             Block 3 → Block 4
+       ↘ Block 2b ↗
+(All blocks included, no orphans)
+```
+
+### BFT Consensus Timeline
+
+```
+1-Second Block (1000ms):
+
+T+0ms:     Leader collects transactions
+T+400ms:   Leader packages block
+T+500ms:   Broadcast to validators
+T+800ms:   Collect 2/3 signatures
+T+950ms:   Block confirmed
+T+1000ms:  Next block begins
+```
+
+### Consensus Parameters
+
+```rust
+pub mod ConsensusParams {
+    /// Block time: 1 second
+    pub const BLOCK_TIME_MS: u64 = 1000;
+
+    /// Finality: 1 block (immediate)
+    pub const FINALITY_BLOCKS: u64 = 1;
+
+    /// Target TPS: 10,000+
+    pub const TARGET_TPS: u64 = 10000;
+
+    /// Block size limit: 10MB
+    pub const MAX_BLOCK_SIZE: u64 = 10 * 1024 * 1024;
+
+    /// Block gas limit
+    pub const MAX_BLOCK_GAS: u64 = 100_000_000;
+
+    /// Validator count
+    pub const VALIDATOR_COUNT: u64 = 21;
+
+    /// Confirmation threshold (2/3 + 1)
+    pub const CONFIRMATION_THRESHOLD: u64 = 15;
+}
+```
+
+## Transaction Status
+
+On TOS, `Included = Confirmed` - once a transaction is in a block, it's final.
+
+```rust
+pub enum TransactionStatus {
+    /// In mempool, waiting to be included
+    Pending,
+
+    /// In a block - this IS final on TOS
+    Included {
+        block_number: u64,
+        block_hash: Hash,
+    },
+
+    /// Alias for Included on TOS (1-block finality)
+    Confirmed {
+        block_number: u64,
+        block_hash: Hash,
+    },
+}
+
+// On TOS: Included == Confirmed (single-block finality)
+```
+
+## High TPS Architecture
+
+### Parallel Transaction Execution
+
+```rust
+/// Transactions with no dependencies execute in parallel
+fn parallel_execute(txs: Vec<Transaction>) -> Vec<Receipt> {
+    // Analyze transaction dependencies
+    let dependency_graph = analyze_dependencies(&txs);
+
+    // Sort into independent layers
+    let layers = topological_sort(dependency_graph);
+
+    // Execute each layer in parallel
+    for layer in layers {
+        layer.par_iter()
+            .map(|tx| execute(tx))
+            .collect();
+    }
+}
+```
+
+### Network Requirements
+
+| Requirement | Minimum | Recommended |
+|-------------|:-------:|:-----------:|
+| CPU | 16 cores | 32 cores |
+| Memory | 64GB | 128GB |
+| Storage | 2TB NVMe | 4TB NVMe |
+| Bandwidth | 1Gbps | 10Gbps |
+| Latency | Under 200ms | Under 100ms |
+
+## Developer Experience
+
+### Frontend Integration
+
+```typescript
+// Send transaction
+const txHash = await wallet.sendTransaction(tx);
+
+// Wait for confirmation (typically ≤1 second)
+const receipt = await provider.waitForTransaction(txHash);
+
+// Transaction is now FINAL
+if (receipt.status === 'confirmed') {
+    updateUI(); // Safe to update immediately
+}
+```
+
+### WebSocket Real-Time Updates
+
+```typescript
+// Subscribe to transaction confirmation
+ws.subscribe('tx_confirmed', txHash, (receipt) => {
+    console.log('Transaction confirmed:', receipt);
+    // Typically received within 1 second of submission
+});
+```
+
+### Confirmation Polling
+
+```typescript
+// For applications that need explicit confirmation
+async function waitForConfirmation(txHash: string): Promise<Receipt> {
+    while (true) {
+        const receipt = await provider.getTransactionReceipt(txHash);
+        if (receipt) {
+            return receipt; // On TOS, receipt means finality
+        }
+        await sleep(100); // Check every 100ms
+    }
+}
+```
+
+## Fault Tolerance
+
+### Leader Timeout Recovery
+
+```rust
+/// Handle leader failure
+fn handle_leader_timeout() {
+    // 2-second timeout (2 block times)
+    if time_since_last_block() > BLOCK_TIME_MS * 2 {
+        // Skip current leader
+        current_leader = next_leader();
+
+        // Resume block production
+        start_new_block();
+    }
+}
+```
+
+### Network Partition Recovery
+
+```
+Partition Scenario:
+
+Partition A (12 validators): Continues producing blocks
+Partition B (9 validators):  Cannot reach consensus, pauses
+
+After Recovery:
+- Partition B syncs to Partition A's chain
+- Automatic catch-up, no manual intervention
+- Network resumes normal operation
+```
+
+## Monitoring
+
+```rust
+pub struct ChainMetrics {
+    /// Current transactions per second
+    pub current_tps: u64,
+
+    /// Average block time (ms)
+    pub avg_block_time_ms: u64,
+
+    /// Average finality time (ms)
+    pub avg_finality_time_ms: u64,
+
+    /// Pending transaction count
+    pub pending_tx_count: u64,
+
+    /// Active validator count
+    pub active_validators: u64,
+}
+```
+
+## Summary
+
+TOS Network's 1-second finality enables:
+
+- **Real-time applications** with instant feedback
+- **Gaming experiences** without confirmation delays
+- **Financial applications** with immediate settlement
+- **High-frequency trading** with predictable timing
+
+Combined with 10,000+ TPS capacity, TOS provides the performance needed for mass-market blockchain applications.

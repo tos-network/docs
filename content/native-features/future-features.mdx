@@ -1,0 +1,203 @@
+---
+title: Future Features
+description: Planned native features for TOS Network
+---
+
+import { Callout } from 'nextra/components'
+
+# Future Features
+
+These features are planned for future TOS Network releases.
+
+<Callout type="info">
+Feature specifications may change during development. Check release notes for updates.
+</Callout>
+
+## P2 Priority Features
+
+### Cross-Chain Bridge
+
+**Target: Mainnet 6 months**
+
+Native cross-chain messaging and asset bridging.
+
+**Planned Capabilities:**
+- Multi-signature validation
+- Cross-chain message verification
+- Asset locking/minting
+
+**Supported Chains (Planned):**
+- Ethereum
+- BSC
+- Bitcoin (via HTLC)
+- Solana
+
+```rust
+// Planned API
+pub mod CrossChainSyscall {
+    /// Verify cross-chain message
+    fn verify_cross_chain_msg(
+        source_chain: ChainId,
+        message: CrossChainMessage,
+        proof: MultisigProof,
+    ) -> Result<(), CrossChainError>;
+
+    /// Lock assets for bridging
+    fn bridge_lock(
+        asset: Asset,
+        target_chain: ChainId,
+        target_address: Vec<u8>,
+    ) -> Result<Hash, CrossChainError>;
+}
+```
+
+---
+
+### Native NFT Support
+
+**Target: Mainnet 6 months**
+
+Protocol-level NFT operations for gas-efficient minting and transfers.
+
+**Planned Capabilities:**
+- Native collection creation
+- Low-gas minting (batch support)
+- Royalty enforcement at protocol level
+- On-chain attribute storage
+
+```rust
+// Planned API
+pub mod NFTSyscall {
+    /// Create NFT collection
+    fn create_collection(
+        name: String,
+        symbol: String,
+        royalty_bps: u16,
+        max_supply: Option<u64>,
+    ) -> Result<Hash, NFTError>;
+
+    /// Mint NFT
+    fn mint(
+        collection: Hash,
+        to: Address,
+        metadata_uri: String,
+        attributes: Vec<(String, String)>,
+    ) -> Result<u64, NFTError>;
+
+    /// Transfer NFT
+    fn transfer(
+        collection: Hash,
+        token_id: u64,
+        to: Address,
+    ) -> Result<(), NFTError>;
+
+    /// Batch mint
+    fn batch_mint(
+        collection: Hash,
+        recipients: Vec<(Address, String)>,
+    ) -> Result<Vec<u64>, NFTError>;
+}
+```
+
+**Gas Comparison (Estimated):**
+
+| Operation | ERC721 (TRON) | **TOS Native** |
+|-----------|:-------------:|:--------------:|
+| Create collection | $1.00 | **$0.05** |
+| Mint single | $0.50 | **$0.02** |
+| Batch mint (100) | $50.00 | **$1.00** |
+| Transfer | $0.30 | **$0.01** |
+
+---
+
+### Oracle Integration
+
+**Target: Mainnet 6 months**
+
+Native price feeds and external data integration.
+
+**Planned Capabilities:**
+- Decentralized price aggregation
+- Outlier detection and filtering
+- Price subscription callbacks
+- Historical price queries
+
+```rust
+// Planned API
+pub mod OracleSyscall {
+    /// Get current price
+    fn get_price(
+        base_asset: Hash,
+        quote_asset: Hash,
+    ) -> Result<PriceData, OracleError>;
+
+    /// Subscribe to price updates
+    fn subscribe_price(
+        pair: (Hash, Hash),
+        callback_contract: Address,
+        threshold_bps: u16,  // Min change to trigger
+    ) -> Result<u64, OracleError>;
+
+    /// Get historical price
+    fn get_price_at(
+        pair: (Hash, Hash),
+        timestamp: u64,
+    ) -> Result<PriceData, OracleError>;
+}
+
+pub struct PriceData {
+    pub price: u64,       // Price with 8 decimals
+    pub timestamp: u64,   // Last update time
+    pub confidence: u16,  // Data quality (basis points)
+    pub sources: u8,      // Number of data sources
+}
+```
+
+**Comparison:**
+
+| Feature | Chainlink | **TOS Native** |
+|---------|:---------:|:--------------:|
+| Query cost | $0.10 | **$0.001** |
+| Update frequency | Variable | **Block-level** |
+| Integration complexity | High | **Low** |
+| Requires external token | Yes (LINK) | **No** |
+
+---
+
+## Feature Roadmap
+
+### Q2 2025
+- Atomic Swap (P1)
+- Enhanced MEV Protection
+
+### Q3 2025
+- Cross-Chain Bridge (P2)
+- Native NFT (P2)
+
+### Q4 2025
+- Oracle Integration (P2)
+- Advanced Governance
+
+### 2026
+- Layer 2 scaling
+- ZK rollup support
+- Advanced privacy features
+
+---
+
+## Contributing
+
+Interested in contributing to TOS Network development?
+
+- **GitHub**: [github.com/tos-network](https://github.com/tos-network)
+- **Discord**: [discord.tos.network](https://discord.tos.network)
+- **Proposals**: Submit TIPs (TOS Improvement Proposals)
+
+---
+
+## Stay Updated
+
+- Follow development on GitHub
+- Join the Discord community
+- Subscribe to the newsletter
+- Check release notes for new features

@@ -1,0 +1,318 @@
+---
+title: Native Privacy (UNO)
+description: TOS Network provides optional encrypted transfers with the UNO protocol
+---
+
+# Native Privacy with UNO Protocol
+
+TOS Network provides **optional privacy** through the UNO (Universal Nullifier Object) protocol, allowing users to choose between transparent and encrypted transactions.
+
+## The Privacy Problem
+
+| Blockchain | Privacy Level | Issue |
+|------------|:-------------:|-------|
+| Bitcoin | Transparent | All transactions public |
+| Ethereum | Transparent | All balances visible |
+| TRON | Transparent | Easy to track wallets |
+| BSC | Transparent | No privacy option |
+| Monero | Full Privacy | Compliance difficult |
+
+**TOS Solution**: Optional privacy - choose transparency or encryption per transaction.
+
+## Privacy Levels
+
+TOS supports three privacy levels:
+
+```rust
+pub enum PrivacyLevel {
+    /// Public (default)
+    /// Sender, receiver, and amount all visible
+    Public,
+
+    /// Amount Hidden
+    /// Sender and receiver visible, amount encrypted
+    AmountHidden,
+
+    /// Full Private
+    /// Amount and receiver encrypted, only sender visible
+    FullPrivate,
+}
+```
+
+### Level Comparison
+
+| Level | Sender | Receiver | Amount | Use Case |
+|-------|:------:|:--------:|:------:|----------|
+| Public | Visible | Visible | Visible | Normal transfers |
+| AmountHidden | Visible | Visible | **Encrypted** | Salary, bids |
+| FullPrivate | Visible | **Encrypted** | **Encrypted** | Maximum privacy |
+
+## Use Cases
+
+### Hidden Betting Amounts
+```
+Problem: Other players can see bet sizes and copy strategies
+
+Solution: AmountHidden transfer
+- Game contract sees you placed a bet
+- Other players cannot see the amount
+- Prevents copy-trading and front-running
+```
+
+### Confidential Salaries
+```
+Problem: Salary payments on public chains expose compensation
+
+Solution: AmountHidden transfer
+- HR system records payment made
+- Employees cannot see each other's pay
+- Auditors can verify with proof
+```
+
+### Private Large Transfers
+```
+Problem: Large transfers attract unwanted attention
+
+Solution: FullPrivate transfer
+- Only sender identity is public
+- Amount and recipient are encrypted
+- Reduces targeting risk
+```
+
+## Technical Implementation
+
+### UNO Transfer Structure
+
+```rust
+pub struct UnoTransfer {
+    /// Privacy level
+    pub privacy_level: PrivacyLevel,
+
+    /// Sender (always visible for debit)
+    pub sender: Address,
+
+    /// Encrypted receiver (FullPrivate mode)
+    pub encrypted_receiver: Option<Vec<u8>>,
+
+    /// Visible receiver (AmountHidden mode)
+    pub receiver: Option<Address>,
+
+    /// Encrypted amount (Twisted ElGamal)
+    pub encrypted_amount: Vec<u8>,
+
+    /// Zero-knowledge proof
+    pub zk_proof: ZKProof,
+
+    /// Nullifier (prevents double-spend)
+    pub nullifier: Hash,
+
+    /// Asset type
+    pub asset: Hash,
+}
+```
+
+### Zero-Knowledge Proofs
+
+```rust
+pub struct ZKProof {
+    /// Proof type (Bulletproofs or PLONK)
+    pub proof_type: ProofType,
+
+    /// Proof data
+    pub proof_data: Vec<u8>,
+}
+
+// The ZK proof guarantees:
+// 1. Sender has sufficient balance
+// 2. Transfer amount > 0
+// 3. New balances are correctly calculated
+// 4. No tokens created from nothing
+```
+
+## Transaction Types
+
+### Shield Transfer (TOS → UNO)
+Convert public TOS balance to encrypted UNO balance:
+
+```rust
+// Shield 1000 TOS into encrypted balance
+let shield_tx = ShieldTransfer {
+    amount: 1000_00000000,  // Public amount going in
+    asset: TOS_ASSET,
+    // Amount becomes encrypted in UNO balance
+};
+```
+
+### UNO Transfer (UNO → UNO)
+Transfer between encrypted balances:
+
+```rust
+let uno_tx = UnoTransfer {
+    privacy_level: PrivacyLevel::AmountHidden,
+    sender: my_address,
+    receiver: Some(recipient),
+    encrypted_amount: encrypt(1000_00000000),
+    zk_proof: generate_proof(my_uno_balance, amount),
+    nullifier: generate_nullifier(),
+    asset: TOS_ASSET,
+};
+```
+
+### Unshield Transfer (UNO → TOS)
+Convert encrypted UNO balance back to public TOS:
+
+```rust
+// Unshield 500 TOS from encrypted balance
+let unshield_tx = UnshieldTransfer {
+    encrypted_amount: my_encrypted_500,
+    zk_proof: generate_unshield_proof(),
+    nullifier: generate_nullifier(),
+    // 500 TOS appears in public balance
+};
+```
+
+## Fee Payment Options
+
+UNO transfers support three fee payment methods:
+
+| Fee Type | Source | Privacy | Visibility |
+|----------|--------|:-------:|------------|
+| TOS | Public balance | Low | Fee amount visible |
+| Energy | Staked TOS | Medium | No fee transaction |
+| UNO | Encrypted balance | High | Fee burned privately |
+
+```rust
+pub enum FeeType {
+    /// Pay with public TOS (fee goes to miners)
+    TOS = 0,
+
+    /// Pay with Energy (gas-free)
+    Energy = 1,
+
+    /// Pay with UNO balance (burned)
+    UNO = 2,
+}
+```
+
+## Gas Costs
+
+| Privacy Level | Proof Generation | On-chain Verification | Total Cost |
+|---------------|:----------------:|:---------------------:|:----------:|
+| Public | N/A | N/A | $0.001 |
+| AmountHidden | ~1 second | ~10ms | **$0.02** |
+| FullPrivate | ~2 seconds | ~20ms | **$0.05** |
+
+## Security Guarantees
+
+### Double-Spend Prevention
+
+```rust
+/// Nullifier mechanism
+/// Each encrypted output can only be spent once
+fn check_double_spend(nullifier: Hash) -> bool {
+    if nullifier_set.contains(nullifier) {
+        return false; // Already spent
+    }
+    nullifier_set.insert(nullifier);
+    true
+}
+```
+
+### Balance Integrity
+
+The ZK proof system guarantees:
+- Sender has sufficient balance
+- No tokens created from nothing
+- Total supply remains constant
+- All math is correct
+
+### Compliance Support
+
+```rust
+/// Optional compliance proof
+pub struct ComplianceProof {
+    /// Prove transaction meets AML rules
+    pub aml_proof: ZKProof,
+
+    /// Prove identity verified (without revealing identity)
+    pub kyc_proof: ZKProof,
+
+    /// Prove amount within limits
+    pub limit_proof: ZKProof,
+}
+
+// Can prove: "I am a verified user and amount < $10,000"
+// Without revealing: actual identity or exact amount
+```
+
+## Comparison with Privacy Solutions
+
+| Feature | TOS UNO | Monero | Zcash | Tornado Cash |
+|---------|:-------:|:------:|:-----:|:------------:|
+| Optional Privacy | **Yes** | No (forced) | Yes | Yes |
+| Hidden Amount | **Yes** | Yes | Yes | Yes |
+| Hidden Receiver | **Yes** | Yes | Yes | Yes |
+| Compliance Support | **Yes** | No | No | No |
+| Gas Cost | **Low** | N/A | High | High |
+| Proof Size | **Small** | Medium | Large | Medium |
+
+## Smart Contract Integration
+
+Smart contracts can interact with UNO transfers through syscalls:
+
+```rust
+pub mod PrivacyTransferSyscall {
+    /// Execute private transfer
+    pub fn private_transfer(tx: UnoTransfer) -> Result<Hash, TransferError>;
+
+    /// Verify ZK proof
+    pub fn verify_proof(proof: &ZKProof) -> bool;
+
+    /// Check if nullifier is already used
+    pub fn is_nullifier_used(nullifier: Hash) -> bool;
+
+    /// Get encrypted balance
+    pub fn get_encrypted_balance(
+        account: Address,
+        asset: Hash,
+    ) -> EncryptedBalance;
+}
+```
+
+## Example: Private Gaming
+
+```rust
+/// Private betting - hide bet amounts from other players
+fn place_private_bet(player: Address, choice: u8) {
+    // Get amount from caller's encrypted balance
+    let encrypted_amount = get_call_value_encrypted();
+
+    // Transfer privately to game contract
+    let bet_tx = UnoTransfer {
+        privacy_level: PrivacyLevel::AmountHidden,
+        sender: player,
+        receiver: Some(game_contract),
+        encrypted_amount,
+        zk_proof: get_caller_proof(),
+        ..
+    };
+
+    // Other players can see someone bet, but not the amount
+    private_transfer(bet_tx)?;
+
+    // Store encrypted bet for later settlement
+    store_private_bet(player, encrypted_amount, choice);
+}
+```
+
+## Summary
+
+TOS Network's UNO protocol provides:
+
+- **Choice**: Opt-in privacy per transaction
+- **Flexibility**: Three privacy levels for different needs
+- **Compliance**: Zero-knowledge proofs for regulatory requirements
+- **Low Cost**: $0.02-0.05 for private transfers
+- **Integration**: Smart contracts can work with encrypted data
+
+This enables applications that respect user privacy while maintaining blockchain transparency where needed.

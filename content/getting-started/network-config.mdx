@@ -17,7 +17,7 @@ TOS Network uses a hybrid architecture combining:
 - **BlockDAG Mining**: Proof-of-Work with BlockDAG consensus
 - **Privacy Layer**: Homomorphic encryption and zero-knowledge proofs
 - **Energy System**: Staking-based gas-free transactions
-- **Smart Contracts**: Java 8 + Rust Virtual Machine (RVM)
+- **Smart Contracts**: Rust + TAKO Runtime
 
 ### Network Types
 
@@ -242,7 +242,7 @@ timeout_prevote = "1s"
 timeout_prevote_delta = "500ms"
 timeout_precommit = "1s"
 timeout_precommit_delta = "500ms"
-timeout_commit = "15s"          # Block time target
+timeout_commit = "1s"           # Block time target
 
 # P2P configuration
 [p2p]
@@ -291,7 +291,7 @@ chain_id = "1"
 genesis_file = "genesis-mainnet.json"
 
 [consensus]
-timeout_commit = "15s"         # 15-second block times
+timeout_commit = "1s"          # 1-second block times
 
 [p2p]
 persistent_peers = [

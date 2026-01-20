@@ -478,14 +478,14 @@ tos-wallet contract watch-events \
 ### Contract Development Tools
 
 ```bash
-# Compile Java contract
-tos-wallet contract compile \
-    --source MyContract.java \
-    --output MyContract.jar
+# Build Rust contract
+tos-wallet contract build \
+    --source my_contract/ \
+    --output my_contract.wasm
 
 # Test contract locally
 tos-wallet contract test \
-    --bytecode MyContract.jar \
+    --bytecode my_contract.wasm \
     --test-cases test-cases.json
 
 # Estimate contract deployment cost

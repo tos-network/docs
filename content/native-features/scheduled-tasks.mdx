@@ -1,0 +1,242 @@
+---
+title: Scheduled Tasks
+description: Time-triggered contract execution at the protocol level
+---
+
+# Scheduled Tasks
+
+TOS provides **native scheduled task execution**, allowing contracts to be called automatically at specified times or intervals.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| OFFERCALL scheduled execution | Implemented |
+| Block-level task triggering | Implemented |
+| Repeat task configuration | Implemented |
+| Task cancellation | Implemented |
+
+## Why Native Scheduling?
+
+| Approach | Cost per Execution | Reliability |
+|----------|:------------------:|:-----------:|
+| Chainlink Automation | $0.10+ | High |
+| External Keeper | Variable | Medium |
+| **TOS Native** | **$0.005** | **High** |
+
+**20x cheaper** than Chainlink Automation.
+
+## Use Cases
+
+- **Daily yield release** - Automatic staking rewards
+- **Scheduled lotteries** - Time-based draws
+- **Auto-reinvestment** - Compound earnings
+- **Lock expiration** - Automatic unlocking
+- **Subscription billing** - Recurring charges
+
+## Data Structure
+
+```rust
+pub struct ScheduledTask {
+    /// Unique task ID
+    pub id: Hash,
+
+    /// Task creator
+    pub creator: Address,
+
+    /// Execution time
+    pub execute_at: ExecuteTime,
+
+    /// Repeat configuration (optional)
+    pub repeat: Option<RepeatConfig>,
+
+    /// Target contract
+    pub contract: Address,
+
+    /// Method to call
+    pub method: String,
+
+    /// Call parameters
+    pub params: Vec<u8>,
+
+    /// Gas budget
+    pub gas_budget: u64,
+
+    /// Who pays gas
+    pub gas_payer: Address,
+
+    /// Current status
+    pub status: TaskStatus,
+}
+
+pub enum ExecuteTime {
+    AtBlock(u64),       // Specific block
+    AtTimestamp(u64),   // Specific time
+    AfterSeconds(u64),  // Delay from now
+    AfterBlocks(u64),   // Block delay
+}
+
+pub struct RepeatConfig {
+    /// Repeat interval in seconds
+    pub interval_seconds: u64,
+
+    /// Max executions (None = unlimited)
+    pub max_executions: Option<u32>,
+
+    /// End time (None = never)
+    pub end_at: Option<u64>,
+}
+```
+
+## Syscall Interface
+
+```rust
+pub mod SchedulerSyscall {
+    /// Create a scheduled task
+    pub fn schedule_task(task: ScheduledTask) -> Result<Hash, ScheduleError>;
+
+    /// Cancel a task
+    pub fn cancel_task(task_id: Hash) -> Result<(), ScheduleError>;
+
+    /// Query task status
+    pub fn get_task(task_id: Hash) -> Option<ScheduledTask>;
+
+    /// Get user's tasks
+    pub fn get_user_tasks(user: Address) -> Vec<ScheduledTask>;
+
+    /// Add gas to a task
+    pub fn top_up_task_gas(task_id: Hash, amount: u64) -> Result<(), ScheduleError>;
+}
+```
+
+## Examples
+
+### Daily Reward Release
+
+```rust
+fn setup_daily_release(staking_contract: Address) {
+    let task = ScheduledTask {
+        id: generate_task_id(),
+        creator: get_tx_sender(),
+        execute_at: ExecuteTime::AtTimestamp(tomorrow_midnight()),
+        repeat: Some(RepeatConfig {
+            interval_seconds: 86400, // Daily
+            max_executions: Some(365),
+            end_at: None,
+        }),
+        contract: staking_contract,
+        method: "release_daily_rewards".to_string(),
+        params: vec![],
+        gas_budget: 1_000_000,
+        gas_payer: treasury,
+        status: TaskStatus::Pending,
+    };
+
+    schedule_task(task).expect("Failed to schedule");
+}
+```
+
+### Scheduled Lottery
+
+```rust
+fn schedule_lottery_draw(lottery_id: u64, draw_time: u64) {
+    let task = ScheduledTask {
+        execute_at: ExecuteTime::AtTimestamp(draw_time),
+        repeat: None, // One-time
+        contract: lottery_contract,
+        method: "draw".to_string(),
+        params: encode(lottery_id),
+        gas_budget: 500_000,
+        gas_payer: lottery_contract,
+        ..Default::default()
+    };
+
+    schedule_task(task).expect("Failed to schedule");
+}
+```
+
+### Lock Expiration
+
+```rust
+fn schedule_unlock(user: Address, amount: u64, lock_days: u64) {
+    let unlock_time = get_timestamp() + lock_days * 86400;
+
+    let task = ScheduledTask {
+        execute_at: ExecuteTime::AtTimestamp(unlock_time),
+        repeat: None,
+        contract: lock_contract,
+        method: "unlock".to_string(),
+        params: encode((user, amount)),
+        gas_budget: 100_000,
+        gas_payer: user,
+        ..Default::default()
+    };
+
+    schedule_task(task).expect("Failed to schedule");
+}
+```
+
+## Gas Costs
+
+| Operation | Cost |
+|-----------|:----:|
+| Create task | $0.01 |
+| Execute task (base) | $0.005 |
+| Cancel task | $0.005 |
+| Query task | $0.001 |
+
+## Execution Guarantees
+
+```
+Execution Flow:
+
+1. Task registered in global queue
+2. Each block checks for due tasks
+3. Validators execute due tasks
+4. Results recorded on-chain
+5. Repeat tasks re-queued
+
+Guarantees:
+✓ Task will execute (if gas available)
+✓ 1-second precision
+✓ Execution order by time
+```
+
+## Failure Handling
+
+```rust
+fn handle_task_failure(task: &ScheduledTask, error: &str) {
+    // Record failure reason
+    update_status(task.id, TaskStatus::Failed {
+        reason: error.to_string(),
+    });
+
+    // For repeat tasks: skip this execution, continue schedule
+    if task.repeat.is_some() {
+        reschedule_task(task);
+    }
+
+    // Refund remaining gas
+    refund_gas(task.gas_payer, remaining_gas);
+}
+```
+
+## Limits
+
+| Limit | Value |
+|-------|:-----:|
+| Max tasks per user | 100 |
+| Min interval | 60 seconds |
+| Max schedule ahead | 2 years |
+| Max gas per task | 10,000,000 |
+
+## Comparison
+
+| Feature | Chainlink | External Keeper | **TOS Native** |
+|---------|:---------:|:---------------:|:--------------:|
+| Cost/execution | $0.10+ | Variable | **$0.005** |
+| Requires token | Yes (LINK) | No | **No** |
+| Precision | Minutes | Variable | **Seconds** |
+| Complexity | High | Medium | **Low** |
+| Decentralized | Yes | No | **Yes** |
+| Auto-retry | Manual | Manual | **Automatic** |

@@ -15,7 +15,7 @@ The TOS Network difficulty adjustment algorithm is designed around the core prin
 
 - **Dynamic Adjustment**: Real-time difficulty adaptation based on network conditions
 - **Mining Optimization**: Special considerations for GPU mining algorithms
-- **Predictable Block Times**: Target block time of 15 seconds with minimal variance
+- **Predictable Block Times**: Target block time of 1 second with minimal variance
 - **Hash Rate Stability**: Smooth difficulty transitions prevent mining pool disruption
 - **Energy Efficiency**: Optimized for the TOS Energy Model integration
 
@@ -30,7 +30,7 @@ new_difficulty = old_difficulty * (target_time / actual_time) * adjustment_facto
 ```
 
 Where:
-- `target_time` = 15 seconds (target block time)
+- `target_time` = 1 second (target block time)
 - `actual_time` = Average time of last N blocks
 - `adjustment_factor` = Smoothing factor to prevent extreme adjustments
 
@@ -42,8 +42,8 @@ pub fn calculate_next_difficulty(
     current_difficulty: u64,
     block_times: &[u64],
 ) -> u64 {
-    const TARGET_BLOCK_TIME: u64 = 15; // seconds
-    const ADJUSTMENT_WINDOW: usize = 144; // ~36 minutes
+    const TARGET_BLOCK_TIME: u64 = 1; // seconds
+    const ADJUSTMENT_WINDOW: usize = 2160; // ~36 minutes
     const MAX_ADJUSTMENT: f64 = 4.0; // Max 4x change
     const MIN_ADJUSTMENT: f64 = 0.25; // Min 0.25x change
 
@@ -64,8 +64,8 @@ pub fn calculate_next_difficulty(
 
 | Parameter | Value | Description |
 |-----------|--------|-------------|
-| Target Block Time | 15 seconds | Optimal time between blocks |
-| Adjustment Window | 144 blocks | Approximately 36 minutes of blocks for calculation |
+| Target Block Time | 1 second | Optimal time between blocks |
+| Adjustment Window | 2160 blocks | Approximately 36 minutes of blocks for calculation |
 | Maximum Adjustment | 4.0x | Prevents extreme difficulty spikes |
 | Minimum Adjustment | 0.25x | Prevents difficulty collapse |
 | Smoothing Factor | 0.1 | Reduces adjustment volatility |

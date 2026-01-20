@@ -111,9 +111,9 @@ pub fn calculate_stable_height(
 
 | Metric | Traditional Blockchain | TOS BlockDAG | Improvement |
 |--------|------------------------|--------------|-------------|
-| **TPS (Transactions Per Second)** | 7-15 | 1000+ | 70x faster |
-| **Block Time** | 10+ minutes | 15 seconds | 40x faster |
-| **Confirmation Time** | 60+ minutes | 2-5 minutes | 15x faster |
+| **TPS (Transactions Per Second)** | 7-15 | 2,500+ | 170x faster |
+| **Block Time** | 10+ minutes | 1 second | 600x faster |
+| **Confirmation Time** | 60+ minutes | 1 second | 3,600x faster |
 | **Network Capacity** | Fixed | Elastic | Scalable |
 
 ### Scalability Analysis
@@ -121,20 +121,20 @@ pub fn calculate_stable_height(
 ```
 Network Load vs Performance:
 
-Low Load (< 100 TPS):
-├── Block Time: 15 seconds
-├── Confirmation: 2 minutes
+Low Load (under 500 TPS):
+├── Block Time: 1 second
+├── Confirmation: 1 second (instant finality)
+└── Network Efficiency: 98%+
+
+Medium Load (500-1500 TPS):
+├── Block Time: 1 second
+├── Confirmation: 1 second
 └── Network Efficiency: 95%+
 
-Medium Load (100-500 TPS):
-├── Block Time: 15 seconds
-├── Confirmation: 3 minutes
+High Load (1500+ TPS):
+├── Block Time: 1 second
+├── Confirmation: 1-2 seconds
 └── Network Efficiency: 90%+
-
-High Load (500+ TPS):
-├── Block Time: 15 seconds
-├── Confirmation: 5 minutes
-└── Network Efficiency: 85%+
 ```
 
 ## Security Properties
@@ -263,7 +263,7 @@ TIP_RESPONSE:
 
 ### For Users
 
-- **Faster Transactions**: Near-instant confirmations
+- **Instant Transactions**: 1-second finality for all transactions
 - **Lower Fees**: Increased capacity reduces congestion
 - **Better Reliability**: Network remains stable under high load
 - **Enhanced Privacy**: Parallel processing supports privacy features
@@ -310,8 +310,8 @@ TIP_RESPONSE:
 | Feature | TOS BlockDAG | Bitcoin | Ethereum | IOTA Tangle |
 |---------|--------------|---------|----------|-------------|
 | **Structure** | DAG with TIPS | Linear Chain | Linear Chain | Pure DAG |
-| **Throughput** | 1000+ TPS | 7 TPS | 15 TPS | 1000+ TPS |
-| **Finality** | 2-5 minutes | 60+ minutes | 13+ minutes | Probabilistic |
+| **Throughput** | 2,500+ TPS | 7 TPS | 15 TPS | 1000+ TPS |
+| **Finality** | 1 second | 60+ minutes | 13+ minutes | Probabilistic |
 | **Energy Efficiency** | High | Low | Medium | High |
 | **Decentralization** | High | High | Medium | Medium |
 
@@ -319,8 +319,8 @@ TIP_RESPONSE:
 
 TOS Network's BlockDAG architecture represents the future of blockchain scalability, providing:
 
-- **Massive Throughput**: Handle thousands of transactions per second
-- **Fast Finality**: Confirm transactions in minutes, not hours
+- **Massive Throughput**: Handle 2,500+ transactions per second
+- **Instant Finality**: 1-second confirmation, not minutes or hours
 - **Network Efficiency**: Optimal resource utilization
 - **Security Preservation**: Maintain cryptographic guarantees
 - **Future Scalability**: Architecture designed for growth

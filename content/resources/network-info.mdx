@@ -15,7 +15,7 @@ Comprehensive information about the TOS Network's current status, statistics, an
 |-----------|--------|
 | **Network Name** | TOS Mainnet |
 | **Chain ID** | 1 |
-| **Block Time** | 15 seconds |
+| **Block Time** | 1 second (instant finality) |
 | **Current Block Height** | [Live Block Explorer](https://explorer.tos.network) |
 | **Network Hashrate** | [Live Statistics](https://stats.tos.network) |
 | **Active Nodes** | 500+ worldwide |
@@ -24,7 +24,7 @@ Comprehensive information about the TOS Network's current status, statistics, an
 
 ```
 🟢 Network Status: HEALTHY
-🟢 Block Production: NORMAL (15.2s avg)
+🟢 Block Production: NORMAL (1.0s avg)
 🟢 Transaction Processing: NORMAL
 🟢 Consensus: STABLE
 ```
@@ -55,7 +55,7 @@ TOS Network is currently in development. Live network statistics will be availab
 {
   "network": {
     "block_height": "<current_height>",
-    "block_time_avg": "15s (target)",
+    "block_time_avg": "1s (target)",
     "hashrate": "<live_data>",
     "difficulty": "<live_data>",
     "active_addresses": "<live_data>",
@@ -226,7 +226,7 @@ A: Use the seed nodes listed above or connect to `mainnet-rpc.tos.network`.
 A: There's no minimum stake required - TOS uses Proof of Work, not Proof of Stake.
 
 **Q: How often are network statistics updated?**
-A: Block explorer and statistics are updated in real-time with each new block (every ~15 seconds).
+A: Block explorer and statistics are updated in real-time with each new block (every 1 second).
 
 **Q: Is there a testnet available?**
 A: Yes, connect to `testnet-rpc.tos.network` for testing and development.

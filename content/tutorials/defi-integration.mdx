@@ -583,8 +583,8 @@ export class FarmingManager {
       const tosPerBlock = await this.client.farming.getTOSPerBlock();
       const totalAllocPoint = await this.client.farming.getTotalAllocPoint();
 
-      // Blocks per year (assuming 15 second block time)
-      const blocksPerYear = (365 * 24 * 60 * 60) / 15;
+      // Blocks per year (assuming 1 second block time)
+      const blocksPerYear = (365 * 24 * 60 * 60) / 1;
 
       // TOS rewards per year for this pool
       const tosPerYear = (tosPerBlock * poolInfo.allocPoint / totalAllocPoint) * blocksPerYear;

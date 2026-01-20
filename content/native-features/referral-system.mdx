@@ -1,0 +1,220 @@
+---
+title: Native Referral System
+description: Protocol-level multi-level referral relationship tracking
+---
+
+# Native Referral System
+
+TOS provides a **protocol-level referral system** that tracks relationships between users, enabling efficient multi-level marketing, affiliate programs, and reward distributions.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| BindReferrer transaction | Implemented |
+| ReferralProvider storage | Implemented |
+| RPC query endpoints (7) | Implemented |
+| TAKO Syscalls (7 read-only) | Implemented |
+| BatchReferralReward transaction | Implemented |
+| TeamVolume Syscalls (4) | Implemented |
+
+## Why Native?
+
+| Approach | Bind Cost | Query 10 Uplines | 10-Level Distribution |
+|----------|:---------:|:----------------:|:---------------------:|
+| Smart Contract (TRON) | $0.50 | $0.10 | $1.00 |
+| Smart Contract (BSC) | $0.30 | $0.10 | $0.50 |
+| **TOS Native** | **$0.01** | **$0.001** | **$0.025** |
+
+**20-50x cheaper** than contract-based implementations.
+
+## Binding a Referrer
+
+Users bind their referrer once via transaction:
+
+```bash
+# CLI
+tos_wallet bind_referrer --referrer <address>
+```
+
+```javascript
+// JavaScript SDK
+const tx = await tos.sendTransaction({
+    type: 'BindReferrer',
+    payload: { referrer: referrerAddress }
+});
+```
+
+This creates an immutable on-chain relationship that cannot be changed.
+
+## Querying Relationships
+
+### RPC Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /get_referrer` | Get user's direct referrer |
+| `POST /has_referrer` | Check if user has bound referrer |
+| `POST /get_uplines` | Get N levels of uplines |
+| `POST /get_direct_referrals` | Get direct referrals (paginated) |
+| `POST /get_team_size` | Get total team size |
+| `POST /get_referral_record` | Get complete referral record |
+| `POST /is_downline` | Check if user is in downline |
+
+### Smart Contract Syscalls
+
+| Syscall | Cost | Description |
+|---------|:----:|-------------|
+| `tos_has_referrer` | 500 CU | Check if user has referrer |
+| `tos_get_referrer` | 500 CU | Get direct referrer |
+| `tos_get_uplines` | 500 + 200×N CU | Get N levels (max 20) |
+| `tos_get_direct_referrals_count` | 500 CU | Get direct count |
+| `tos_get_team_size` | 500 CU | Get team size (cached) |
+| `tos_get_referral_level` | 500 CU | Get user's tree depth |
+| `tos_is_downline` | 500 + 100×depth CU | Check downline relationship |
+
+### Team Volume Syscalls
+
+| Syscall | Cost | Description |
+|---------|:----:|-------------|
+| `tos_add_team_volume` | 1000 + 500×N CU | Add volume to uplines (write) |
+| `tos_get_team_volume` | 500 CU | Get total team volume |
+| `tos_get_direct_volume` | 500 CU | Get direct volume |
+| `tos_get_zone_volumes` | 500 + 100×N CU | Get zone volumes |
+
+## Contract Examples
+
+### Three-Level Distribution
+
+```rust
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn distribute_rewards() {
+    let buyer = get_tx_sender();
+    let amount = get_call_value();
+
+    // Get 3 levels of uplines
+    let (uplines, count) = match get_uplines(&buyer, 3) {
+        Ok(result) => result,
+        Err(_) => return, // No referrer
+    };
+
+    // 10%, 5%, 3% distribution
+    let rates = [1000u64, 500, 300];
+
+    for i in 0..(count as usize).min(3) {
+        let reward = amount * rates[i] / 10000;
+        if reward > 0 {
+            let _ = transfer(&uplines[i], reward);
+        }
+    }
+}
+```
+
+### Dynamic Tier Rewards
+
+```rust
+use tako_sdk::*;
+
+fn on_purchase() {
+    let buyer = get_tx_sender();
+    let amount = get_call_value();
+    let asset = get_contract_hash();
+
+    // Record volume to 10 levels
+    add_team_volume(&buyer, &asset, amount, 10).ok();
+
+    // Get uplines
+    let (uplines, count) = get_uplines(&buyer, 3).unwrap_or_default();
+
+    for i in 0..(count as usize).min(3) {
+        let upline = &uplines[i];
+
+        // Dynamic rate based on volume tier
+        let team_vol = get_team_volume(upline, &asset).unwrap_or(0);
+        let rate = if team_vol >= 1_000_000 {
+            1500  // 15% Diamond
+        } else if team_vol >= 100_000 {
+            1000  // 10% Gold
+        } else {
+            500   // 5% Basic
+        };
+
+        let reward = amount * rate / 10000;
+        if reward > 0 {
+            let _ = transfer(upline, reward);
+        }
+    }
+}
+```
+
+## Data Structure
+
+```rust
+pub struct ReferralRecord {
+    /// User address
+    pub user: Address,
+
+    /// Referrer address (None = top-level)
+    pub referrer: Option<Address>,
+
+    /// Binding timestamp
+    pub bound_at: u64,
+
+    /// Binding block height
+    pub bound_block: u64,
+
+    /// Binding transaction hash
+    pub bound_tx: Hash,
+
+    /// Direct referrals count (cached)
+    pub direct_referrals_count: u32,
+
+    /// Total team size (cached)
+    pub team_size: u64,
+}
+```
+
+## Compliance Notes
+
+TOS provides neutral infrastructure; DApps implement business rules:
+
+| Region | Recommended Depth | Notes |
+|--------|:-----------------:|-------|
+| China | 1 level | Multi-level prohibited |
+| USA | 3-10 levels | Focus on product sales |
+| EU | 3-10 levels | Pyramid schemes prohibited |
+| Southeast Asia | Up to 20 levels | Registration required |
+
+**Key Principles:**
+- Rewards should be based on product sales, not recruitment
+- Clear disclosure of commission structure
+- Consult legal counsel for specific jurisdictions
+
+## Frontend Integration
+
+```javascript
+// Get referrer
+const referrer = await fetch('/get_referrer', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress })
+}).then(r => r.json());
+
+// Get uplines
+const uplines = await fetch('/get_uplines', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress, levels: 3 })
+}).then(r => r.json());
+
+// Get team size
+const teamSize = await fetch('/get_team_size', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress })
+}).then(r => r.json());
+```
+
+## See Also
+
+- [Why TOS: Native Referral](/why-tos/native-referral) - Overview and benefits
+- [Contract Example: Referral Rewards](/smart-contracts/examples/referral-rewards) - Complete implementation

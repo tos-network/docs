@@ -1,0 +1,498 @@
+---
+title: Yield Vault
+description: Yearn-style yield aggregator vault in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Yield Vault Contract
+
+A Yearn-style yield aggregator that automatically optimizes yield across multiple DeFi protocols, with strategies that can be added and managed by governance.
+
+## Features
+
+- **Automated Yield Optimization**: Automatically moves funds to best yield
+- **Multiple Strategies**: Support for various yield sources
+- **Vault Shares**: ERC4626-compliant share tokens
+- **Performance Fees**: Protocol revenue from generated yield
+- **Emergency Withdrawal**: Users can always withdraw underlying
+- **Strategy Management**: Governance-controlled strategy allocation
+
+## How Vaults Work
+
+```
+1. User deposits 1000 USDC to vault
+2. User receives vault shares (e.g., 980 yvUSDC)
+3. Vault deploys USDC across strategies:
+   - 40% to Aave lending
+   - 30% to Compound lending
+   - 30% to StableSwap LP
+4. Strategies earn yield, increasing vault value
+5. User redeems shares for 1050 USDC (5% profit)
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitVault | `[asset:32][name_len:1][name:N][symbol_len:1][symbol:N]` |
+| 0x01 | Deposit | `[amount:8][receiver:32][lock_id:8]` |
+| 0x02 | Withdraw | `[shares:8][receiver:32][owner:32][share_lock_id:8]` |
+| 0x03 | AddStrategy | `[strategy:32][debt_ratio:2]` |
+| 0x04 | RemoveStrategy | `[strategy:32]` |
+| 0x05 | Harvest | `[strategy:32]` |
+| 0x06 | Report | `[strategy:32][gain:8][loss:8][debt_payment:8]` |
+
+## Storage Layout
+
+```rust
+// Vault configuration
+const KEY_ASSET: &[u8] = b"asset";           // Underlying asset
+const KEY_SHARES: &[u8] = b"shares";         // Vault share token
+const KEY_TOTAL_ASSETS: &[u8] = b"total";    // Total assets (deposits + gains)
+const KEY_TOTAL_DEBT: &[u8] = b"debt";       // Total deployed to strategies
+
+// Strategy management
+const KEY_STRATEGIES: &[u8] = b"strategies"; // List of strategy addresses
+const KEY_STRATEGY_PREFIX: &[u8] = b"strat:"; // strat:{addr} -> StrategyParams
+
+// Fees
+const KEY_PERFORMANCE_FEE: &[u8] = b"perf_fee";   // Basis points
+const KEY_MANAGEMENT_FEE: &[u8] = b"mgmt_fee";    // Annual basis points
+const KEY_FEE_RECIPIENT: &[u8] = b"fee_rcpt";
+```
+
+## Core Data Structures
+
+```rust
+/// Strategy parameters
+struct StrategyParams {
+    /// Performance fee for this strategy
+    performance_fee: u16,
+    /// Activation timestamp
+    activation: u64,
+    /// Current debt (amount deployed)
+    total_debt: u128,
+    /// Max debt this strategy can have (basis points of total)
+    debt_ratio: u16,
+    /// Minimum time between harvests
+    min_debt_per_harvest: u128,
+    /// Maximum time between reports
+    max_report_delay: u64,
+    /// Last report timestamp
+    last_report: u64,
+    /// Total gains ever reported
+    total_gain: u128,
+    /// Total losses ever reported
+    total_loss: u128,
+}
+
+/// Strategy interface (what strategies must implement)
+trait Strategy {
+    fn want() -> Hash;           // Underlying asset
+    fn vault() -> Hash;          // Parent vault
+    fn estimated_total_assets() -> u128;
+    fn withdraw(amount: u128) -> u128;
+    fn harvest();
+}
+```
+
+## Core Implementation
+
+### Initialize Vault
+
+```rust
+fn init_vault(
+    caller: &Address,
+    asset: &Hash,
+    name: &[u8],
+    symbol: &[u8],
+    performance_fee: u16,  // e.g., 1000 = 10%
+    management_fee: u16    // e.g., 200 = 2% annual
+) -> entrypoint::Result<Hash> {
+    require_admin(caller)?;
+
+    if performance_fee > 5000 { // Max 50%
+        return Err(FeeTooHigh);
+    }
+    if management_fee > 500 { // Max 5% annual
+        return Err(FeeTooHigh);
+    }
+
+    // Create vault share token (ERC4626 compatible)
+    let shares = asset_create(
+        name,
+        symbol,
+        get_decimals(asset)?,
+        0,
+        true,  // mintable
+        true,  // burnable
+        true   // transferable
+    )?;
+
+    storage_write(KEY_ASSET, asset)?;
+    storage_write(KEY_SHARES, &shares)?;
+    storage_write(KEY_TOTAL_ASSETS, &0u128.to_le_bytes())?;
+    storage_write(KEY_TOTAL_DEBT, &0u128.to_le_bytes())?;
+    storage_write(KEY_PERFORMANCE_FEE, &performance_fee.to_le_bytes())?;
+    storage_write(KEY_MANAGEMENT_FEE, &management_fee.to_le_bytes())?;
+
+    log("Vault initialized");
+    Ok(shares)
+}
+```
+
+### Deposit (ERC4626)
+
+```rust
+/// Deposit assets and receive vault shares
+fn deposit(
+    caller: &Address,
+    assets: u64,
+    receiver: &Address,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    if assets == 0 {
+        return Err(ZeroAmount);
+    }
+
+    let asset = read_hash(KEY_ASSET)?;
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != asset {
+        return Err(InvalidLock);
+    }
+    if lock.amount < assets {
+        return Err(InsufficientAmount);
+    }
+
+    // Calculate shares to mint
+    let shares = convert_to_shares(assets as u128)?;
+
+    if shares == 0 {
+        return Err(ZeroShares);
+    }
+
+    // Use locked assets
+    lock_use(caller, &asset, assets, lock_id)?;
+
+    // Update total assets
+    let total = read_u128(KEY_TOTAL_ASSETS);
+    storage_write(KEY_TOTAL_ASSETS, &(total + assets as u128).to_le_bytes())?;
+
+    // Mint shares to receiver
+    let share_token = read_hash(KEY_SHARES)?;
+    mint(&share_token, receiver, shares as u64)?;
+
+    log("Deposit successful");
+    Ok(shares as u64)
+}
+
+/// Convert assets to shares
+fn convert_to_shares(assets: u128) -> entrypoint::Result<u128> {
+    let total_assets = total_assets()?;
+    let share_token = read_hash(KEY_SHARES)?;
+    let total_supply = get_total_supply(&share_token) as u128;
+
+    if total_supply == 0 {
+        // First deposit - 1:1 ratio
+        Ok(assets)
+    } else {
+        // shares = assets * total_supply / total_assets
+        Ok(assets.checked_mul(total_supply).unwrap()
+            .checked_div(total_assets).unwrap())
+    }
+}
+```
+
+### Withdraw (ERC4626)
+
+```rust
+/// Redeem shares for underlying assets
+fn withdraw(
+    caller: &Address,
+    shares: u64,
+    receiver: &Address,
+    owner: &Address,
+    share_lock_id: u64
+) -> entrypoint::Result<u64> {
+    if shares == 0 {
+        return Err(ZeroAmount);
+    }
+
+    let share_token = read_hash(KEY_SHARES)?;
+
+    // Verify share lock (or allowance if caller != owner)
+    let lock = get_lock_info(share_lock_id)?;
+    if lock.owner != *owner || lock.asset != share_token {
+        return Err(InvalidLock);
+    }
+    if lock.amount < shares {
+        return Err(InsufficientAmount);
+    }
+
+    // If caller is not owner, check allowance
+    if *caller != *owner {
+        // Check ERC20 allowance
+        let allowance = get_allowance(&share_token, owner, caller);
+        if allowance < shares {
+            return Err(InsufficientAllowance);
+        }
+    }
+
+    // Calculate assets to return
+    let assets = convert_to_assets(shares as u128)?;
+
+    // Ensure we have enough liquid assets
+    let liquid = free_assets()?;
+    if assets > liquid {
+        // Need to withdraw from strategies
+        withdraw_from_strategies(assets - liquid)?;
+    }
+
+    // Use and burn shares
+    lock_use(owner, &share_token, shares, share_lock_id)?;
+    burn(&share_token, shares)?;
+
+    // Update total assets
+    let total = read_u128(KEY_TOTAL_ASSETS);
+    storage_write(KEY_TOTAL_ASSETS, &total.saturating_sub(assets).to_le_bytes())?;
+
+    // Transfer assets to receiver
+    let asset = read_hash(KEY_ASSET)?;
+    transfer(receiver, &asset, assets as u64)?;
+
+    log("Withdrawal successful");
+    Ok(assets as u64)
+}
+
+/// Convert shares to assets
+fn convert_to_assets(shares: u128) -> entrypoint::Result<u128> {
+    let total_assets = total_assets()?;
+    let share_token = read_hash(KEY_SHARES)?;
+    let total_supply = get_total_supply(&share_token) as u128;
+
+    if total_supply == 0 {
+        Ok(shares)
+    } else {
+        // assets = shares * total_assets / total_supply
+        Ok(shares.checked_mul(total_assets).unwrap()
+            .checked_div(total_supply).unwrap())
+    }
+}
+```
+
+### Add Strategy
+
+```rust
+/// Add a new yield strategy to the vault
+fn add_strategy(
+    caller: &Address,
+    strategy: &Address,
+    debt_ratio: u16,       // e.g., 3000 = 30% of vault
+    min_debt_per_harvest: u128,
+    max_report_delay: u64
+) -> entrypoint::Result<()> {
+    require_governance(caller)?;
+
+    // Verify strategy parameters
+    if debt_ratio > 10000 {
+        return Err(InvalidDebtRatio);
+    }
+
+    // Check total debt ratio doesn't exceed 100%
+    let total_ratio = get_total_debt_ratio()?;
+    if total_ratio + debt_ratio > 10000 {
+        return Err(DebtRatioExceeded);
+    }
+
+    // Verify strategy is compatible
+    let strategy_want = call_strategy_want(strategy)?;
+    let vault_asset = read_hash(KEY_ASSET)?;
+    if strategy_want != vault_asset {
+        return Err(WrongStrategyAsset);
+    }
+
+    let params = StrategyParams {
+        performance_fee: read_u16(KEY_PERFORMANCE_FEE),
+        activation: get_block_timestamp(),
+        total_debt: 0,
+        debt_ratio,
+        min_debt_per_harvest,
+        max_report_delay,
+        last_report: get_block_timestamp(),
+        total_gain: 0,
+        total_loss: 0,
+    };
+
+    let key = make_strategy_key(strategy);
+    storage_write(&key, &params.encode())?;
+
+    // Add to strategy list
+    add_to_strategy_list(strategy)?;
+
+    log("Strategy added");
+    Ok(())
+}
+```
+
+### Harvest Strategy
+
+```rust
+/// Harvest profits from a strategy
+fn harvest(strategy: &Address) -> entrypoint::Result<()> {
+    let key = make_strategy_key(strategy);
+    let mut params = load_strategy_params(&key)?;
+
+    // Call strategy harvest
+    call_strategy_harvest(strategy)?;
+
+    // Get strategy's current assets
+    let strategy_assets = call_strategy_estimated_assets(strategy)?;
+
+    // Calculate gain or loss
+    let (gain, loss) = if strategy_assets > params.total_debt {
+        ((strategy_assets - params.total_debt), 0u128)
+    } else {
+        (0u128, (params.total_debt - strategy_assets))
+    };
+
+    // Take performance fee on gains
+    let performance_fee = read_u16(KEY_PERFORMANCE_FEE);
+    let fee_amount = gain
+        .checked_mul(performance_fee as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    // Update strategy params
+    params.total_gain = params.total_gain.checked_add(gain).unwrap();
+    params.total_loss = params.total_loss.checked_add(loss).unwrap();
+    params.last_report = get_block_timestamp();
+
+    // Adjust debt based on debt_ratio
+    let total_assets = total_assets()?;
+    let target_debt = total_assets
+        .checked_mul(params.debt_ratio as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    if strategy_assets > target_debt {
+        // Strategy has too much - withdraw excess
+        let excess = strategy_assets - target_debt;
+        call_strategy_withdraw(strategy, excess)?;
+        params.total_debt = params.total_debt.saturating_sub(excess);
+    } else if strategy_assets < target_debt && free_assets()? > 0 {
+        // Strategy needs more - deposit
+        let needed = target_debt - strategy_assets;
+        let available = free_assets()?;
+        let deposit_amount = needed.min(available);
+
+        // Transfer to strategy
+        let asset = read_hash(KEY_ASSET)?;
+        transfer(strategy, &asset, deposit_amount as u64)?;
+        params.total_debt = params.total_debt.checked_add(deposit_amount).unwrap();
+    }
+
+    save_strategy_params(&key, &params)?;
+
+    // Mint fee shares to fee recipient
+    if fee_amount > 0 {
+        let fee_shares = convert_to_shares(fee_amount)?;
+        let fee_recipient = read_address(KEY_FEE_RECIPIENT)?;
+        let share_token = read_hash(KEY_SHARES)?;
+        mint(&share_token, &fee_recipient, fee_shares as u64)?;
+    }
+
+    log("Harvest complete");
+    Ok(())
+}
+```
+
+### Emergency Withdraw
+
+```rust
+/// Emergency withdraw all funds from a strategy
+fn emergency_withdraw(
+    caller: &Address,
+    strategy: &Address
+) -> entrypoint::Result<u128> {
+    require_governance(caller)?;
+
+    let key = make_strategy_key(strategy);
+    let mut params = load_strategy_params(&key)?;
+
+    // Get all assets from strategy
+    let withdrawn = call_strategy_withdraw(strategy, u128::MAX)?;
+
+    // Update tracking
+    let total_debt = read_u128(KEY_TOTAL_DEBT);
+    storage_write(KEY_TOTAL_DEBT,
+        &total_debt.saturating_sub(params.total_debt).to_le_bytes())?;
+
+    params.total_debt = 0;
+    params.debt_ratio = 0;
+    save_strategy_params(&key, &params)?;
+
+    log("Emergency withdrawal complete");
+    Ok(withdrawn)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 2101 | ZeroAmount | Cannot deposit/withdraw zero |
+| 2102 | ZeroShares | Would receive zero shares |
+| 2103 | InvalidDebtRatio | Debt ratio > 100% |
+| 2104 | DebtRatioExceeded | Total strategies > 100% |
+| 2105 | WrongStrategyAsset | Strategy asset mismatch |
+| 2106 | FeeTooHigh | Fee exceeds maximum |
+| 2107 | StrategyNotFound | Strategy not in vault |
+
+## Usage Example
+
+```rust
+// 1. Initialize vault for USDC
+let shares = init_vault(&admin, &usdc, b"Yield USDC", b"yUSDC", 1000, 200)?;
+// 10% performance fee, 2% management fee
+
+// 2. Add Aave strategy (40% allocation)
+add_strategy(&admin, &aave_strategy, 4000, 1000e6, 86400)?;
+
+// 3. Add Compound strategy (30% allocation)
+add_strategy(&admin, &compound_strategy, 3000, 1000e6, 86400)?;
+
+// 4. User deposits 10,000 USDC
+let lock = lock_asset(usdc, 10_000e6, contract, 10000)?;
+let shares = deposit(&user, 10_000e6, &user, lock)?;
+
+// 5. Keeper harvests strategies periodically
+harvest(&aave_strategy)?;
+harvest(&compound_strategy)?;
+
+// 6. User withdraws (hopefully with profit!)
+let share_lock = lock_asset(shares_token, shares, contract, 10000)?;
+let assets = withdraw(&user, shares, &user, &user, share_lock)?;
+// Should receive > 10,000 USDC if strategies were profitable
+```
+
+## ERC4626 Compliance
+
+This vault implements the ERC4626 tokenized vault standard:
+
+| Function | Description |
+|----------|-------------|
+| `asset()` | Returns underlying asset |
+| `totalAssets()` | Total assets managed by vault |
+| `convertToShares(assets)` | Preview shares for deposit |
+| `convertToAssets(shares)` | Preview assets for redeem |
+| `deposit(assets, receiver)` | Deposit and mint shares |
+| `withdraw(assets, receiver, owner)` | Burn shares for assets |
+
+## Related Examples
+
+- [Lending Protocol](/smart-contracts/examples/lending) - Yield source
+- [StableSwap](/smart-contracts/examples/stableswap) - LP token yield
+- [Staking](/smart-contracts/examples/staking) - Reward distribution

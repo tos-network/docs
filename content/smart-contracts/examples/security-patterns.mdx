@@ -1,0 +1,435 @@
+---
+title: Security Patterns
+description: Essential security patterns for TAKO smart contracts
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Security Patterns
+
+Essential security patterns for writing safe and secure smart contracts on TOS Network's TAKO runtime.
+
+## Overview
+
+This guide covers critical security patterns that every smart contract developer should implement:
+
+- **Reentrancy Guard** - Prevent recursive calls
+- **Access Control** - Role-based permissions
+- **Pausable** - Emergency stop functionality
+- **Safe Math** - Overflow protection
+
+---
+
+## Reentrancy Guard
+
+Reentrancy attacks occur when a contract calls an external contract, and that external contract calls back into the original contract before the first call completes.
+
+### The Attack Pattern
+
+```
+1. Attacker calls withdraw(100)
+2. Contract sends 100 tokens to attacker
+3. Attacker's fallback calls withdraw(100) again
+4. Contract hasn't updated balance yet - sends another 100
+5. Repeat until drained
+```
+
+### The Guard Implementation
+
+```rust
+// Storage key for reentrancy status
+const REENTRANCY_STATUS: &[u8] = b"reentrancy_status";
+
+// States (using 1,2 saves gas vs 0,1)
+const NOT_ENTERED: u8 = 1;
+const ENTERED: u8 = 2;
+
+/// Check if currently in a protected function
+fn is_entered() -> bool {
+    let mut buffer = [0u8; 1];
+    let len = storage_read(REENTRANCY_STATUS, &mut buffer);
+    if len == 0 {
+        return false; // Not initialized = not entered
+    }
+    buffer[0] == ENTERED
+}
+
+/// Enter the guard (call before external interactions)
+fn enter() -> bool {
+    storage_write(REENTRANCY_STATUS, &[ENTERED]).is_ok()
+}
+
+/// Leave the guard (call after external interactions)
+fn leave() -> bool {
+    storage_write(REENTRANCY_STATUS, &[NOT_ENTERED]).is_ok()
+}
+```
+
+### Using the Guard
+
+```rust
+fn withdraw(amount: u64) -> u64 {
+    // Step 1: Check guard
+    if is_entered() {
+        log("Reentrancy detected!");
+        return ERR_REENTRANT_CALL;
+    }
+
+    // Step 2: Enter guard
+    enter();
+
+    // Step 3: Update state BEFORE external call
+    let balance = read_balance();
+    if balance < amount {
+        leave();
+        return ERR_INSUFFICIENT_BALANCE;
+    }
+    write_balance(balance - amount);
+
+    // Step 4: Make external call (potential reentrancy point)
+    let caller = get_caller();
+    let _ = call(&caller, &[], amount, 0);
+
+    // Step 5: Leave guard
+    leave();
+
+    SUCCESS
+}
+```
+
+### Checks-Effects-Interactions Pattern
+
+Even with a reentrancy guard, follow this order:
+
+1. **Checks**: Validate all conditions
+2. **Effects**: Update all state variables
+3. **Interactions**: Make external calls last
+
+---
+
+## Access Control
+
+Role-based access control for managing permissions.
+
+### Storage Layout
+
+```rust
+const KEY_ADMIN: &[u8] = b"admin";
+const KEY_ROLE_PREFIX: &[u8] = b"role:";  // role:{role_id}{address} -> bool
+
+// Predefined roles
+const ROLE_ADMIN: u8 = 0;
+const ROLE_MINTER: u8 = 1;
+const ROLE_PAUSER: u8 = 2;
+const ROLE_OPERATOR: u8 = 3;
+```
+
+### Implementation
+
+```rust
+/// Check if address has a specific role
+fn has_role(role: u8, account: &Address) -> bool {
+    // Admin has all roles
+    if is_admin(account) {
+        return true;
+    }
+
+    let key = make_role_key(role, account);
+    let mut buffer = [0u8; 1];
+    let len = storage_read(&key, &mut buffer);
+    len == 1 && buffer[0] != 0
+}
+
+/// Grant a role to an address (admin only)
+fn grant_role(
+    caller: &Address,
+    role: u8,
+    account: &Address
+) -> entrypoint::Result<()> {
+    if !is_admin(caller) {
+        return Err(OnlyAdmin);
+    }
+
+    let key = make_role_key(role, account);
+    storage_write(&key, &[1u8])?;
+
+    log("Role granted");
+    Ok(())
+}
+
+/// Revoke a role from an address (admin only)
+fn revoke_role(
+    caller: &Address,
+    role: u8,
+    account: &Address
+) -> entrypoint::Result<()> {
+    if !is_admin(caller) {
+        return Err(OnlyAdmin);
+    }
+
+    let key = make_role_key(role, account);
+    storage_delete(&key);
+
+    log("Role revoked");
+    Ok(())
+}
+
+/// Modifier-style function for role checks
+fn require_role(role: u8, account: &Address) -> entrypoint::Result<()> {
+    if !has_role(role, account) {
+        return Err(MissingRole);
+    }
+    Ok(())
+}
+```
+
+### Usage
+
+```rust
+fn mint(caller: &Address, to: &Address, amount: u64) -> entrypoint::Result<()> {
+    // Only minters can mint
+    require_role(ROLE_MINTER, caller)?;
+
+    // Minting logic...
+    Ok(())
+}
+
+fn pause(caller: &Address) -> entrypoint::Result<()> {
+    // Only pausers can pause
+    require_role(ROLE_PAUSER, caller)?;
+
+    // Pause logic...
+    Ok(())
+}
+```
+
+---
+
+## Pausable
+
+Emergency stop mechanism to halt contract operations.
+
+### Storage Layout
+
+```rust
+const KEY_PAUSED: &[u8] = b"paused";
+const KEY_PAUSER: &[u8] = b"pauser";  // Address that can pause/unpause
+```
+
+### Implementation
+
+```rust
+/// Check if contract is paused
+fn is_paused() -> bool {
+    let mut buffer = [0u8; 1];
+    let len = storage_read(KEY_PAUSED, &mut buffer);
+    len == 1 && buffer[0] != 0
+}
+
+/// Pause the contract (pauser only)
+fn pause(caller: &Address) -> entrypoint::Result<()> {
+    require_role(ROLE_PAUSER, caller)?;
+
+    if is_paused() {
+        return Err(AlreadyPaused);
+    }
+
+    storage_write(KEY_PAUSED, &[1u8])?;
+    log("Contract paused");
+    Ok(())
+}
+
+/// Unpause the contract (pauser only)
+fn unpause(caller: &Address) -> entrypoint::Result<()> {
+    require_role(ROLE_PAUSER, caller)?;
+
+    if !is_paused() {
+        return Err(NotPaused);
+    }
+
+    storage_write(KEY_PAUSED, &[0u8])?;
+    log("Contract unpaused");
+    Ok(())
+}
+
+/// Modifier-style function for pause checks
+fn when_not_paused() -> entrypoint::Result<()> {
+    if is_paused() {
+        return Err(ContractPaused);
+    }
+    Ok(())
+}
+
+fn when_paused() -> entrypoint::Result<()> {
+    if !is_paused() {
+        return Err(ContractNotPaused);
+    }
+    Ok(())
+}
+```
+
+### Usage
+
+```rust
+fn transfer(from: &Address, to: &Address, amount: u64) -> entrypoint::Result<()> {
+    // Check not paused
+    when_not_paused()?;
+
+    // Transfer logic...
+    Ok(())
+}
+
+fn emergency_withdraw(caller: &Address) -> entrypoint::Result<()> {
+    // Only works when paused
+    when_paused()?;
+
+    // Emergency withdrawal logic...
+    Ok(())
+}
+```
+
+---
+
+## Safe Math
+
+Overflow and underflow protection using Rust's built-in methods.
+
+### Checked Operations
+
+```rust
+/// Safe addition - returns error on overflow
+fn safe_add(a: u64, b: u64) -> entrypoint::Result<u64> {
+    a.checked_add(b).ok_or(MathOverflow)
+}
+
+/// Safe subtraction - returns error on underflow
+fn safe_sub(a: u64, b: u64) -> entrypoint::Result<u64> {
+    a.checked_sub(b).ok_or(MathUnderflow)
+}
+
+/// Safe multiplication - returns error on overflow
+fn safe_mul(a: u64, b: u64) -> entrypoint::Result<u64> {
+    a.checked_mul(b).ok_or(MathOverflow)
+}
+
+/// Safe division - returns error on divide by zero
+fn safe_div(a: u64, b: u64) -> entrypoint::Result<u64> {
+    if b == 0 {
+        return Err(DivisionByZero);
+    }
+    Ok(a / b)
+}
+```
+
+### Saturating Operations
+
+For cases where capping at max/min is acceptable:
+
+```rust
+// Addition caps at u64::MAX instead of overflowing
+let result = balance.saturating_add(amount);
+
+// Subtraction caps at 0 instead of underflowing
+let result = balance.saturating_sub(amount);
+
+// Multiplication caps at u64::MAX
+let result = price.saturating_mul(quantity);
+```
+
+### Usage Example
+
+```rust
+fn transfer(from: &Address, to: &Address, amount: u64) -> entrypoint::Result<()> {
+    let from_balance = get_balance(from);
+    let to_balance = get_balance(to);
+
+    // Safe subtraction - fails if insufficient balance
+    let new_from_balance = safe_sub(from_balance, amount)?;
+
+    // Safe addition - fails if would overflow
+    let new_to_balance = safe_add(to_balance, amount)?;
+
+    set_balance(from, new_from_balance);
+    set_balance(to, new_to_balance);
+
+    Ok(())
+}
+```
+
+---
+
+## Combined Example
+
+A secure token contract using all patterns:
+
+```rust
+fn secure_transfer(
+    caller: &Address,
+    to: &Address,
+    amount: u64
+) -> entrypoint::Result<()> {
+    // 1. Pausable check
+    when_not_paused()?;
+
+    // 2. Reentrancy guard
+    if is_entered() {
+        return Err(ReentrantCall);
+    }
+    enter();
+
+    // 3. Access control (optional - for restricted transfers)
+    // require_role(ROLE_OPERATOR, caller)?;
+
+    // 4. Safe math for balance updates
+    let caller_balance = get_balance(caller);
+    let to_balance = get_balance(to);
+
+    let new_caller_balance = safe_sub(caller_balance, amount)?;
+    let new_to_balance = safe_add(to_balance, amount)?;
+
+    // 5. Update state
+    set_balance(caller, new_caller_balance);
+    set_balance(to, new_to_balance);
+
+    // 6. Leave guard
+    leave();
+
+    log("Transfer successful");
+    Ok(())
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 2001 | ReentrantCall | Reentrancy detected |
+| 2002 | OnlyAdmin | Caller is not admin |
+| 2003 | MissingRole | Caller lacks required role |
+| 2004 | ContractPaused | Contract is paused |
+| 2005 | ContractNotPaused | Contract is not paused |
+| 2006 | AlreadyPaused | Contract already paused |
+| 2007 | NotPaused | Contract not paused |
+| 2008 | MathOverflow | Arithmetic overflow |
+| 2009 | MathUnderflow | Arithmetic underflow |
+| 2010 | DivisionByZero | Division by zero |
+
+## Best Practices Checklist
+
+- [ ] Use reentrancy guard on all functions with external calls
+- [ ] Follow Checks-Effects-Interactions pattern
+- [ ] Implement role-based access control
+- [ ] Add pausable functionality for emergencies
+- [ ] Use checked/saturating math for all calculations
+- [ ] Validate all input parameters
+- [ ] Handle all error cases explicitly
+- [ ] Log important state changes
+- [ ] Test edge cases thoroughly
+
+## Related Examples
+
+- [ERC20 Token](/smart-contracts/examples/erc20-token) - Apply patterns to tokens
+- [Staking](/smart-contracts/examples/staking) - Secure staking contract
+- [Multisig](/smart-contracts/examples/multisig) - Multi-party security

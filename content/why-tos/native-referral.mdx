@@ -1,0 +1,303 @@
+---
+title: Native Referral System
+description: TOS Network has a built-in multi-level referral tracking system via syscalls
+---
+
+# Native Referral System
+
+TOS Network provides a **protocol-level referral system** that tracks relationships between users, enabling efficient multi-level marketing, affiliate programs, and reward distributions.
+
+## Why Native Referral?
+
+| Blockchain | Referral Support | Issue |
+|------------|:----------------:|-------|
+| TRON | Smart Contract | High gas, slow queries |
+| BSC | Smart Contract | Expensive storage |
+| Ethereum | Smart Contract | Prohibitively expensive |
+| Solana | None | Must build from scratch |
+| **TOS** | **Native Syscall** | Fast, cheap, built-in |
+
+## Gas Cost Comparison
+
+| Operation | TRON | BSC | **TOS** |
+|-----------|:----:|:---:|:-------:|
+| Bind Referrer | $0.50 | $0.30 | **$0.01** |
+| Query 10 Uplines | $0.10 | $0.10 | **$0.001** |
+| 10-Level Distribution | $1.00 | $0.50 | **$0.025** |
+
+**TOS is 20-50x cheaper** for referral operations.
+
+## How It Works
+
+### Binding a Referrer
+
+Users bind their referrer once via a transaction:
+
+```bash
+# CLI command
+tos_wallet bind_referrer --referrer <referrer_address>
+```
+
+```javascript
+// JavaScript SDK
+const tx = await tos.sendTransaction({
+    type: 'BindReferrer',
+    payload: {
+        referrer: referrerAddress,
+    },
+});
+```
+
+This creates an immutable on-chain relationship:
+```
+User A → Referrer B → Referrer C → ... → Top
+```
+
+### Querying Relationships
+
+Smart contracts access referral data through syscalls:
+
+```rust
+use tako_sdk::*;
+
+// Check if user has a referrer
+let has_ref = tos_has_referrer(&user)?;
+
+// Get direct referrer
+let referrer = tos_get_referrer(&user)?;
+
+// Get up to 20 levels of uplines
+let uplines = tos_get_uplines(&user, 10)?;
+
+// Get direct referral count
+let count = tos_get_direct_referrals_count(&user)?;
+
+// Get total team size (cached)
+let team_size = tos_get_team_size(&user)?;
+```
+
+## Available Syscalls
+
+| Syscall | Compute Cost | Description |
+|---------|:-----------:|-------------|
+| `tos_has_referrer` | 500 CU | Check if user has bound a referrer |
+| `tos_get_referrer` | 500 CU | Get user's direct referrer |
+| `tos_get_uplines` | 500 + 200×N CU | Get N levels of uplines (max 20) |
+| `tos_get_direct_referrals_count` | 500 CU | Get count of direct referrals |
+| `tos_get_team_size` | 500 CU | Get total team size (cached) |
+| `tos_get_referral_level` | 500 CU | Get user's depth in tree |
+| `tos_is_downline` | 500 + 100×depth CU | Check if user is in someone's downline |
+
+### Team Volume Syscalls
+
+| Syscall | Compute Cost | Description |
+|---------|:-----------:|-------------|
+| `tos_add_team_volume` | 1000 + 500×levels CU | Add volume to upline chain (write) |
+| `tos_get_team_volume` | 500 CU | Get total team volume for user-asset |
+| `tos_get_direct_volume` | 500 CU | Get direct referral volume |
+| `tos_get_zone_volumes` | 500 + 100×count CU | Get each direct referral's team volume |
+
+## Example: Three-Level Distribution
+
+A compliant three-level reward distribution:
+
+```rust
+use tako_sdk::*;
+
+/// Distribute rewards to 3 levels of uplines
+#[no_mangle]
+pub extern "C" fn distribute_rewards() {
+    let buyer = get_caller();
+    let amount = get_call_value();
+
+    // Get 3 levels of uplines
+    match get_uplines(&buyer, 3) {
+        Ok((uplines, count)) => {
+            // 10%, 5%, 3% distribution
+            let ratios = [1000u64, 500, 300]; // basis points
+
+            for (i, upline) in uplines.iter().enumerate() {
+                if i >= 3 || i >= count as usize {
+                    break;
+                }
+
+                let reward = amount * ratios[i] / 10000;
+                if reward > 0 {
+                    let _ = transfer(upline, reward);
+                }
+            }
+        }
+        Err(_) => { /* No referrer */ }
+    }
+}
+```
+
+## Example: Dynamic Tier Rewards
+
+Use team volume to determine reward rates:
+
+```rust
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn on_purchase() {
+    let buyer = get_caller();
+    let amount = get_call_value();
+    let asset = get_contract_hash();
+
+    // Record volume to 10 levels of uplines
+    add_team_volume(&buyer, &asset, amount, 10).ok();
+
+    // Get uplines for reward distribution
+    match get_uplines(&buyer, 3) {
+        Ok((uplines, _)) => {
+            for (i, upline) in uplines.iter().enumerate() {
+                if i >= 3 { break; }
+
+                // Query team volume for dynamic tier
+                let team_vol = get_team_volume(upline, &asset).unwrap_or(0);
+
+                // Dynamic reward rate based on volume
+                let rate = if team_vol >= 1_000_000 {
+                    1500  // 15% - Diamond tier
+                } else if team_vol >= 100_000 {
+                    1000  // 10% - Gold tier
+                } else {
+                    500   // 5%  - Basic tier
+                };
+
+                let reward = amount * rate / 10000;
+                if reward > 0 {
+                    let _ = transfer(upline, reward);
+                }
+            }
+        }
+        Err(_) => {}
+    }
+}
+```
+
+## RPC Query Endpoints
+
+Frontend applications can query referral data via RPC:
+
+```javascript
+// Get user's referrer
+const referrer = await fetch('/get_referrer', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress })
+});
+
+// Get 3 levels of uplines
+const uplines = await fetch('/get_uplines', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress, levels: 3 })
+});
+
+// Get direct referral count
+const count = await fetch('/get_direct_referrals', {
+    method: 'POST',
+    body: JSON.stringify({
+        address: userAddress,
+        offset: 0,
+        limit: 100
+    })
+});
+
+// Get team size
+const teamSize = await fetch('/get_team_size', {
+    method: 'POST',
+    body: JSON.stringify({ address: userAddress })
+});
+```
+
+## Data Structure
+
+```rust
+/// On-chain referral record
+pub struct ReferralRecord {
+    /// User address
+    pub user: Address,
+
+    /// Referrer address (None = no referrer)
+    pub referrer: Option<Address>,
+
+    /// Binding timestamp
+    pub bound_at: u64,
+
+    /// Binding block height
+    pub bound_block: u64,
+
+    /// Binding transaction hash
+    pub bound_tx: Hash,
+
+    /// Direct referrals count (cached)
+    pub direct_referrals_count: u32,
+
+    /// Total team size (cached, lazy update)
+    pub team_size: u64,
+}
+```
+
+## Compliance Considerations
+
+TOS provides the infrastructure; DApps implement business logic:
+
+| Region | Recommendation | Implementation |
+|--------|----------------|----------------|
+| China | Single-level only | Use `get_uplines(user, 1)` |
+| USA | Up to 10 levels | Use `get_uplines(user, 10)` |
+| EU | Up to 10 levels | Use `get_uplines(user, 10)` |
+| Southeast Asia | Up to 20 levels | Use `get_uplines(user, 20)` |
+
+**Key Compliance Principles:**
+- Rewards should be based on product sales, not recruitment
+- Products must have independent market value
+- Clear disclosure of commission structure
+
+```rust
+// TOS system is neutral - compliance is DApp responsibility
+pub mod ReferralCompliance {
+    /// Maximum query depth (protocol limit)
+    pub const MAX_UPLINE_LEVELS: u8 = 20;
+
+    /// Recommended limits by region
+    pub const RECOMMENDED_DEPTH_CN: u8 = 1;
+    pub const RECOMMENDED_DEPTH_US: u8 = 10;
+    pub const RECOMMENDED_DEPTH_EU: u8 = 10;
+    pub const RECOMMENDED_DEPTH_ASIA: u8 = 20;
+}
+```
+
+## Integration Checklist
+
+1. **User Registration**
+   - Capture referral link/code from URL
+   - Submit `BindReferrer` transaction after wallet connection
+
+2. **Reward Distribution**
+   - Query uplines via syscall
+   - Apply business-specific commission rates
+   - Use batch transfer for efficiency
+
+3. **Frontend Display**
+   - Query team size and direct referrals via RPC
+   - Display referral link for sharing
+   - Show earning history
+
+4. **Compliance**
+   - Limit query depth based on operating region
+   - Ensure rewards tied to actual product value
+   - Disclose commission structure to users
+
+## Summary
+
+TOS Network's native referral system provides:
+
+- **20-50x cheaper** than smart contract implementations
+- **Built-in caching** for team size and volume
+- **Immutable relationships** stored at protocol level
+- **Flexible querying** up to 20 levels deep
+- **Smart contract integration** via syscalls
+
+This enables building referral-based applications with minimal gas costs and maximum efficiency.

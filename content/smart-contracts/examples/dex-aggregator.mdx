@@ -1,0 +1,470 @@
+---
+title: DEX Aggregator
+description: 1inch-style DEX aggregator for optimal trade routing in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# DEX Aggregator Contract
+
+A 1inch-style DEX aggregator that finds the optimal trading route across multiple DEXs to minimize slippage and maximize output.
+
+## Features
+
+- **Multi-DEX Routing**: Split trades across multiple DEXs
+- **Optimal Path Finding**: Find best route for any token pair
+- **Split Orders**: Divide large orders to reduce slippage
+- **Limit Orders**: Off-chain signed orders executed on-chain
+- **MEV Protection**: Private transactions via TOS MEV protection
+
+## How Aggregation Works
+
+```
+User wants to swap 10,000 USDC for ETH
+
+Without Aggregator:
+- Single DEX: 4.95 ETH (high slippage)
+
+With Aggregator:
+- 40% via Uniswap: 2.00 ETH
+- 35% via Curve: 1.76 ETH
+- 25% via Balancer: 1.26 ETH
+- Total: 5.02 ETH (better rate!)
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | Init | `[owner:32]` |
+| 0x01 | Swap | `[data_len:4][swap_data:N]` |
+| 0x02 | MultihopSwap | `[path_len:1][path:32*N][amounts:8*N]` |
+| 0x03 | SplitSwap | `[token_in:32][token_out:32][routes:N]` |
+| 0x04 | FillLimitOrder | `[order:N][signature:65]` |
+| 0x05 | AddDEX | `[dex:32][adapter:32]` |
+
+## Storage Layout
+
+```rust
+const KEY_OWNER: &[u8] = b"owner";
+const KEY_DEXS: &[u8] = b"dexs";                  // List of registered DEXs
+const KEY_ADAPTER_PREFIX: &[u8] = b"adapter:";   // adapter:{dex} -> adapter contract
+const KEY_LIMIT_ORDER_PREFIX: &[u8] = b"order:"; // order:{hash} -> filled amount
+```
+
+## Core Data Structures
+
+```rust
+/// Swap description
+struct SwapDescription {
+    src_token: Hash,
+    dst_token: Hash,
+    src_receiver: Address,  // Where to send src tokens (usually DEX)
+    dst_receiver: Address,  // Where to receive dst tokens
+    amount: u128,
+    min_return: u128,
+    flags: u32,
+}
+
+/// Route through a single DEX
+struct Route {
+    dex: Hash,              // DEX identifier
+    token_in: Hash,
+    token_out: Hash,
+    amount: u128,           // Amount to route here
+    data: Vec<u8>,          // DEX-specific calldata
+}
+
+/// Split swap across multiple DEXs
+struct SplitSwapParams {
+    token_in: Hash,
+    token_out: Hash,
+    amount_in: u128,
+    min_amount_out: u128,
+    routes: Vec<Route>,
+}
+
+/// Limit order (off-chain signed)
+struct LimitOrder {
+    maker: Address,
+    maker_asset: Hash,
+    taker_asset: Hash,
+    maker_amount: u128,
+    taker_amount: u128,
+    expiry: u64,
+    nonce: u64,
+}
+```
+
+## Core Implementation
+
+### Simple Swap (Single DEX)
+
+```rust
+fn swap(
+    caller: &Address,
+    desc: SwapDescription,
+    route: Route,
+    lock_id: u64
+) -> entrypoint::Result<u128> {
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != desc.src_token {
+        return Err(InvalidLock);
+    }
+    if lock.amount < desc.amount as u64 {
+        return Err(InsufficientAmount);
+    }
+
+    // Get adapter for DEX
+    let adapter = get_adapter(&route.dex)?;
+
+    // Transfer tokens to DEX (via adapter)
+    lock_use(caller, &desc.src_token, desc.amount as u64, lock_id)?;
+    transfer(&adapter, &desc.src_token, desc.amount as u64)?;
+
+    // Execute swap via adapter
+    let amount_out = call_adapter_swap(
+        &adapter,
+        &route.token_in,
+        &route.token_out,
+        route.amount,
+        &route.data
+    )?;
+
+    if amount_out < desc.min_return {
+        return Err(SlippageExceeded);
+    }
+
+    // Transfer output to receiver
+    transfer(&desc.dst_receiver, &desc.dst_token, amount_out as u64)?;
+
+    log("Swap completed");
+    Ok(amount_out)
+}
+```
+
+### Split Swap (Multiple DEXs)
+
+```rust
+/// Execute swap split across multiple DEXs
+fn split_swap(
+    caller: &Address,
+    params: SplitSwapParams,
+    lock_id: u64
+) -> entrypoint::Result<u128> {
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != params.token_in {
+        return Err(InvalidLock);
+    }
+    if lock.amount < params.amount_in as u64 {
+        return Err(InsufficientAmount);
+    }
+
+    // Verify routes sum to total amount
+    let route_total: u128 = params.routes.iter().map(|r| r.amount).sum();
+    if route_total != params.amount_in {
+        return Err(RouteAmountMismatch);
+    }
+
+    lock_use(caller, &params.token_in, params.amount_in as u64, lock_id)?;
+
+    let mut total_out: u128 = 0;
+
+    // Execute each route
+    for route in &params.routes {
+        let adapter = get_adapter(&route.dex)?;
+
+        // Transfer portion to adapter
+        transfer(&adapter, &params.token_in, route.amount as u64)?;
+
+        // Execute swap
+        let amount_out = call_adapter_swap(
+            &adapter,
+            &route.token_in,
+            &route.token_out,
+            route.amount,
+            &route.data
+        )?;
+
+        total_out = total_out.checked_add(amount_out).unwrap();
+    }
+
+    if total_out < params.min_amount_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Transfer total output to caller
+    transfer(caller, &params.token_out, total_out as u64)?;
+
+    log("Split swap completed");
+    Ok(total_out)
+}
+```
+
+### Multihop Swap
+
+```rust
+/// Execute multihop swap through path of tokens
+fn multihop_swap(
+    caller: &Address,
+    path: &[Hash],          // Token path: [A, B, C] = A→B→C
+    dexs: &[Hash],          // DEX for each hop
+    amount_in: u64,
+    min_amount_out: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    if path.len() < 2 {
+        return Err(InvalidPath);
+    }
+    if dexs.len() != path.len() - 1 {
+        return Err(ArrayLengthMismatch);
+    }
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != path[0] {
+        return Err(InvalidLock);
+    }
+
+    lock_use(caller, &path[0], amount_in, lock_id)?;
+
+    let mut current_amount = amount_in as u128;
+    let mut current_token = path[0];
+
+    // Execute each hop
+    for i in 0..(path.len() - 1) {
+        let next_token = path[i + 1];
+        let adapter = get_adapter(&dexs[i])?;
+
+        // Transfer to adapter
+        transfer(&adapter, &current_token, current_amount as u64)?;
+
+        // Swap
+        current_amount = call_adapter_swap(
+            &adapter,
+            &current_token,
+            &next_token,
+            current_amount,
+            &[]
+        )?;
+
+        current_token = next_token;
+    }
+
+    if (current_amount as u64) < min_amount_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Transfer final output
+    transfer(caller, &current_token, current_amount as u64)?;
+
+    log("Multihop swap completed");
+    Ok(current_amount as u64)
+}
+```
+
+### Fill Limit Order
+
+```rust
+/// Fill a signed limit order
+fn fill_limit_order(
+    taker: &Address,
+    order: LimitOrder,
+    signature: &[u8; 65],
+    taker_amount: u128,
+    lock_id: u64
+) -> entrypoint::Result<u128> {
+    // Verify signature
+    let order_hash = keccak256(&order.encode());
+    let signer = recover_signer(&order_hash, signature)?;
+    if signer != order.maker {
+        return Err(InvalidSignature);
+    }
+
+    // Check expiry
+    if get_block_timestamp() > order.expiry {
+        return Err(OrderExpired);
+    }
+
+    // Check fill amount
+    let filled = get_filled_amount(&order_hash);
+    let remaining = order.taker_amount.saturating_sub(filled);
+    let fill_amount = taker_amount.min(remaining);
+
+    if fill_amount == 0 {
+        return Err(OrderFullyFilled);
+    }
+
+    // Calculate maker amount to send
+    let maker_amount = fill_amount
+        .checked_mul(order.maker_amount).unwrap()
+        .checked_div(order.taker_amount).unwrap();
+
+    // Verify taker lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *taker || lock.asset != order.taker_asset {
+        return Err(InvalidLock);
+    }
+    if lock.amount < fill_amount as u64 {
+        return Err(InsufficientAmount);
+    }
+
+    // Execute swap
+    // Taker sends taker_asset to maker
+    lock_use(taker, &order.taker_asset, fill_amount as u64, lock_id)?;
+    transfer(&order.maker, &order.taker_asset, fill_amount as u64)?;
+
+    // Maker sends maker_asset to taker
+    // (Maker must have approved or this will fail)
+    transfer_from(&order.maker_asset, &order.maker, taker, maker_amount as u64)?;
+
+    // Update filled amount
+    set_filled_amount(&order_hash, filled + fill_amount)?;
+
+    log("Limit order filled");
+    Ok(maker_amount)
+}
+```
+
+### Quote (View Function)
+
+```rust
+/// Get quote for swap across multiple DEXs
+fn get_quote(
+    token_in: &Hash,
+    token_out: &Hash,
+    amount_in: u128
+) -> entrypoint::Result<QuoteResult> {
+    let dexs = load_dexs()?;
+    let mut best_output: u128 = 0;
+    let mut best_routes: Vec<Route> = Vec::new();
+
+    // Try each DEX individually
+    for dex in &dexs {
+        let adapter = get_adapter(dex)?;
+        let output = call_adapter_quote(&adapter, token_in, token_out, amount_in)?;
+
+        if output > best_output {
+            best_output = output;
+            best_routes = vec![Route {
+                dex: *dex,
+                token_in: *token_in,
+                token_out: *token_out,
+                amount: amount_in,
+                data: Vec::new(),
+            }];
+        }
+    }
+
+    // Try splitting across DEXs
+    let split_quote = find_best_split(token_in, token_out, amount_in, &dexs)?;
+    if split_quote.total_output > best_output {
+        best_output = split_quote.total_output;
+        best_routes = split_quote.routes;
+    }
+
+    Ok(QuoteResult {
+        amount_out: best_output,
+        routes: best_routes,
+    })
+}
+```
+
+## DEX Adapter Interface
+
+```rust
+/// Interface that DEX adapters must implement
+trait DEXAdapter {
+    /// Get quote for swap
+    fn quote(
+        token_in: &Hash,
+        token_out: &Hash,
+        amount_in: u128
+    ) -> u128;
+
+    /// Execute swap
+    fn swap(
+        token_in: &Hash,
+        token_out: &Hash,
+        amount_in: u128,
+        min_out: u128,
+        data: &[u8]
+    ) -> u128;
+
+    /// Get supported pairs
+    fn get_pairs() -> Vec<(Hash, Hash)>;
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 2301 | InvalidPath | Path must have >= 2 tokens |
+| 2302 | RouteAmountMismatch | Route amounts don't sum correctly |
+| 2303 | SlippageExceeded | Output below minimum |
+| 2304 | InvalidSignature | Limit order signature invalid |
+| 2305 | OrderExpired | Order past expiry time |
+| 2306 | OrderFullyFilled | No remaining amount |
+| 2307 | DEXNotFound | DEX not registered |
+
+## Usage Example
+
+```rust
+// 1. Initialize aggregator
+init(&admin)?;
+
+// 2. Register DEXs
+add_dex(&admin, &uniswap_hash, &uniswap_adapter)?;
+add_dex(&admin, &curve_hash, &curve_adapter)?;
+add_dex(&admin, &balancer_hash, &balancer_adapter)?;
+
+// 3. Get quote for 10,000 USDC → ETH
+let quote = get_quote(&usdc, &eth, 10_000e6)?;
+// Returns: {amount_out: 5.02 ETH, routes: [...]}
+
+// 4. Execute split swap
+let lock = lock_asset(usdc, 10_000e6, contract, 10000)?;
+let eth_out = split_swap(&user, SplitSwapParams {
+    token_in: usdc,
+    token_out: eth,
+    amount_in: 10_000e6,
+    min_amount_out: 4_95e18, // 1% slippage
+    routes: quote.routes,
+}, lock)?;
+
+// 5. Execute multihop: USDC → ETH → WBTC
+let lock = lock_asset(usdc, 10_000e6, contract, 10000)?;
+let btc_out = multihop_swap(
+    &user,
+    &[usdc, eth, wbtc],
+    &[uniswap, balancer],
+    10_000e6,
+    0_45e8, // min 0.45 BTC
+    lock
+)?;
+
+// 6. Fill limit order
+let order = LimitOrder {
+    maker: maker_address,
+    maker_asset: eth,
+    taker_asset: usdc,
+    maker_amount: 1e18,   // 1 ETH
+    taker_amount: 2000e6, // 2000 USDC
+    expiry: now + 86400,
+    nonce: 1,
+};
+let lock = lock_asset(usdc, 1000e6, contract, 10000)?;
+fill_limit_order(&taker, order, &signature, 1000e6, lock)?;
+// Taker sends 1000 USDC, receives 0.5 ETH
+```
+
+## Related Examples
+
+- [AMM DEX](/smart-contracts/examples/amm-dex) - Individual DEX implementation
+- [StableSwap](/smart-contracts/examples/stableswap) - Curve adapter source
+- [Weighted Pool](/smart-contracts/examples/weighted-pool) - Balancer adapter source

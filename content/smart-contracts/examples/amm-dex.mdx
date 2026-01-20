@@ -1,0 +1,281 @@
+---
+title: AMM DEX
+description: Automated Market Maker / Decentralized Exchange implementation in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# AMM DEX Contract
+
+A complete Automated Market Maker implementation similar to Uniswap V2, using the constant product formula (x * y = k) for automatic pricing.
+
+## Features
+
+- **Constant Product AMM**: Uses x * y = k formula for automatic pricing
+- **Liquidity Pools**: Add/remove liquidity with LP tokens
+- **Token Swaps**: Swap between token pairs with automatic pricing
+- **Fee Collection**: 0.3% trading fee (Uniswap standard)
+- **LP Tokens**: Proportional ownership of pool liquidity
+- **Slippage Protection**: Minimum output amounts prevent sandwich attacks
+
+## Instruction Format
+
+All instructions use format: `[opcode:1][params:N]`
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitPool | `[token_a:32][token_b:32]` |
+| 0x01 | AddLiquidity | `[provider:32][amount_a:8][amount_b:8][min_lp:8]` |
+| 0x02 | RemoveLiquidity | `[provider:32][lp_tokens:8][min_a:8][min_b:8]` |
+| 0x03 | SwapAForB | `[trader:32][amount_in:8][min_out:8]` |
+| 0x04 | SwapBForA | `[trader:32][amount_in:8][min_out:8]` |
+
+## Storage Layout
+
+```rust
+// Storage key prefixes
+const KEY_TOKEN_A: &[u8] = b"token_a";      // Token A address
+const KEY_TOKEN_B: &[u8] = b"token_b";      // Token B address
+const KEY_RESERVE_A: &[u8] = b"reserve_a";  // Reserve of token A
+const KEY_RESERVE_B: &[u8] = b"reserve_b";  // Reserve of token B
+const KEY_TOTAL_LP: &[u8] = b"total_lp";    // Total LP tokens
+const KEY_FEE_A: &[u8] = b"fee_a";          // Accumulated fees (A)
+const KEY_FEE_B: &[u8] = b"fee_b";          // Accumulated fees (B)
+const KEY_LP_PREFIX: &[u8] = b"lp:";        // LP balance per user
+```
+
+## Constants
+
+```rust
+/// Fee in basis points (30 = 0.3%)
+pub const FEE_BASIS_POINTS: u64 = 30;
+pub const BASIS_POINTS: u64 = 10000;
+
+/// Minimum liquidity locked forever (prevents division by zero)
+pub const MINIMUM_LIQUIDITY: u64 = 1000;
+```
+
+## Core Implementation
+
+### Initialize Pool
+
+```rust
+/// Initialize a new AMM pool with two tokens
+fn init_pool(token_a: &Address, token_b: &Address) -> entrypoint::Result<()> {
+    // Tokens must be different
+    if token_a == token_b {
+        return Err(SameTokens);
+    }
+
+    // Store token addresses
+    storage_write(KEY_TOKEN_A, token_a)?;
+    storage_write(KEY_TOKEN_B, token_b)?;
+
+    // Initialize reserves to 0
+    storage_write(KEY_RESERVE_A, &0u64.to_le_bytes())?;
+    storage_write(KEY_RESERVE_B, &0u64.to_le_bytes())?;
+    storage_write(KEY_TOTAL_LP, &0u64.to_le_bytes())?;
+
+    log("AMM Pool initialized");
+    Ok(())
+}
+```
+
+### Add Liquidity
+
+```rust
+/// Add liquidity to the pool and receive LP tokens
+fn add_liquidity(
+    provider: &Address,
+    amount_a: u64,
+    amount_b: u64,
+    min_lp_tokens: u64,
+) -> entrypoint::Result<()> {
+    if amount_a == 0 || amount_b == 0 {
+        return Err(ZeroLiquidity);
+    }
+
+    let reserve_a = read_u64(KEY_RESERVE_A);
+    let reserve_b = read_u64(KEY_RESERVE_B);
+    let total_supply = read_u64(KEY_TOTAL_LP);
+
+    let lp_tokens = if total_supply == 0 {
+        // Initial liquidity: LP tokens = sqrt(amount_a * amount_b)
+        let liquidity = sqrt((amount_a as u128) * (amount_b as u128)) as u64;
+        if liquidity <= MINIMUM_LIQUIDITY {
+            return Err(InsufficientInitialLiquidity);
+        }
+        liquidity - MINIMUM_LIQUIDITY  // Lock minimum liquidity
+    } else {
+        // Subsequent liquidity: proportional to existing reserves
+        let lp_from_a = (amount_a as u128 * total_supply as u128) / reserve_a as u128;
+        let lp_from_b = (amount_b as u128 * total_supply as u128) / reserve_b as u128;
+        lp_from_a.min(lp_from_b) as u64
+    };
+
+    // Slippage protection
+    if lp_tokens < min_lp_tokens {
+        return Err(SlippageExceeded);
+    }
+
+    // Update reserves and mint LP tokens
+    storage_write(KEY_RESERVE_A, &(reserve_a + amount_a).to_le_bytes())?;
+    storage_write(KEY_RESERVE_B, &(reserve_b + amount_b).to_le_bytes())?;
+
+    // Update provider's LP balance
+    let provider_balance = read_lp_balance(provider);
+    write_lp_balance(provider, provider_balance + lp_tokens)?;
+
+    log("Liquidity added");
+    Ok(())
+}
+```
+
+### Token Swap (A → B)
+
+```rust
+/// Swap token A for token B using constant product formula
+fn swap_a_for_b(amount_in: u64, min_amount_out: u64) -> entrypoint::Result<()> {
+    if amount_in == 0 {
+        return Err(ZeroSwapAmount);
+    }
+
+    let reserve_a = read_u64(KEY_RESERVE_A);
+    let reserve_b = read_u64(KEY_RESERVE_B);
+
+    if reserve_a == 0 || reserve_b == 0 {
+        return Err(PoolNotInitialized);
+    }
+
+    // Calculate output with fee (0.3%)
+    // amount_out = (amount_in * 0.997 * reserve_b) / (reserve_a + amount_in * 0.997)
+    let amount_in_with_fee =
+        (amount_in as u128 * (BASIS_POINTS - FEE_BASIS_POINTS) as u128) / BASIS_POINTS as u128;
+    let numerator = amount_in_with_fee * reserve_b as u128;
+    let denominator = reserve_a as u128 + amount_in_with_fee;
+    let amount_out = (numerator / denominator) as u64;
+
+    // Slippage protection
+    if amount_out < min_amount_out {
+        return Err(SlippageExceeded);
+    }
+
+    // Update reserves (maintains x * y = k invariant)
+    storage_write(KEY_RESERVE_A, &(reserve_a + amount_in).to_le_bytes())?;
+    storage_write(KEY_RESERVE_B, &(reserve_b - amount_out).to_le_bytes())?;
+
+    log("Swap A->B completed");
+    Ok(())
+}
+```
+
+### Remove Liquidity
+
+```rust
+/// Remove liquidity by burning LP tokens
+fn remove_liquidity(
+    provider: &Address,
+    lp_tokens: u64,
+    min_amount_a: u64,
+    min_amount_b: u64,
+) -> entrypoint::Result<()> {
+    if lp_tokens == 0 {
+        return Err(ZeroLiquidity);
+    }
+
+    let provider_balance = read_lp_balance(provider);
+    if provider_balance < lp_tokens {
+        return Err(InsufficientLpTokens);
+    }
+
+    let reserve_a = read_u64(KEY_RESERVE_A);
+    let reserve_b = read_u64(KEY_RESERVE_B);
+    let total_supply = read_u64(KEY_TOTAL_LP);
+
+    // Calculate proportional token amounts
+    let amount_a = (lp_tokens as u128 * reserve_a as u128 / total_supply as u128) as u64;
+    let amount_b = (lp_tokens as u128 * reserve_b as u128 / total_supply as u128) as u64;
+
+    // Slippage protection
+    if amount_a < min_amount_a || amount_b < min_amount_b {
+        return Err(SlippageExceeded);
+    }
+
+    // Update reserves and burn LP tokens
+    storage_write(KEY_RESERVE_A, &(reserve_a - amount_a).to_le_bytes())?;
+    storage_write(KEY_RESERVE_B, &(reserve_b - amount_b).to_le_bytes())?;
+    storage_write(KEY_TOTAL_LP, &(total_supply - lp_tokens).to_le_bytes())?;
+    write_lp_balance(provider, provider_balance - lp_tokens)?;
+
+    log("Liquidity removed");
+    Ok(())
+}
+```
+
+## Helper Functions
+
+```rust
+/// Integer square root using Babylonian method
+fn sqrt(y: u128) -> u128 {
+    if y == 0 {
+        return 0;
+    }
+    let mut z = y;
+    let mut x = y / 2 + 1;
+    while x < z {
+        z = x;
+        x = (y / x + x) / 2;
+    }
+    z
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1001 | SameTokens | Token A and B cannot be the same |
+| 1002 | ZeroLiquidity | Cannot add/remove zero liquidity |
+| 1003 | InsufficientInitialLiquidity | Initial liquidity too low |
+| 1004 | InsufficientLpTokens | Not enough LP tokens |
+| 1005 | SlippageExceeded | Output below minimum |
+| 1006 | ZeroSwapAmount | Cannot swap zero amount |
+| 1007 | PoolNotInitialized | Pool has no liquidity |
+
+## Usage Example
+
+```rust
+// 1. Initialize pool with two token addresses
+let init_data = [0u8; 65];
+init_data[0] = 0; // Opcode: InitPool
+init_data[1..33].copy_from_slice(&token_a_address);
+init_data[33..65].copy_from_slice(&token_b_address);
+
+// 2. Add initial liquidity
+let add_liq_data = [0u8; 57];
+add_liq_data[0] = 1; // Opcode: AddLiquidity
+add_liq_data[1..33].copy_from_slice(&provider_address);
+add_liq_data[33..41].copy_from_slice(&1000u64.to_le_bytes()); // amount_a
+add_liq_data[41..49].copy_from_slice(&1000u64.to_le_bytes()); // amount_b
+add_liq_data[49..57].copy_from_slice(&0u64.to_le_bytes());    // min_lp
+
+// 3. Swap tokens
+let swap_data = [0u8; 49];
+swap_data[0] = 3; // Opcode: SwapAForB
+swap_data[33..41].copy_from_slice(&100u64.to_le_bytes()); // amount_in
+swap_data[41..49].copy_from_slice(&90u64.to_le_bytes());  // min_out (slippage protection)
+```
+
+## Security Considerations
+
+1. **Slippage Protection**: Always set reasonable `min_out` values to prevent sandwich attacks
+2. **Minimum Liquidity**: 1000 units are locked forever to prevent division by zero
+3. **Overflow Protection**: All calculations use u128 for intermediate values
+4. **Fee Accumulation**: Fees are collected in the reserves, benefiting LP holders
+
+## Related Examples
+
+- [ERC20 Token](/smart-contracts/examples/erc20-token) - Token standard for AMM pairs
+- [VRF Random](/smart-contracts/examples/vrf-random) - Add randomness to DeFi

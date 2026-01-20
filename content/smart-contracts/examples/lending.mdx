@@ -1,0 +1,514 @@
+---
+title: Lending Protocol
+description: Aave-style lending protocol with aTokens and collateral management in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Lending Protocol Contract
+
+An Aave-style lending protocol implementation using TOS's native Asset Lock mechanism, where collateral stays in user accounts and is never transferred to the contract.
+
+## Features
+
+- **Interest-Bearing Deposits**: aTokens (Native Assets) that accrue interest
+- **Asset Lock Collateral**: Collateral stays in user's account, locked not transferred
+- **Variable Interest Rates**: Dynamic rates based on utilization
+- **Health Factor**: Liquidation protection with configurable thresholds
+- **AI Oracle Integration**: Price feeds with manipulation detection
+- **Flash Loan Resistant**: Built-in protection against price manipulation
+
+## TOS Innovation
+
+Unlike traditional lending protocols where collateral is transferred to the contract:
+
+```
+Traditional:  User → Transfer → Contract Pool → Borrow
+TOS:          User → Lock (stays in wallet) → Borrow against lock
+```
+
+**Benefits**:
+- User maintains custody of collateral
+- Reduced smart contract risk
+- Atomic operations via Asset Lock
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitReserve | `[underlying:32][ltv:2][liq_threshold:2][liq_bonus:2]` |
+| 0x01 | Deposit | `[asset:32][amount:8][lock_id:8][on_behalf_of:32]` |
+| 0x02 | Withdraw | `[asset:32][atoken_amount:8][atoken_lock_id:8][to:32]` |
+| 0x03 | Borrow | `[asset:32][amount:8][collateral_asset:32][collateral_lock_id:8]` |
+| 0x04 | Repay | `[asset:32][amount:8][lock_id:8][on_behalf_of:32]` |
+| 0x05 | Liquidate | `[collateral:32][debt:32][user:32][debt_amount:8]` |
+
+## Storage Layout
+
+```rust
+// Reserve state
+const KEY_RESERVE_PREFIX: &[u8] = b"rsv:";    // rsv:{asset} -> Reserve
+const KEY_ATOKEN_PREFIX: &[u8] = b"atk:";     // atk:{asset} -> aToken hash
+const KEY_DEBT_TOKEN_PREFIX: &[u8] = b"dtk:"; // dtk:{asset} -> debt token hash
+
+// User state
+const KEY_USER_PREFIX: &[u8] = b"usr:";       // usr:{address} -> UserAccount
+const KEY_COLLATERAL_PREFIX: &[u8] = b"col:"; // col:{user}{asset} -> lock_id
+
+// Global state
+const KEY_TREASURY: &[u8] = b"treasury";
+const KEY_PROTOCOL_FEE: &[u8] = b"fee";
+const KEY_PAUSED: &[u8] = b"paused";
+```
+
+## Interest Rate Model
+
+```rust
+// Constants (RAY = 1e27 for precision)
+const RAY: u128 = 1_000_000_000_000_000_000_000_000_000;
+const SECONDS_PER_YEAR: u64 = 31536000;
+
+/// Calculate current interest rate based on utilization
+fn calculate_interest_rate(
+    total_deposits: u128,
+    total_borrows: u128,
+    model: &InterestRateModel
+) -> u128 {
+    if total_deposits == 0 {
+        return model.base_rate;
+    }
+
+    // Utilization = borrows / deposits
+    let utilization = total_borrows
+        .checked_mul(RAY).unwrap()
+        .checked_div(total_deposits).unwrap();
+
+    if utilization <= model.optimal_utilization {
+        // Below optimal: base_rate + (utilization / optimal) * slope1
+        let ratio = utilization
+            .checked_mul(RAY).unwrap()
+            .checked_div(model.optimal_utilization).unwrap();
+
+        model.base_rate.checked_add(
+            ratio.checked_mul(model.slope1).unwrap()
+                .checked_div(RAY).unwrap()
+        ).unwrap()
+    } else {
+        // Above optimal: base_rate + slope1 + excess_utilization * slope2
+        let excess = utilization.checked_sub(model.optimal_utilization).unwrap();
+        let excess_ratio = excess
+            .checked_mul(RAY).unwrap()
+            .checked_div(RAY.checked_sub(model.optimal_utilization).unwrap()).unwrap();
+
+        model.base_rate
+            .checked_add(model.slope1).unwrap()
+            .checked_add(
+                excess_ratio.checked_mul(model.slope2).unwrap()
+                    .checked_div(RAY).unwrap()
+            ).unwrap()
+    }
+}
+```
+
+## Core Implementation
+
+### Initialize Reserve
+
+```rust
+fn init_reserve(
+    caller: &Address,
+    underlying: &Hash,
+    ltv: u16,              // e.g., 8000 = 80%
+    liq_threshold: u16,    // e.g., 8500 = 85%
+    liq_bonus: u16         // e.g., 500 = 5%
+) -> entrypoint::Result<(Hash, Hash)> {
+    require_admin(caller)?;
+
+    // Create aToken (interest-bearing, transferable)
+    let a_token = asset_create(
+        b"TOS aToken",
+        b"aTOS",
+        18,
+        0,
+        true,  // mintable
+        true,  // burnable
+        true   // transferable
+    )?;
+
+    // Create debt token (non-transferable!)
+    let debt_token = asset_create(
+        b"TOS Debt",
+        b"dTOS",
+        18,
+        0,
+        true,  // mintable
+        true,  // burnable
+        false  // NOT transferable - debt stays with borrower
+    )?;
+
+    // Store reserve config
+    let reserve_data = encode_reserve(
+        underlying,
+        &a_token,
+        &debt_token,
+        ltv,
+        liq_threshold,
+        liq_bonus,
+        RAY,  // initial liquidity_index
+        RAY   // initial borrow_index
+    );
+
+    let key = make_reserve_key(underlying);
+    storage_write(&key, &reserve_data)?;
+
+    log("Reserve initialized");
+    Ok((a_token, debt_token))
+}
+```
+
+### Deposit
+
+```rust
+/// Deposit assets to earn interest
+/// User locks assets, receives aTokens
+fn deposit(
+    caller: &Address,
+    asset: &Hash,
+    amount: u64,
+    lock_id: u64,
+    on_behalf_of: &Address
+) -> entrypoint::Result<u64> {
+    when_not_paused()?;
+
+    let mut reserve = load_reserve(asset)?;
+    require_reserve_active(&reserve)?;
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *asset {
+        return Err(InvalidLock);
+    }
+    if lock.amount < amount {
+        return Err(InsufficientAmount);
+    }
+
+    // Update reserve indices (accrue interest)
+    update_reserve_state(&mut reserve)?;
+
+    // Calculate aTokens to mint
+    // aTokens = underlying * RAY / liquidity_index
+    let a_token_amount = (amount as u128)
+        .checked_mul(RAY).unwrap()
+        .checked_div(reserve.liquidity_index).unwrap() as u64;
+
+    // Lock the deposit (stays in user's account!)
+    lock_use(caller, asset, amount, lock_id)?;
+
+    // Update virtual reserves
+    reserve.total_deposits = reserve.total_deposits
+        .checked_add(amount as u128).unwrap();
+    save_reserve(asset, &reserve)?;
+
+    // Mint aTokens to recipient
+    mint(&reserve.a_token, on_behalf_of, a_token_amount)?;
+
+    log("Deposit successful");
+    Ok(a_token_amount)
+}
+```
+
+### Borrow
+
+```rust
+/// Borrow against locked collateral
+fn borrow(
+    caller: &Address,
+    asset: &Hash,
+    amount: u64,
+    collateral_asset: &Hash,
+    collateral_lock_id: u64
+) -> entrypoint::Result<()> {
+    when_not_paused()?;
+
+    let mut reserve = load_reserve(asset)?;
+    let collateral_reserve = load_reserve(collateral_asset)?;
+
+    require_reserve_active(&reserve)?;
+
+    // Verify collateral lock
+    let lock = get_lock_info(collateral_lock_id)?;
+    if lock.owner != *caller {
+        return Err(NotLockOwner);
+    }
+    if lock.asset != *collateral_asset {
+        return Err(WrongCollateral);
+    }
+
+    // Mark lock as collateral (cannot be unlocked while debt exists)
+    set_lock_collateral(collateral_lock_id, true)?;
+
+    // Get prices from AI Oracle
+    let collateral_price = get_price_safe(collateral_asset, 500)?; // 5% max deviation
+    let borrow_price = get_price_safe(asset, 500)?;
+
+    if !collateral_price.is_safe || !borrow_price.is_safe {
+        return Err(UnsafePriceConditions);
+    }
+
+    // Calculate collateral value in USD
+    let collateral_value = (lock.amount as u128)
+        .checked_mul(collateral_price.price).unwrap()
+        .checked_div(1e18 as u128).unwrap();
+
+    // Calculate max borrow based on LTV
+    let max_borrow_value = collateral_value
+        .checked_mul(collateral_reserve.ltv as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    // Calculate borrow value
+    let borrow_value = (amount as u128)
+        .checked_mul(borrow_price.price).unwrap()
+        .checked_div(1e18 as u128).unwrap();
+
+    if borrow_value > max_borrow_value {
+        return Err(ExceedsLTV);
+    }
+
+    // Check liquidity
+    let available = reserve.total_deposits
+        .checked_sub(reserve.total_borrows).unwrap();
+    if (amount as u128) > available {
+        return Err(InsufficientLiquidity);
+    }
+
+    // Update reserve state
+    update_reserve_state(&mut reserve)?;
+
+    // Calculate scaled debt amount
+    let scaled_debt = (amount as u128)
+        .checked_mul(RAY).unwrap()
+        .checked_div(reserve.borrow_index).unwrap();
+
+    // Update reserves
+    reserve.total_borrows = reserve.total_borrows
+        .checked_add(amount as u128).unwrap();
+    save_reserve(asset, &reserve)?;
+
+    // Mint debt tokens (non-transferable)
+    mint(&reserve.debt_token, caller, scaled_debt as u64)?;
+
+    // Record user's collateral lock
+    save_user_collateral(caller, collateral_asset, collateral_lock_id)?;
+
+    // Transfer borrowed assets to user
+    transfer(caller, asset, amount)?;
+
+    log("Borrow successful");
+    Ok(())
+}
+```
+
+### Calculate Health Factor
+
+```rust
+/// Calculate user's health factor
+/// Health Factor = (Collateral * Liq_Threshold) / Debt
+/// HF >= 1.0 is healthy, HF < 1.0 can be liquidated
+fn calculate_health_factor(user: &Address) -> entrypoint::Result<u128> {
+    let account = load_user_account(user)?;
+
+    let mut total_collateral_eth: u128 = 0;
+    let mut total_debt_eth: u128 = 0;
+
+    // Sum all collateral values
+    for (asset, lock_id) in &account.collateral_locks {
+        let lock = get_lock_info(*lock_id)?;
+        let reserve = load_reserve(asset)?;
+        let price = get_price(asset)?;
+
+        let value = (lock.amount as u128)
+            .checked_mul(price.price).unwrap()
+            .checked_mul(reserve.liquidation_threshold as u128).unwrap()
+            .checked_div(10000).unwrap()
+            .checked_div(1e18 as u128).unwrap();
+
+        total_collateral_eth = total_collateral_eth
+            .checked_add(value).unwrap();
+    }
+
+    // Sum all debt values
+    for (asset, scaled_amount) in &account.borrow_amounts {
+        let reserve = load_reserve(asset)?;
+        let price = get_price(asset)?;
+
+        // Actual debt = scaled_amount * borrow_index / RAY
+        let actual_debt = scaled_amount
+            .checked_mul(reserve.borrow_index).unwrap()
+            .checked_div(RAY).unwrap();
+
+        let value = actual_debt
+            .checked_mul(price.price).unwrap()
+            .checked_div(1e18 as u128).unwrap();
+
+        total_debt_eth = total_debt_eth.checked_add(value).unwrap();
+    }
+
+    if total_debt_eth == 0 {
+        return Ok(u128::MAX); // No debt = infinite health
+    }
+
+    // Health Factor = collateral / debt (scaled by WAD)
+    let health_factor = total_collateral_eth
+        .checked_mul(1e18 as u128).unwrap()
+        .checked_div(total_debt_eth).unwrap();
+
+    Ok(health_factor)
+}
+```
+
+### Liquidation
+
+```rust
+/// Liquidate unhealthy position
+fn liquidate(
+    liquidator: &Address,
+    collateral_asset: &Hash,
+    debt_asset: &Hash,
+    user: &Address,
+    debt_to_cover: u64,
+    debt_lock_id: u64
+) -> entrypoint::Result<u64> {
+    when_not_paused()?;
+
+    // Check health factor < 1.0
+    let health_factor = calculate_health_factor(user)?;
+    if health_factor >= 1e18 as u128 {
+        return Err(HealthFactorOk);
+    }
+
+    // AI Oracle safety check
+    let collateral_price = get_price(collateral_asset)?;
+    let debt_price = get_price(debt_asset)?;
+
+    let safety = is_liquidation_safe(
+        collateral_asset,
+        debt_asset,
+        collateral_price.price,
+        debt_price.price
+    )?;
+
+    if !safety.is_safe {
+        return Err(LiquidationUnsafe);
+    }
+
+    let collateral_reserve = load_reserve(collateral_asset)?;
+    let mut debt_reserve = load_reserve(debt_asset)?;
+
+    // Verify liquidator has debt tokens to repay
+    let lock = get_lock_info(debt_lock_id)?;
+    if lock.owner != *liquidator || lock.asset != *debt_asset {
+        return Err(InvalidLock);
+    }
+
+    // Calculate collateral to receive (with bonus)
+    // collateral_amount = debt_value * (1 + bonus) / collateral_price
+    let debt_value = (debt_to_cover as u128)
+        .checked_mul(debt_price.price).unwrap();
+
+    let collateral_with_bonus = debt_value
+        .checked_mul(10000 + collateral_reserve.liquidation_bonus as u128).unwrap()
+        .checked_div(10000).unwrap()
+        .checked_div(collateral_price.price).unwrap() as u64;
+
+    // Use liquidator's debt tokens to repay
+    lock_use(liquidator, debt_asset, debt_to_cover, debt_lock_id)?;
+
+    // Update debt reserve
+    update_reserve_state(&mut debt_reserve)?;
+    debt_reserve.total_borrows = debt_reserve.total_borrows
+        .saturating_sub(debt_to_cover as u128);
+    save_reserve(debt_asset, &debt_reserve)?;
+
+    // Burn user's debt tokens
+    let scaled_debt = (debt_to_cover as u128)
+        .checked_mul(RAY).unwrap()
+        .checked_div(debt_reserve.borrow_index).unwrap();
+    burn_from(&debt_reserve.debt_token, user, scaled_debt as u64)?;
+
+    // Transfer collateral to liquidator from user's lock
+    let user_account = load_user_account(user)?;
+    let collateral_lock_id = user_account.collateral_locks
+        .get(collateral_asset)
+        .ok_or(NoCollateral)?;
+
+    lock_use(user, collateral_asset, collateral_with_bonus, *collateral_lock_id)?;
+    transfer(liquidator, collateral_asset, collateral_with_bonus)?;
+
+    log("Liquidation successful");
+    Ok(collateral_with_bonus)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1701 | ReserveNotFound | Asset reserve doesn't exist |
+| 1702 | ReserveExists | Reserve already initialized |
+| 1703 | ReserveFrozen | Reserve is frozen |
+| 1704 | InvalidLock | Lock verification failed |
+| 1705 | InsufficientAmount | Locked amount insufficient |
+| 1706 | InsufficientLiquidity | Not enough liquidity to borrow |
+| 1707 | ExceedsLTV | Borrow exceeds LTV limit |
+| 1708 | HealthFactorTooLow | Would make position unhealthy |
+| 1709 | HealthFactorOk | Cannot liquidate healthy position |
+| 1710 | LiquidationUnsafe | AI Oracle rejected liquidation |
+| 1711 | UnsafePriceConditions | Price manipulation detected |
+
+## Usage Example
+
+```rust
+// 1. Admin initializes ETH reserve
+// LTV: 80%, Liquidation Threshold: 85%, Liquidation Bonus: 5%
+init_reserve(&admin, &eth_asset, 8000, 8500, 500);
+
+// 2. User deposits 10 ETH
+let lock_id = lock_asset(eth_asset, 10_000_000_000, contract, 1000000)?;
+let a_tokens = deposit(&user, &eth_asset, 10_000_000_000, lock_id, &user)?;
+// User receives aETH tokens representing deposit
+
+// 3. User borrows 5000 USDC against ETH collateral
+let collateral_lock = lock_asset(eth_asset, 10_000_000_000, contract, 1000000)?;
+borrow(&user, &usdc_asset, 5000_000_000, &eth_asset, collateral_lock)?;
+
+// 4. User repays 2500 USDC
+let repay_lock = lock_asset(usdc_asset, 2500_000_000, contract, 10000)?;
+repay(&user, &usdc_asset, 2500_000_000, repay_lock, &user)?;
+
+// 5. If ETH price drops and health factor < 1.0, liquidator can liquidate
+let liq_lock = lock_asset(usdc_asset, 1000_000_000, contract, 10000)?;
+let collateral_received = liquidate(
+    &liquidator,
+    &eth_asset,
+    &usdc_asset,
+    &user,
+    1000_000_000,
+    liq_lock
+)?;
+```
+
+## Security Considerations
+
+1. **Oracle Manipulation**: AI Oracle validates prices before liquidation
+2. **Flash Loan Attacks**: Price deviation checks prevent manipulation
+3. **Interest Accrual**: Always update indices before operations
+4. **Collateral Custody**: User maintains custody via Asset Lock
+5. **Debt Token Non-Transferable**: Prevents debt transfer exploits
+
+## Related Examples
+
+- [Staking](/smart-contracts/examples/staking) - Similar reward accrual patterns
+- [CDP Stablecoin](/smart-contracts/examples/cdp-stablecoin) - Collateral-backed stablecoins
+- [Security Patterns](/smart-contracts/examples/security-patterns) - Reentrancy guards

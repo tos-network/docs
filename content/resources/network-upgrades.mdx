@@ -87,21 +87,21 @@ if (version >= "3.1.0") {
 **Consensus**: 95.4% miner approval
 
 #### Major Changes
-- **Smart Contracts**: RVM (Rust Virtual Machine) launch
+- **Smart Contracts**: TAKO runtime launch
 - **Scalability**: BlockDAG optimizations
 - **Energy Model**: Dynamic energy consumption system
 
 #### Technical Specifications
 
 ```rust
-// RVM smart contract execution
-pub struct RVMExecutor {
+// TAKO smart contract execution
+pub struct TAKOExecutor {
     pub gas_limit: u64,
     pub memory_limit: u64,
     pub execution_timeout: Duration,
 }
 
-impl RVMExecutor {
+impl TAKOExecutor {
     pub fn execute_contract(
         &mut self,
         bytecode: &[u8],

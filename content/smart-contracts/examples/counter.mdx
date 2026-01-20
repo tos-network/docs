@@ -1,0 +1,254 @@
+---
+title: Counter
+description: Simple contract demonstrating storage operations
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Counter Contract
+
+A simple counter that demonstrates storage read/write operations in TAKO.
+
+## Full Source Code
+
+```rust
+//! Counter Example Contract
+//!
+//! A simple counter that demonstrates storage operations.
+//! Increments on every call.
+
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+/// Storage key for the counter value
+const COUNTER_KEY: &[u8] = b"count";
+
+/// Main contract entrypoint
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    log("Counter: Increment");
+
+    // Read current value
+    let mut buffer = [0u8; 8];
+    let len = storage_read(COUNTER_KEY, &mut buffer);
+
+    let current = if len == 8 {
+        u64::from_le_bytes(buffer)
+    } else {
+        // First time, initialize to 0
+        log("Counter: First call, initializing");
+        0u64
+    };
+
+    // Increment (with overflow protection)
+    let new_value = current.saturating_add(1);
+
+    // Write back
+    let value_bytes = new_value.to_le_bytes();
+    match storage_write(COUNTER_KEY, &value_bytes) {
+        Ok(_) => {
+            log("Counter incremented successfully");
+            SUCCESS
+        }
+        Err(_) => {
+            log("Counter: Storage write failed");
+            ERROR
+        }
+    }
+}
+
+/// Panic handler (required for no_std)
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Key Concepts
+
+### Storage Read
+
+```rust
+let mut buffer = [0u8; 8];
+let len = storage_read(COUNTER_KEY, &mut buffer);
+```
+
+- `storage_read` returns the number of bytes read
+- Returns 0 if key doesn't exist
+- Buffer must be large enough for the value
+
+### Handling Missing Values
+
+```rust
+let current = if len == 8 {
+    u64::from_le_bytes(buffer)
+} else {
+    0u64  // Default value for first call
+};
+```
+
+Always handle the case where a storage key doesn't exist yet.
+
+### Overflow Protection
+
+```rust
+let new_value = current.saturating_add(1);
+```
+
+Use `saturating_add` instead of `+` to prevent overflow panics. The value will cap at `u64::MAX` instead of wrapping.
+
+### Storage Write
+
+```rust
+match storage_write(COUNTER_KEY, &value_bytes) {
+    Ok(_) => SUCCESS,
+    Err(_) => ERROR,
+}
+```
+
+Always handle potential write failures (though rare).
+
+## Extended Version with Query
+
+Here's a version that supports both increment and query operations:
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+const COUNTER_KEY: &[u8] = b"count";
+
+const OP_INCREMENT: u8 = 0x01;
+const OP_GET: u8 = 0x02;
+const OP_RESET: u8 = 0x03;
+
+fn get_counter() -> u64 {
+    let mut buffer = [0u8; 8];
+    let len = storage_read(COUNTER_KEY, &mut buffer);
+    if len == 8 {
+        u64::from_le_bytes(buffer)
+    } else {
+        0
+    }
+}
+
+fn set_counter(value: u64) -> Result<(), u64> {
+    storage_write(COUNTER_KEY, &value.to_le_bytes())
+}
+
+fn op_increment() -> u64 {
+    let current = get_counter();
+    let new_value = current.saturating_add(1);
+
+    match set_counter(new_value) {
+        Ok(_) => {
+            log("Counter incremented");
+            log_u64(new_value, 0, 0, 0, 0);
+            SUCCESS
+        }
+        Err(e) => e,
+    }
+}
+
+fn op_get() -> u64 {
+    let value = get_counter();
+
+    // Return value as response data
+    match set_return_data(&value.to_le_bytes()) {
+        Ok(_) => {
+            log("Counter value returned");
+            log_u64(value, 0, 0, 0, 0);
+            SUCCESS
+        }
+        Err(e) => e,
+    }
+}
+
+fn op_reset() -> u64 {
+    match set_counter(0) {
+        Ok(_) => {
+            log("Counter reset to 0");
+            SUCCESS
+        }
+        Err(e) => e,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 1];
+    let len = get_input_data(&mut input);
+
+    // Default to increment if no input
+    let opcode = if len > 0 { input[0] } else { OP_INCREMENT };
+
+    match opcode {
+        OP_INCREMENT => op_increment(),
+        OP_GET => op_get(),
+        OP_RESET => op_reset(),
+        _ => {
+            log("Unknown opcode");
+            ERROR
+        }
+    }
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Usage
+
+### Deploy
+
+```bash
+cargo build --release
+tos_wallet deploy_contract ./counter.so
+# Returns: tos1abc123...
+```
+
+### Increment
+
+```bash
+# Call with opcode 0x01 (or no input)
+tos_wallet call_contract tos1abc123... 01
+```
+
+### Get Value
+
+```bash
+# Call with opcode 0x02
+tos_wallet call_contract tos1abc123... 02
+# Returns: current counter value
+```
+
+### Reset
+
+```bash
+# Call with opcode 0x03
+tos_wallet call_contract tos1abc123... 03
+```
+
+## Gas Costs
+
+| Operation | Compute Units | Approx. Cost |
+|-----------|:-------------:|:------------:|
+| Increment (cold) | ~20,500 | $0.02 |
+| Increment (warm) | ~5,500 | $0.005 |
+| Get | ~500 | $0.0005 |
+| Reset | ~20,500 | $0.02 |
+
+"Cold" means first write to a new key. "Warm" means updating an existing key.
+
+## What's Next?
+
+- **[ERC20 Token](/smart-contracts/examples/erc20-token)** - Complex state management
+- **[VRF Random](/smart-contracts/examples/vrf-random)** - Add randomness

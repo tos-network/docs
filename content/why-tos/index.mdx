@@ -1,0 +1,119 @@
+---
+title: Why TOS?
+description: What makes TOS Network different from other blockchains
+---
+
+import { Cards } from 'nextra/components'
+import { Card } from '../../components/card'
+import Icons from '../../components/icons'
+
+# Why TOS Network?
+
+TOS Network is designed from the ground up to solve the real problems developers and users face on other blockchains. While most chains offer similar features, TOS provides **native-level optimizations** that deliver 10-100x improvements in cost, speed, and developer experience.
+
+## Key Differentiators
+
+<Cards>
+  <Card
+    title="Ultra-Low Gas"
+    subtitle="$0.001 per transfer - 100x cheaper than TRON/BSC"
+    href="/why-tos/ultra-low-gas"
+    icon={<Icons.Coins />}
+  />
+  <Card
+    title="1-Second Finality"
+    subtitle="Instant transaction confirmation with BlockDAG"
+    href="/why-tos/fast-finality"
+    icon={<Icons.Energy />}
+  />
+  <Card
+    title="Native Privacy"
+    subtitle="Optional encrypted transfers with UNO protocol"
+    href="/why-tos/native-privacy"
+    icon={<Icons.Incognito />}
+  />
+  <Card
+    title="Native Referral System"
+    subtitle="Built-in multi-level referral tracking via syscalls"
+    href="/why-tos/native-referral"
+    icon={<Icons.NodeConnections />}
+  />
+  <Card
+    title="VRF Randomness"
+    subtitle="Verifiable random numbers at $0.01 per request"
+    href="/why-tos/vrf-randomness"
+    icon={<Icons.Graph />}
+  />
+  <Card
+    title="Energy Model"
+    subtitle="Stake TOS for gas-free transactions"
+    href="/why-tos/energy-model"
+    icon={<Icons.Energy />}
+  />
+</Cards>
+
+## Competitive Comparison
+
+| Feature | Ethereum | TRON | BSC | Solana | **TOS** |
+|---------|:--------:|:----:|:---:|:------:|:-------:|
+| **Transfer Cost** | $2.00 | $0.10 | $0.10 | $0.001 | **$0.001** |
+| **Finality** | 12 min | 3s | 15s | Sub-1s | **1s** |
+| **Native Privacy** | No | No | No | No | **Yes** |
+| **Native Referral** | No | No | No | No | **Yes** |
+| **Native VRF** | No | No | Expensive | Yes | **Yes ($0.01)** |
+| **Batch Transfer** | No | No | No | Yes | **Yes (500/tx)** |
+| **Smart Contracts** | Solidity | Solidity | Solidity | Rust | **Rust** |
+
+## Perfect For
+
+### DeFi Applications
+- Ultra-low gas makes micro-transactions viable
+- Fast finality enables real-time trading
+- Native batch transfers for efficient airdrops and distributions
+
+### Gaming & NFTs
+- VRF randomness for fair loot drops and gaming mechanics
+- Low costs enable high-frequency in-game transactions
+- Native NFT support (coming soon)
+
+### Referral & Marketing Platforms
+- Native referral system with up to 20 levels
+- Batch transfer for efficient reward distribution
+- Team volume tracking built into the protocol
+
+### Privacy-Focused Applications
+- Optional encrypted balances and transfers
+- Zero-knowledge proofs for compliance
+- Three privacy levels: Public, AmountHidden, FullPrivate
+
+## Technical Foundation
+
+TOS Network achieves these capabilities through:
+
+1. **BlockDAG Architecture**: Multiple blocks at the same height for higher throughput
+2. **TAKO Smart Contracts**: Rust-based eBPF runtime for high-performance execution
+3. **Native Syscalls**: Core features implemented at the protocol level, not as smart contracts
+4. **Energy Model**: Stake-based gas-free transactions for predictable costs
+
+## Get Started
+
+<Cards>
+  <Card
+    title="Installation"
+    subtitle="Set up your development environment"
+    href="/getting-started/installation"
+    arrow
+  />
+  <Card
+    title="Smart Contracts"
+    subtitle="Build with Rust and TAKO SDK"
+    href="/smart-contracts"
+    arrow
+  />
+  <Card
+    title="Native Features"
+    subtitle="Explore built-in capabilities"
+    href="/native-features"
+    arrow
+  />
+</Cards>

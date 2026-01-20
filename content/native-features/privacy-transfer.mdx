@@ -1,0 +1,186 @@
+---
+title: Privacy Transfer (UNO)
+description: Optional encrypted transfers with zero-knowledge proofs
+---
+
+# Privacy Transfer (UNO)
+
+TOS provides **optional privacy** through the UNO (Universal Nullifier Object) protocol, allowing encrypted balances and transfers with zero-knowledge proof verification.
+
+## Implementation Status
+
+| Feature | Status |
+|---------|:------:|
+| UnoTransfers (encrypted → encrypted) | Implemented |
+| ShieldTransfers (public → encrypted) | Implemented |
+| UnshieldTransfers (encrypted → public) | Implemented |
+| FeeType::TOS (public fee) | Implemented |
+| FeeType::Energy (gas-free) | Implemented |
+| FeeType::UNO (private fee, burned) | Implemented |
+| ZK proofs (Twisted ElGamal) | Implemented |
+
+## Privacy Levels
+
+| Level | Sender | Receiver | Amount |
+|-------|:------:|:--------:|:------:|
+| Public | Visible | Visible | Visible |
+| AmountHidden | Visible | Visible | **Encrypted** |
+| FullPrivate | Visible | **Encrypted** | **Encrypted** |
+
+## Transaction Types
+
+### Shield (Public → Encrypted)
+
+Convert public balance to encrypted UNO balance:
+
+```rust
+// Shield 1000 TOS
+ShieldTransfer {
+    amount: 1000_00000000,  // Public amount
+    asset: TOS_ASSET,
+}
+// Result: 1000 TOS now in encrypted balance
+```
+
+### UNO Transfer (Encrypted → Encrypted)
+
+Transfer between encrypted balances:
+
+```rust
+UnoTransfer {
+    privacy_level: PrivacyLevel::AmountHidden,
+    sender: my_address,
+    receiver: recipient,
+    encrypted_amount: encrypt(amount),
+    zk_proof: generate_proof(),
+    nullifier: generate_nullifier(),
+}
+```
+
+### Unshield (Encrypted → Public)
+
+Convert encrypted back to public:
+
+```rust
+UnshieldTransfer {
+    encrypted_amount: my_encrypted_balance,
+    zk_proof: generate_unshield_proof(),
+    nullifier: generate_nullifier(),
+}
+// Result: Amount appears in public balance
+```
+
+## Fee Payment Options
+
+| Fee Type | Source | Privacy | Destination |
+|----------|--------|:-------:|-------------|
+| TOS | Public balance | Low | Miners |
+| Energy | Staked TOS | Medium | Gas-free |
+| UNO | Encrypted balance | High | Burned |
+
+```rust
+pub enum FeeType {
+    TOS = 0,    // Public fee
+    Energy = 1, // Gas-free
+    UNO = 2,    // Private (burned)
+}
+```
+
+## Gas Costs
+
+| Operation | Cost | Proof Time |
+|-----------|:----:|:----------:|
+| Shield | $0.01 | Instant |
+| AmountHidden transfer | $0.02 | ~1 second |
+| FullPrivate transfer | $0.05 | ~2 seconds |
+| Unshield | $0.01 | Instant |
+
+## Security
+
+### Double-Spend Prevention
+
+```rust
+/// Nullifier mechanism
+/// Each output can only be spent once
+fn check_nullifier(nullifier: Hash) -> bool {
+    if nullifier_set.contains(nullifier) {
+        return false; // Already spent
+    }
+    nullifier_set.insert(nullifier);
+    true
+}
+```
+
+### ZK Proof Guarantees
+
+The zero-knowledge proof verifies:
+1. Sender has sufficient encrypted balance
+2. Transfer amount is positive
+3. Balances are correctly updated
+4. No tokens created from nothing
+
+### Compliance Support
+
+```rust
+/// Optional compliance proof
+pub struct ComplianceProof {
+    /// Prove AML compliance
+    pub aml_proof: ZKProof,
+
+    /// Prove identity verified (without revealing identity)
+    pub kyc_proof: ZKProof,
+
+    /// Prove amount within limits
+    pub limit_proof: ZKProof,
+}
+```
+
+## Use Cases
+
+### Private Salary Payments
+
+```
+Problem: All salaries visible on public blockchain
+Solution: AmountHidden transfers
+
+- HR knows payment was made (sender visible)
+- Employees can't see each other's pay
+- Auditors can verify with ZK proofs
+```
+
+### Gaming Privacy
+
+```
+Problem: Other players copy bet sizes
+Solution: AmountHidden betting
+
+- Game sees deposit occurred
+- Bet amount is encrypted
+- Prevents copy-trading
+```
+
+### Large Transfers
+
+```
+Problem: Large transfers attract attention
+Solution: FullPrivate transfers
+
+- Only sender identity public
+- Amount and recipient encrypted
+- Reduces targeting risk
+```
+
+## Comparison
+
+| Feature | TOS UNO | Monero | Zcash | Tornado |
+|---------|:-------:|:------:|:-----:|:-------:|
+| Optional privacy | **Yes** | No | Yes | Yes |
+| Hidden amount | **Yes** | Yes | Yes | Yes |
+| Hidden receiver | **Yes** | Yes | Yes | Yes |
+| Compliance support | **Yes** | No | No | No |
+| Gas cost | **Low** | N/A | High | High |
+
+## See Also
+
+- [Why TOS: Native Privacy](/why-tos/native-privacy) - Overview
+- [Privacy Features](/features/privacy) - Technical details

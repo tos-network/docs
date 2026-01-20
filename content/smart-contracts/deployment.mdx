@@ -1,0 +1,364 @@
+---
+title: Deployment Guide
+description: How to build, test, and deploy TAKO smart contracts
+---
+
+# Deployment Guide
+
+This guide covers the complete workflow for building and deploying TAKO smart contracts on TOS Network.
+
+## Prerequisites
+
+### Install Platform Tools
+
+```bash
+# Install TOS Platform Tools
+curl -sSf https://tos.network/install.sh | sh
+
+# Verify installation
+cargo-tako --version
+# cargo-tako 0.3.1
+
+# Tools are installed to:
+# ~/.cache/tos/v1.54/
+```
+
+### Platform Tools Contents
+
+```
+~/.cache/tos/v1.54/
+├── llvm/     # Clang 20.1.7-rust-dev (TBPFv3 backend)
+├── rust/     # Rustc 1.89.0-dev with TBPFv3 target
+└── version.md
+```
+
+## Project Setup
+
+### Create New Project
+
+```bash
+# Option 1: Use cargo-tako
+cargo-tako new my_contract
+cd my_contract
+
+# Option 2: Manual setup
+mkdir my_contract && cd my_contract
+cargo init --lib
+```
+
+### Configure Cargo.toml
+
+```toml
+[package]
+name = "my_contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako-sdk = { git = "https://github.com/tos-network/tako", branch = "main" }
+
+[profile.release]
+opt-level = "z"      # Optimize for size
+lto = true           # Link-time optimization
+panic = "abort"      # Smaller binary
+codegen-units = 1    # Better optimization
+```
+
+### Configure Build Target
+
+Create `.cargo/config.toml`:
+
+```toml
+[build]
+target = "tbpfv3-tos-tos"
+
+[target.tbpfv3-tos-tos]
+rustflags = [
+    "-C", "link-arg=-z", "-C", "link-arg=notext",
+]
+```
+
+### Configure Toolchain
+
+Create `rust-toolchain.toml`:
+
+```toml
+[toolchain]
+channel = "1.89.0-dev"
+```
+
+## Building
+
+### Simple Build
+
+```bash
+cargo build --release
+```
+
+### Build Script
+
+Create `build.sh`:
+
+```bash
+#!/bin/bash
+set -e
+
+echo "Building contract..."
+cargo build --release
+
+# Copy to project root
+cp target/tbpfv3-tos-tos/release/*.so ./
+
+echo "Build complete: $(ls *.so)"
+```
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+### Verify Build
+
+```bash
+# Check file size (should be small)
+ls -lh my_contract.so
+
+# Typical size: 5-50 KB for simple contracts
+```
+
+## Testing
+
+### Local Testing
+
+```bash
+# Start local devnet
+tos daemon --network devnet
+
+# In another terminal, deploy and test
+tos_wallet deploy_contract ./my_contract.so
+```
+
+### Unit Tests
+
+Create `tests/integration.rs`:
+
+```rust
+use tos_test_sdk::*;
+
+#[test]
+fn test_contract_deploy() {
+    let env = TestEnvironment::new();
+    let contract = env.deploy("my_contract.so");
+    assert!(contract.address().len() > 0);
+}
+
+#[test]
+fn test_contract_call() {
+    let env = TestEnvironment::new();
+    let contract = env.deploy("my_contract.so");
+
+    let result = contract.call(&[0x01]); // Call with opcode 0x01
+    assert_eq!(result.status, 0); // SUCCESS
+}
+```
+
+## Deployment
+
+### Networks
+
+| Network | Explorer | RPC |
+|---------|----------|-----|
+| Mainnet | explorer.tos.network | rpc.tos.network |
+| Testnet | testnet-explorer.tos.network | testnet-rpc.tos.network |
+| Devnet | localhost | localhost:8080 |
+
+### Deploy to Testnet
+
+```bash
+# Configure wallet for testnet
+tos_wallet config --network testnet
+
+# Check balance (need TOS for gas)
+tos_wallet balance
+
+# Deploy contract
+tos_wallet deploy_contract ./my_contract.so
+
+# Output:
+# Transaction: 0xabc123...
+# Contract address: tst1xyz789...
+```
+
+### Deploy to Mainnet
+
+```bash
+# Configure for mainnet
+tos_wallet config --network mainnet
+
+# Deploy (requires TOS for gas)
+tos_wallet deploy_contract ./my_contract.so
+
+# Output:
+# Transaction: 0xdef456...
+# Contract address: tos1abc123...
+```
+
+### Deployment Options
+
+```bash
+# Deploy with specific gas limit
+tos_wallet deploy_contract ./my_contract.so --gas-limit 500000
+
+# Deploy with initialization data
+tos_wallet deploy_contract ./my_contract.so --init-data "00070048656c6c6f"
+```
+
+## Contract Interaction
+
+### Call Contract
+
+```bash
+# Call with hex input
+tos_wallet call_contract <address> <hex_input>
+
+# Example: Call opcode 0x01 with parameter
+tos_wallet call_contract tos1abc123... 01deadbeef
+
+# Send TOS with call
+tos_wallet call_contract tos1abc123... 01 --value 1000000
+```
+
+### Query Contract
+
+```bash
+# Query (read-only, no gas)
+tos_wallet query_contract <address> <hex_input>
+
+# Example: Query balance
+tos_wallet query_contract tos1abc123... 10<account_address>
+```
+
+## Verification
+
+### Verify Source Code
+
+```bash
+# Upload source for verification
+tos_wallet verify_contract <address> \
+  --source ./src/lib.rs \
+  --cargo-toml ./Cargo.toml
+```
+
+### View Contract on Explorer
+
+Visit `https://explorer.tos.network/contract/<address>` to see:
+- Contract code (if verified)
+- Transaction history
+- Storage state
+
+## Upgrading Contracts
+
+TAKO contracts are immutable by default. For upgradeable contracts, use the proxy pattern:
+
+### Proxy Pattern
+
+```rust
+// Proxy contract
+const KEY_IMPLEMENTATION: &[u8] = b"impl";
+
+fn get_implementation() -> [u8; 32] {
+    let mut addr = [0u8; 32];
+    storage_read(KEY_IMPLEMENTATION, &mut addr);
+    addr
+}
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 10240];
+    let len = get_input_data(&mut input);
+
+    // Delegate to implementation
+    let impl_addr = get_implementation();
+    let mut return_buf = [0u8; 10240];
+
+    match cpi_call(&impl_addr, &input[..len as usize], &mut return_buf) {
+        Ok(ret_len) => {
+            let _ = set_return_data(&return_buf[..ret_len as usize]);
+            SUCCESS
+        }
+        Err(e) => e,
+    }
+}
+```
+
+### Upgrade Process
+
+1. Deploy new implementation contract
+2. Call proxy's `upgrade` function with new address
+3. Verify new implementation works correctly
+
+## Best Practices
+
+### Security
+
+1. **Audit before mainnet** - Get professional security review
+2. **Test extensively** - Cover all edge cases
+3. **Use checked math** - Prevent overflows
+4. **Validate all inputs** - Never trust user data
+
+### Gas Optimization
+
+1. **Minimize storage writes** - 20,000 CU each
+2. **Batch operations** - Single transaction when possible
+3. **Use efficient data structures** - Pack storage keys
+4. **Optimize code size** - Use `opt-level = "z"`
+
+### Maintenance
+
+1. **Document thoroughly** - Comment all public functions
+2. **Version your contracts** - Track deployments
+3. **Monitor transactions** - Watch for unusual activity
+4. **Plan for upgrades** - Use proxy pattern if needed
+
+## Troubleshooting
+
+### Build Errors
+
+```bash
+# Error: toolchain not found
+# Solution: Install platform tools
+curl -sSf https://tos.network/install.sh | sh
+
+# Error: target not found
+# Solution: Check .cargo/config.toml
+```
+
+### Deployment Errors
+
+```bash
+# Error: insufficient balance
+# Solution: Get testnet TOS from faucet
+tos_wallet faucet
+
+# Error: contract too large
+# Solution: Enable LTO and size optimization
+```
+
+### Runtime Errors
+
+```bash
+# Error: compute exceeded
+# Solution: Increase gas limit or optimize code
+
+# Error: storage write failed
+# Solution: Check contract has permission
+```
+
+## Resources
+
+- [TOS Contract Kit (TCK)](https://github.com/tos-network/tck) - Example contracts
+- [TAKO SDK Docs](https://docs.tos.network/tako-sdk) - SDK reference
+- [Discord](https://discord.tos.network) - Developer support

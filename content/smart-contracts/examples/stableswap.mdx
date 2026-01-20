@@ -1,0 +1,548 @@
+---
+title: StableSwap
+description: Curve-style stableswap AMM optimized for pegged assets in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# StableSwap Contract
+
+A Curve-style AMM implementation optimized for trading between pegged assets (stablecoins, wrapped tokens) with minimal slippage using the StableSwap invariant.
+
+## Features
+
+- **Low Slippage**: Optimized for pegged assets trading
+- **StableSwap Invariant**: Hybrid constant-sum/constant-product formula
+- **Multi-Asset Pools**: Support for 2-4 tokens per pool
+- **Dynamic Fees**: Fee adjustment based on pool imbalance
+- **Admin Fees**: Protocol revenue from trading
+- **Amplification Factor**: Adjustable curve parameter
+
+## StableSwap vs Constant Product
+
+```
+Constant Product (Uniswap):
+- Formula: x * y = k
+- High slippage for large trades
+- Best for volatile pairs
+
+StableSwap (Curve):
+- Hybrid formula combining constant-sum and constant-product
+- Near-zero slippage for pegged assets
+- Amplification factor (A) controls curve shape
+```
+
+## The StableSwap Invariant
+
+```
+An^n * sum(x_i) + D = A * D * n^n + D^(n+1) / (n^n * prod(x_i))
+
+Where:
+- A = Amplification coefficient (higher = flatter curve)
+- n = Number of tokens
+- x_i = Token balances
+- D = Total liquidity invariant
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitPool | `[tokens:32*N][A:8][fee:4][admin_fee:4]` |
+| 0x01 | AddLiquidity | `[amounts:8*N][min_lp:8]` |
+| 0x02 | RemoveLiquidity | `[lp_amount:8][min_amounts:8*N]` |
+| 0x03 | RemoveLiquidityOne | `[lp_amount:8][token_index:1][min_amount:8]` |
+| 0x04 | Exchange | `[from_index:1][to_index:1][amount:8][min_out:8]` |
+| 0x05 | RampA | `[new_A:8][ramp_time:8]` |
+
+## Storage Layout
+
+```rust
+const KEY_POOL: &[u8] = b"pool";
+const KEY_TOKENS: &[u8] = b"tokens";
+const KEY_BALANCES: &[u8] = b"balances";
+const KEY_LP_TOKEN: &[u8] = b"lp_token";
+const KEY_A: &[u8] = b"A";
+const KEY_A_PRECISE: &[u8] = b"A_precise";
+const KEY_FUTURE_A: &[u8] = b"future_A";
+const KEY_FUTURE_A_TIME: &[u8] = b"future_A_time";
+const KEY_INITIAL_A: &[u8] = b"initial_A";
+const KEY_INITIAL_A_TIME: &[u8] = b"initial_A_time";
+const KEY_FEE: &[u8] = b"fee";          // Basis points
+const KEY_ADMIN_FEE: &[u8] = b"admin_fee";
+```
+
+## Constants
+
+```rust
+const A_PRECISION: u128 = 100;
+const FEE_DENOMINATOR: u128 = 10_000_000_000; // 10^10
+const MAX_A: u128 = 1_000_000;
+const MAX_A_CHANGE: u128 = 10;
+const MIN_RAMP_TIME: u64 = 86400; // 1 day
+const PRECISION: u128 = 1_000_000_000_000_000_000; // 10^18
+```
+
+## Core Implementation
+
+### Initialize Pool
+
+```rust
+fn init_pool(
+    caller: &Address,
+    tokens: &[Hash],
+    initial_A: u64,
+    fee: u32,        // e.g., 4000000 = 0.04%
+    admin_fee: u32   // e.g., 5000000000 = 50% of fee
+) -> entrypoint::Result<Hash> {
+    require_admin(caller)?;
+
+    let n = tokens.len();
+    if n < 2 || n > 4 {
+        return Err(InvalidTokenCount);
+    }
+
+    if initial_A == 0 || initial_A as u128 > MAX_A {
+        return Err(InvalidAmplification);
+    }
+
+    // Verify all tokens are unique
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if tokens[i] == tokens[j] {
+                return Err(DuplicateTokens);
+            }
+        }
+    }
+
+    // Create LP token
+    let lp_token = asset_create(
+        b"StableSwap LP",
+        b"ssLP",
+        18,
+        0,
+        true,  // mintable
+        true,  // burnable
+        true   // transferable
+    )?;
+
+    // Store pool config
+    storage_write(KEY_TOKENS, &tokens.encode())?;
+    storage_write(KEY_LP_TOKEN, &lp_token)?;
+    storage_write(KEY_A_PRECISE, &((initial_A as u128) * A_PRECISION).to_le_bytes())?;
+    storage_write(KEY_INITIAL_A, &((initial_A as u128) * A_PRECISION).to_le_bytes())?;
+    storage_write(KEY_INITIAL_A_TIME, &get_block_timestamp().to_le_bytes())?;
+    storage_write(KEY_FEE, &fee.to_le_bytes())?;
+    storage_write(KEY_ADMIN_FEE, &admin_fee.to_le_bytes())?;
+
+    // Initialize balances to zero
+    let balances = vec![0u128; n];
+    storage_write(KEY_BALANCES, &balances.encode())?;
+
+    log("StableSwap pool initialized");
+    Ok(lp_token)
+}
+```
+
+### Get Current A (with ramping)
+
+```rust
+/// Get current amplification factor (supports gradual ramping)
+fn get_A() -> u128 {
+    let initial_A = read_u128(KEY_INITIAL_A);
+    let future_A = read_u128(KEY_FUTURE_A);
+    let initial_time = read_u64(KEY_INITIAL_A_TIME);
+    let future_time = read_u64(KEY_FUTURE_A_TIME);
+
+    let now = get_block_timestamp();
+
+    if future_time == 0 || now >= future_time {
+        return future_A;
+    }
+
+    if future_A > initial_A {
+        // Ramping up
+        let elapsed = now.saturating_sub(initial_time);
+        let duration = future_time.saturating_sub(initial_time);
+
+        initial_A.checked_add(
+            (future_A - initial_A)
+                .checked_mul(elapsed as u128).unwrap()
+                .checked_div(duration as u128).unwrap()
+        ).unwrap()
+    } else {
+        // Ramping down
+        let elapsed = now.saturating_sub(initial_time);
+        let duration = future_time.saturating_sub(initial_time);
+
+        initial_A.saturating_sub(
+            (initial_A - future_A)
+                .checked_mul(elapsed as u128).unwrap()
+                .checked_div(duration as u128).unwrap()
+        )
+    }
+}
+```
+
+### Calculate D (Pool Invariant)
+
+```rust
+/// Calculate D using Newton's method
+/// D is the total "value" of the pool
+fn get_D(xp: &[u128], A: u128) -> u128 {
+    let n = xp.len() as u128;
+    let sum: u128 = xp.iter().sum();
+
+    if sum == 0 {
+        return 0;
+    }
+
+    let mut D = sum;
+    let Ann = A.checked_mul(n).unwrap();
+
+    // Newton's method iteration
+    for _ in 0..255 {
+        // D_P = D^(n+1) / (n^n * prod(x_i))
+        let mut D_P = D;
+        for x in xp {
+            D_P = D_P
+                .checked_mul(D).unwrap()
+                .checked_div(x.checked_mul(n).unwrap()).unwrap();
+        }
+
+        let prev_D = D;
+
+        // D = (Ann * sum + D_P * n) * D / ((Ann - 1) * D + (n + 1) * D_P)
+        let numerator = Ann
+            .checked_mul(sum).unwrap()
+            .checked_add(D_P.checked_mul(n).unwrap()).unwrap()
+            .checked_mul(D).unwrap();
+
+        let denominator = Ann
+            .saturating_sub(1)
+            .checked_mul(D).unwrap()
+            .checked_add(D_P.checked_mul(n + 1).unwrap()).unwrap();
+
+        D = numerator.checked_div(denominator).unwrap();
+
+        // Check convergence
+        if D > prev_D {
+            if D - prev_D <= 1 {
+                return D;
+            }
+        } else {
+            if prev_D - D <= 1 {
+                return D;
+            }
+        }
+    }
+
+    D // Return even if not fully converged
+}
+```
+
+### Calculate Y (Token Balance)
+
+```rust
+/// Calculate y given x and D
+/// Used for swaps: find new balance of token j after changing token i
+fn get_y(
+    i: usize,
+    j: usize,
+    x: u128,
+    xp: &[u128],
+    A: u128
+) -> u128 {
+    let n = xp.len();
+    let D = get_D(xp, A);
+
+    let Ann = A.checked_mul(n as u128).unwrap();
+
+    let mut c = D;
+    let mut S: u128 = 0;
+
+    for k in 0..n {
+        let x_k = if k == i { x } else { xp[k] };
+
+        if k != j {
+            S = S.checked_add(x_k).unwrap();
+            c = c
+                .checked_mul(D).unwrap()
+                .checked_div(x_k.checked_mul(n as u128).unwrap()).unwrap();
+        }
+    }
+
+    c = c
+        .checked_mul(D).unwrap()
+        .checked_mul(A_PRECISION).unwrap()
+        .checked_div(Ann.checked_mul(n as u128).unwrap()).unwrap();
+
+    let b = S.checked_add(
+        D.checked_mul(A_PRECISION).unwrap()
+            .checked_div(Ann).unwrap()
+    ).unwrap();
+
+    // Newton's method for y
+    let mut y = D;
+    for _ in 0..255 {
+        let y_prev = y;
+
+        // y = (y^2 + c) / (2y + b - D)
+        y = y.checked_mul(y).unwrap()
+            .checked_add(c).unwrap()
+            .checked_div(
+                y.checked_mul(2).unwrap()
+                    .checked_add(b).unwrap()
+                    .saturating_sub(D)
+            ).unwrap();
+
+        if y > y_prev {
+            if y - y_prev <= 1 {
+                return y;
+            }
+        } else {
+            if y_prev - y <= 1 {
+                return y;
+            }
+        }
+    }
+
+    y
+}
+```
+
+### Exchange (Swap)
+
+```rust
+/// Swap tokens using StableSwap formula
+fn exchange(
+    caller: &Address,
+    from_index: u8,
+    to_index: u8,
+    dx: u64,
+    min_dy: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    let tokens = load_tokens()?;
+    let n = tokens.len();
+
+    if from_index as usize >= n || to_index as usize >= n {
+        return Err(InvalidTokenIndex);
+    }
+    if from_index == to_index {
+        return Err(SameToken);
+    }
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != tokens[from_index as usize] {
+        return Err(InvalidLock);
+    }
+
+    let A = get_A();
+    let mut balances = load_balances()?;
+    let fee = read_u32(KEY_FEE);
+    let admin_fee = read_u32(KEY_ADMIN_FEE);
+
+    // Normalize balances to same precision
+    let xp: Vec<u128> = balances.iter().map(|&b| b).collect();
+
+    let x = xp[from_index as usize].checked_add(dx as u128).unwrap();
+    let y = get_y(from_index as usize, to_index as usize, x, &xp, A);
+
+    // dy = old_y - new_y - 1 (round in favor of pool)
+    let dy = xp[to_index as usize]
+        .checked_sub(y).unwrap()
+        .saturating_sub(1);
+
+    // Calculate fee
+    let fee_amount = dy
+        .checked_mul(fee as u128).unwrap()
+        .checked_div(FEE_DENOMINATOR).unwrap();
+
+    let dy_after_fee = dy.checked_sub(fee_amount).unwrap();
+
+    if (dy_after_fee as u64) < min_dy {
+        return Err(SlippageExceeded);
+    }
+
+    // Calculate admin fee
+    let admin_fee_amount = fee_amount
+        .checked_mul(admin_fee as u128).unwrap()
+        .checked_div(FEE_DENOMINATOR).unwrap();
+
+    // Update balances
+    balances[from_index as usize] = balances[from_index as usize]
+        .checked_add(dx as u128).unwrap();
+    balances[to_index as usize] = balances[to_index as usize]
+        .checked_sub(dy_after_fee).unwrap()
+        .checked_sub(admin_fee_amount).unwrap();
+
+    save_balances(&balances)?;
+
+    // Transfer tokens
+    lock_use(caller, &tokens[from_index as usize], dx, lock_id)?;
+    transfer(caller, &tokens[to_index as usize], dy_after_fee as u64)?;
+
+    log("Exchange completed");
+    Ok(dy_after_fee as u64)
+}
+```
+
+### Add Liquidity
+
+```rust
+/// Add liquidity to the pool
+fn add_liquidity(
+    caller: &Address,
+    amounts: &[u64],
+    min_lp_amount: u64,
+    lock_ids: &[u64]
+) -> entrypoint::Result<u64> {
+    let tokens = load_tokens()?;
+    let n = tokens.len();
+
+    if amounts.len() != n || lock_ids.len() != n {
+        return Err(InvalidArrayLength);
+    }
+
+    let A = get_A();
+    let mut balances = load_balances()?;
+    let fee = read_u32(KEY_FEE);
+    let lp_token = read_hash(KEY_LP_TOKEN)?;
+    let lp_supply = get_total_supply(&lp_token);
+
+    let D0 = get_D(&balances, A);
+
+    // Add amounts to balances
+    let mut new_balances = balances.clone();
+    for i in 0..n {
+        if amounts[i] > 0 {
+            // Verify lock
+            let lock = get_lock_info(lock_ids[i])?;
+            if lock.owner != *caller || lock.asset != tokens[i] {
+                return Err(InvalidLock);
+            }
+            if lock.amount < amounts[i] {
+                return Err(InsufficientAmount);
+            }
+
+            new_balances[i] = new_balances[i]
+                .checked_add(amounts[i] as u128).unwrap();
+
+            lock_use(caller, &tokens[i], amounts[i], lock_ids[i])?;
+        }
+    }
+
+    let D1 = get_D(&new_balances, A);
+    if D1 <= D0 {
+        return Err(InvariantNotIncreased);
+    }
+
+    let lp_amount: u64;
+
+    if lp_supply == 0 {
+        // First deposit - mint D1 LP tokens
+        lp_amount = D1 as u64;
+    } else {
+        // Calculate fee for imbalanced deposit
+        let ideal_balances: Vec<u128> = balances.iter()
+            .map(|&b| b.checked_mul(D1).unwrap().checked_div(D0).unwrap())
+            .collect();
+
+        let mut fees = vec![0u128; n];
+        for i in 0..n {
+            let diff = if new_balances[i] > ideal_balances[i] {
+                new_balances[i] - ideal_balances[i]
+            } else {
+                ideal_balances[i] - new_balances[i]
+            };
+
+            fees[i] = diff
+                .checked_mul(fee as u128).unwrap()
+                .checked_div(FEE_DENOMINATOR * 2).unwrap(); // Half fee for imbalance
+        }
+
+        // Adjust balances for fees
+        for i in 0..n {
+            new_balances[i] = new_balances[i].saturating_sub(fees[i]);
+        }
+
+        let D2 = get_D(&new_balances, A);
+
+        lp_amount = ((D2 - D0) as u128)
+            .checked_mul(lp_supply as u128).unwrap()
+            .checked_div(D0).unwrap() as u64;
+    }
+
+    if lp_amount < min_lp_amount {
+        return Err(SlippageExceeded);
+    }
+
+    // Update balances
+    balances = new_balances;
+    save_balances(&balances)?;
+
+    // Mint LP tokens
+    mint(&lp_token, caller, lp_amount)?;
+
+    log("Liquidity added");
+    Ok(lp_amount)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1901 | InvalidTokenCount | Pool must have 2-4 tokens |
+| 1902 | DuplicateTokens | Token addresses must be unique |
+| 1903 | InvalidAmplification | A must be between 1 and 1,000,000 |
+| 1904 | InvalidTokenIndex | Token index out of range |
+| 1905 | SameToken | Cannot swap same token |
+| 1906 | SlippageExceeded | Output less than minimum |
+| 1907 | InvariantNotIncreased | Deposit didn't increase D |
+| 1908 | RampTooFast | A change exceeds 10x limit |
+
+## Usage Example
+
+```rust
+// 1. Initialize 3pool (USDC, USDT, TUSD)
+let tokens = [usdc, usdt, tusd];
+let lp_token = init_pool(&admin, &tokens, 100, 4000000, 5000000000)?;
+// A=100, fee=0.04%, admin_fee=50%
+
+// 2. Add initial liquidity (balanced)
+let locks = [
+    lock_asset(usdc, 1_000_000e6, contract, 10000)?,
+    lock_asset(usdt, 1_000_000e6, contract, 10000)?,
+    lock_asset(tusd, 1_000_000e18, contract, 10000)?,
+];
+let lp = add_liquidity(&user, &[1_000_000e6, 1_000_000e6, 1_000_000e18], 0, &locks)?;
+
+// 3. Swap 10,000 USDC for USDT
+let swap_lock = lock_asset(usdc, 10_000e6, contract, 10000)?;
+let usdt_out = exchange(&user, 0, 1, 10_000e6, 9_990e6, swap_lock)?;
+// Should get ~9,996 USDT (minimal slippage!)
+
+// 4. Remove liquidity
+let lp_lock = lock_asset(lp_token, lp / 2, contract, 10000)?;
+remove_liquidity(&user, lp / 2, &[0, 0, 0], lp_lock)?;
+```
+
+## Amplification Factor
+
+| A Value | Behavior | Use Case |
+|---------|----------|----------|
+| 1 | Like constant product | Volatile pairs |
+| 10-50 | Moderate stability | Semi-stable pairs |
+| 100-500 | Low slippage | Stablecoins |
+| 1000+ | Near constant sum | Highly correlated |
+
+## Related Examples
+
+- [AMM DEX](/smart-contracts/examples/amm-dex) - Constant product AMM
+- [Lending Protocol](/smart-contracts/examples/lending) - Interest rate calculations
+- [Security Patterns](/smart-contracts/examples/security-patterns) - Safety patterns

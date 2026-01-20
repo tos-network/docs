@@ -1,0 +1,305 @@
+---
+title: Referral Rewards
+description: Multi-level reward distribution using native referral syscalls
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Referral Rewards Contract
+
+This example demonstrates how to use TOS's native referral system to distribute rewards to multiple levels of uplines.
+
+## Overview
+
+The referral system is built into TOS at the protocol level:
+
+1. Users bind their referrer via `BindReferrer` transaction
+2. Contracts query relationships via syscalls
+3. Rewards are distributed efficiently using batch transfers
+
+## Basic Distribution Example
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+const OP_PURCHASE: u8 = 0x01;
+
+// Distribution rates in basis points (1000 = 10%)
+const RATE_LEVEL_1: u64 = 1000;  // 10%
+const RATE_LEVEL_2: u64 = 500;   // 5%
+const RATE_LEVEL_3: u64 = 300;   // 3%
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 1];
+    let len = get_input_data(&mut input);
+
+    if len == 0 {
+        return 1;
+    }
+
+    match input[0] {
+        OP_PURCHASE => on_purchase(),
+        _ => 1,
+    }
+}
+
+fn on_purchase() -> u64 {
+    let buyer = get_tx_sender();
+    let amount = get_call_value();
+
+    if amount == 0 {
+        log("No payment received");
+        return 2;
+    }
+
+    // Get 3 levels of uplines
+    let (uplines, count) = match get_uplines(&buyer, 3) {
+        Ok(result) => result,
+        Err(_) => {
+            log("No referrer - purchase without rewards");
+            return SUCCESS;
+        }
+    };
+
+    let rates = [RATE_LEVEL_1, RATE_LEVEL_2, RATE_LEVEL_3];
+    let mut total_distributed = 0u64;
+
+    for i in 0..(count as usize).min(3) {
+        let reward = amount.saturating_mul(rates[i]) / 10000;
+
+        if reward > 0 {
+            match transfer(&uplines[i], reward) {
+                Ok(_) => {
+                    total_distributed = total_distributed.saturating_add(reward);
+                    log("Reward distributed");
+                }
+                Err(_) => {
+                    log("Transfer failed");
+                }
+            }
+        }
+    }
+
+    log_u64(amount, total_distributed, count as u64, 0, 0);
+    SUCCESS
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Advanced: Dynamic Tier System
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+const OP_PURCHASE: u8 = 0x01;
+const OP_GET_TIER: u8 = 0x02;
+
+// Volume thresholds for tiers
+const TIER_DIAMOND: u64 = 1_000_000_00000000;  // 1M tokens
+const TIER_GOLD: u64 = 100_000_00000000;       // 100K tokens
+const TIER_SILVER: u64 = 10_000_00000000;      // 10K tokens
+
+// Reward rates by tier (basis points)
+const RATE_DIAMOND: u64 = 1500;  // 15%
+const RATE_GOLD: u64 = 1000;     // 10%
+const RATE_SILVER: u64 = 700;    // 7%
+const RATE_BASIC: u64 = 500;     // 5%
+
+fn get_tier_rate(volume: u64) -> u64 {
+    if volume >= TIER_DIAMOND {
+        RATE_DIAMOND
+    } else if volume >= TIER_GOLD {
+        RATE_GOLD
+    } else if volume >= TIER_SILVER {
+        RATE_SILVER
+    } else {
+        RATE_BASIC
+    }
+}
+
+fn on_purchase() -> u64 {
+    let buyer = get_tx_sender();
+    let amount = get_call_value();
+    let asset = get_contract_hash();
+
+    if amount == 0 {
+        return 2;
+    }
+
+    // Record volume to upline chain (up to 10 levels)
+    let _ = add_team_volume(&buyer, &asset, amount, 10);
+
+    // Get uplines for reward distribution
+    let (uplines, count) = match get_uplines(&buyer, 3) {
+        Ok(result) => result,
+        Err(_) => return SUCCESS,
+    };
+
+    for i in 0..(count as usize).min(3) {
+        let upline = &uplines[i];
+
+        // Get upline's team volume for dynamic tier
+        let team_volume = get_team_volume(upline, &asset).unwrap_or(0);
+        let rate = get_tier_rate(team_volume);
+
+        // Apply level discount (Level 1: 100%, Level 2: 60%, Level 3: 40%)
+        let level_multiplier = match i {
+            0 => 100,
+            1 => 60,
+            2 => 40,
+            _ => 0,
+        };
+
+        let reward = amount
+            .saturating_mul(rate)
+            .saturating_mul(level_multiplier)
+            / 1_000_000;  // rate * multiplier / (10000 * 100)
+
+        if reward > 0 {
+            let _ = transfer(upline, reward);
+        }
+    }
+
+    SUCCESS
+}
+
+fn get_user_tier(params: &[u8]) -> u64 {
+    if params.len() < 32 {
+        return 1;
+    }
+
+    let mut user = [0u8; 32];
+    user.copy_from_slice(&params[0..32]);
+
+    let asset = get_contract_hash();
+    let volume = get_team_volume(&user, &asset).unwrap_or(0);
+
+    let tier = if volume >= TIER_DIAMOND {
+        3  // Diamond
+    } else if volume >= TIER_GOLD {
+        2  // Gold
+    } else if volume >= TIER_SILVER {
+        1  // Silver
+    } else {
+        0  // Basic
+    };
+
+    let _ = set_return_data(&[tier as u8]);
+    SUCCESS
+}
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 64];
+    let len = get_input_data(&mut input);
+
+    if len == 0 {
+        return 1;
+    }
+
+    match input[0] {
+        OP_PURCHASE => on_purchase(),
+        OP_GET_TIER => get_user_tier(&input[1..len as usize]),
+        _ => 1,
+    }
+}
+
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Zone Leader Bonus
+
+Distribute bonus based on direct referrals' performance:
+
+```rust
+fn distribute_zone_bonus(user: &[u8; 32], bonus_pool: u64) {
+    let asset = get_contract_hash();
+
+    // Get zone volumes (each direct referral's team volume)
+    let zones = match get_zone_volumes(user, &asset, 10) {
+        Ok(z) => z,
+        Err(_) => return,
+    };
+
+    // Calculate total zone volume
+    let mut total_volume = 0u64;
+    for i in 0..zones.zones_count as usize {
+        total_volume = total_volume.saturating_add(zones.volumes[i]);
+    }
+
+    if total_volume == 0 {
+        return;
+    }
+
+    // Distribute proportionally to zones
+    for i in 0..zones.zones_count as usize {
+        let zone_share = bonus_pool
+            .saturating_mul(zones.volumes[i])
+            / total_volume;
+
+        if zone_share > 0 {
+            let _ = transfer(&zones.addresses[i], zone_share);
+        }
+    }
+}
+```
+
+## Available Syscalls
+
+| Syscall | Cost | Description |
+|---------|:----:|-------------|
+| `tos_has_referrer` | 500 CU | Check if user has referrer |
+| `tos_get_referrer` | 500 CU | Get direct referrer |
+| `get_uplines` | 500 + 200×N CU | Get N levels of uplines |
+| `tos_get_team_size` | 500 CU | Get total team size |
+| `add_team_volume` | 1000 + 500×N CU | Add volume to uplines |
+| `get_team_volume` | 500 CU | Get team volume |
+| `get_zone_volumes` | 500 + 100×N CU | Get zone volumes |
+
+## Best Practices
+
+1. **Limit distribution levels** for compliance (3 levels recommended)
+2. **Use saturating arithmetic** to prevent overflows
+3. **Log distributions** for transparency
+4. **Handle missing referrers** gracefully
+5. **Consider gas costs** when distributing to many levels
+
+## Compliance Notes
+
+Different regions have different rules for multi-level rewards:
+
+```rust
+// Configurable depth based on region
+const MAX_LEVELS_CN: u8 = 1;   // China: single level only
+const MAX_LEVELS_US: u8 = 3;   // USA: typically 3 levels
+const MAX_LEVELS_SEA: u8 = 10; // Southeast Asia: more flexible
+
+// Use appropriate limit
+let levels = if is_cn_user { MAX_LEVELS_CN } else { MAX_LEVELS_US };
+let (uplines, count) = get_uplines(&buyer, levels)?;
+```
+
+## Gas Costs
+
+| Operation | Approx. Cost |
+|-----------|:------------:|
+| 3-level distribution | $0.015 |
+| 10-level distribution | $0.04 |
+| Volume recording (10 levels) | $0.06 |
+| Zone query (10 zones) | $0.015 |

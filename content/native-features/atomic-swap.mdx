@@ -1,0 +1,188 @@
+---
+title: Atomic Swap
+description: Trustless asset exchanges at the protocol level
+---
+
+import { Callout } from 'nextra/components'
+
+# Atomic Swap
+
+<Callout type="warning">
+This feature is **planned** for P1 priority (mainnet 3 months). The API described here is the target design.
+</Callout>
+
+TOS will provide **native atomic swap** capability, enabling trustless point-to-point exchanges without intermediaries.
+
+## What is Atomic Swap?
+
+```
+Traditional Exchange:
+1. Alice sends token X to Bob
+2. Bob should send token Y to Alice
+❌ Problem: Bob might not send Y (trust required)
+
+Atomic Swap:
+1. Contract locks both parties' assets
+2. Either both transfer OR both refund
+✓ No trust required - it's all or nothing
+```
+
+## Benefits
+
+| Approach | Slippage | Gas | Trust |
+|----------|:--------:|:---:|:-----:|
+| AMM Pool | High | Medium | None |
+| Order Book | Low | High | None |
+| **Atomic Swap** | **Zero** | **Low** | **None** |
+
+## Use Cases
+
+- **OTC Trading** - Large trades without slippage
+- **Cross-chain Exchange** - TOS ↔ BTC atomic swaps
+- **NFT Trading** - NFT for tokens
+- **Cold Pair Trading** - Pairs without liquidity pools
+
+## Planned API
+
+### Create Swap Order
+
+```rust
+let swap_id = AtomicSwapSyscall::create_swap(
+    Asset {
+        asset_type: AssetType::Token,
+        asset_id: USDT_HASH,
+        amount: 1000_00000000,
+    },
+    Asset {
+        asset_type: AssetType::Token,
+        asset_id: TOS_HASH,
+        amount: 100_00000000,
+    },
+    None,  // Anyone can accept
+    3600,  // 1 hour expiry
+)?;
+```
+
+### Accept Swap
+
+```rust
+AtomicSwapSyscall::accept_swap(swap_id)?;
+
+// Result:
+// - Maker gets 100 TOS
+// - Taker gets 1000 USDT
+// - Atomic: both or neither
+```
+
+### NFT Trading
+
+```rust
+// Sell NFT for tokens
+let swap_id = AtomicSwapSyscall::create_swap(
+    Asset {
+        asset_type: AssetType::NFT,
+        asset_id: nft_collection,
+        amount: token_id,
+    },
+    Asset {
+        asset_type: AssetType::Token,
+        asset_id: USDT_HASH,
+        amount: 1000_00000000,
+    },
+    Some(buyer),  // Specific buyer
+    86400,        // 1 day
+)?;
+```
+
+## Cross-Chain (HTLC)
+
+Hash Time-Locked Contracts enable cross-chain atomic swaps:
+
+```rust
+// TOS Chain (Alice)
+// 1. Generate secret
+let secret = generate_secret();
+let hash_lock = sha256(secret);
+
+// 2. Create HTLC locking TOS
+let htlc_tos = create_htlc(
+    bob_address,
+    Asset::native(100_00000000),
+    hash_lock,
+    now() + 7200,  // 2 hours
+)?;
+
+// BTC Chain (Bob)
+// 3. Create HTLC locking BTC with same hash
+let htlc_btc = btc_create_htlc(
+    alice_btc_address,
+    0.01_btc,
+    hash_lock,
+    now() + 3600,  // 1 hour (shorter!)
+);
+
+// 4. Alice claims BTC (reveals secret)
+btc_claim_htlc(htlc_btc, secret);
+
+// 5. Bob sees secret, claims TOS
+claim_htlc(htlc_tos, secret)?;
+```
+
+## Planned Gas Costs
+
+| Operation | Cost |
+|-----------|:----:|
+| Create order | $0.01 |
+| Accept order | $0.01 |
+| Cancel order | $0.005 |
+| Create HTLC | $0.015 |
+| Claim HTLC | $0.01 |
+| Refund HTLC | $0.005 |
+
+## vs DEX (AMM)
+
+| Scenario | AMM | Atomic Swap |
+|----------|:---:|:-----------:|
+| Small trades (under $1K) | Better | OK |
+| Large trades (over $10K) | High slippage | **Zero slippage** |
+| Cold pairs | No liquidity | **Works** |
+| NFT trades | Not supported | **Supported** |
+| Cross-chain | Not supported | **Supported** |
+
+## Safety Guarantees
+
+### Atomicity
+
+```rust
+fn execute_swap(swap: &AtomicSwap, taker: Address) -> Result<(), SwapError> {
+    begin_atomic();
+
+    // Transfer maker's asset to taker
+    transfer(swap.maker, taker, swap.offer)?;
+
+    // Transfer taker's asset to maker
+    transfer(taker, swap.maker, swap.want)?;
+
+    commit_atomic();
+    // All succeed or all rollback
+}
+```
+
+### Timeout Protection
+
+```rust
+fn check_expiry(swap: &AtomicSwap) {
+    if now() > swap.expires_at && swap.status == SwapStatus::Open {
+        // Automatic refund
+        refund(swap.maker, swap.offer);
+        update_status(swap.id, SwapStatus::Expired);
+    }
+}
+```
+
+## Timeline
+
+- **Design**: Complete
+- **Implementation**: Q2 2025
+- **Testnet**: Q2 2025
+- **Mainnet**: Q3 2025

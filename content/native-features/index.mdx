@@ -1,0 +1,163 @@
+---
+title: Native Features
+description: Built-in blockchain capabilities accessible via syscalls
+---
+
+import { Cards } from 'nextra/components'
+import { Card } from '../../components/card'
+import Icons from '../../components/icons'
+import { Callout } from 'nextra/components'
+
+# Native Features
+
+TOS Network provides powerful features at the **protocol level** rather than as smart contracts. This means:
+
+- **Lower gas costs** - No contract overhead
+- **Better performance** - Optimized native code
+- **Higher security** - Audited core implementation
+- **Simpler integration** - Standard syscall interface
+
+## Feature Status
+
+| Feature | Status | Priority | Description |
+|---------|:------:|:--------:|-------------|
+| [Referral System](/native-features/referral-system) | Implemented | P0 | Multi-level relationship tracking |
+| [Batch Transfer](/native-features/batch-transfer) | Implemented | P0 | Up to 500 recipients per transaction |
+| [VRF Randomness](/native-features/vrf-random) | Implemented | P0 | Verifiable random numbers |
+| [Privacy Transfer](/native-features/privacy-transfer) | Implemented | P1 | Encrypted balances and transfers |
+| [Scheduled Tasks](/native-features/scheduled-tasks) | Implemented | P1 | Time-triggered contract execution |
+| [MEV Protection](/native-features/mev-protection) | Partial | P1 | Front-running prevention |
+| [Atomic Swap](/native-features/atomic-swap) | Planned | P1 | Cross-chain atomic exchanges |
+| [Cross-Chain Bridge](/native-features/future-features) | Planned | P2 | Bridge to other blockchains |
+| [Native NFT](/native-features/future-features) | Planned | P2 | Protocol-level NFT support |
+| [Oracle Integration](/native-features/future-features) | Planned | P2 | Price feeds and external data |
+
+## Implemented Features
+
+<Cards>
+  <Card
+    title="Referral System"
+    subtitle="Track multi-level relationships with 7+ syscalls"
+    href="/native-features/referral-system"
+    icon={<Icons.NodeConnections />}
+  />
+  <Card
+    title="Batch Transfer"
+    subtitle="Send to 500 recipients in one transaction"
+    href="/native-features/batch-transfer"
+    icon={<Icons.Coins />}
+  />
+  <Card
+    title="VRF Randomness"
+    subtitle="Provably fair random numbers at $0.01"
+    href="/native-features/vrf-random"
+    icon={<Icons.Graph />}
+  />
+  <Card
+    title="Privacy Transfer (UNO)"
+    subtitle="Optional encrypted transfers with ZK proofs"
+    href="/native-features/privacy-transfer"
+    icon={<Icons.Incognito />}
+  />
+  <Card
+    title="Scheduled Tasks"
+    subtitle="Time-triggered contract execution"
+    href="/native-features/scheduled-tasks"
+    icon={<Icons.ReceiptCheck />}
+  />
+  <Card
+    title="MEV Protection"
+    subtitle="Defense against front-running attacks"
+    href="/native-features/mev-protection"
+    icon={<Icons.Shield />}
+  />
+</Cards>
+
+## How Native Features Work
+
+Native features are accessed through **syscalls** - special functions that smart contracts can call to interact with protocol-level capabilities.
+
+### Example: Using Referral Syscalls
+
+```rust
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn distribute_rewards() {
+    let buyer = get_tx_sender();
+    let amount = get_call_value();
+
+    // Native syscall: get 3 levels of uplines
+    let (uplines, count) = get_uplines(&buyer, 3).unwrap();
+
+    // Distribute rewards
+    let rates = [1000u64, 500, 300]; // 10%, 5%, 3%
+    for i in 0..(count as usize).min(3) {
+        let reward = amount * rates[i] / 10000;
+        if reward > 0 {
+            transfer(&uplines[i], reward).ok();
+        }
+    }
+}
+```
+
+### Example: Using VRF Randomness
+
+```rust
+use tako_sdk::*;
+
+fn roll_dice() -> u8 {
+    let seed = get_block_hash();
+
+    // Native syscall: generate VRF random
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // Map to dice value 1-6
+    (output.random[0] % 6) + 1
+}
+```
+
+## Cost Comparison
+
+Native features are significantly cheaper than smart contract implementations:
+
+| Operation | Native (TOS) | Smart Contract (TRON) | Savings |
+|-----------|:------------:|:---------------------:|:-------:|
+| Bind referrer | $0.01 | $0.50 | 98% |
+| Query 10 uplines | $0.001 | $0.10 | 99% |
+| VRF random | $0.01 | $0.25 (Chainlink) | 96% |
+| 100-recipient batch | $0.05 | $10.00 | 99.5% |
+| Private transfer | $0.02 | N/A | - |
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Smart Contracts                     │
+│                 (TAKO Runtime)                       │
+└───────────────────────┬─────────────────────────────┘
+                        │ syscalls
+┌───────────────────────┴─────────────────────────────┐
+│                 Native Features                      │
+│  ┌─────────┬─────────┬─────────┬─────────────────┐  │
+│  │Referral │  VRF    │ Privacy │ Scheduled Tasks │  │
+│  │ System  │ Random  │ (UNO)   │                 │  │
+│  └─────────┴─────────┴─────────┴─────────────────┘  │
+└───────────────────────┬─────────────────────────────┘
+                        │
+┌───────────────────────┴─────────────────────────────┐
+│                 TOS Blockchain Core                  │
+│           (Consensus, State, Storage)                │
+└─────────────────────────────────────────────────────┘
+```
+
+## Getting Started
+
+1. **Choose a feature** from the list above
+2. **Read the documentation** for syscall interfaces
+3. **Use the TAKO SDK** in your smart contracts
+4. **Test on devnet** before deploying to mainnet
+
+<Callout type="info">
+All native features are available on testnet for development and testing.
+</Callout>

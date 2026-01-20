@@ -1,1229 +1,670 @@
 ---
 title: Smart Contract Development on TOS Network
-description: Complete guide to developing, deploying, and managing smart contracts on TOS Network using Java and the Rust Virtual Machine (RVM)
+description: Complete guide to developing, deploying, and managing smart contracts on TOS Network using Rust and TAKO
 ---
+
+import { Callout } from 'nextra/components'
 
 # Smart Contract Development on TOS Network
 
-Welcome to smart contract development on TOS Network! This comprehensive guide will teach you how to build, deploy, and manage smart contracts using **Java 8** syntax powered by the **Rust Virtual Machine (RVM)**. Experience the familiar comfort of Java development with the performance and security of Rust execution.
+Welcome to smart contract development on TOS Network! This guide will teach you how to build, deploy, and manage smart contracts using **Rust** powered by the **TAKO runtime**. Experience modern Rust development with ultra-low gas costs and native blockchain features.
 
 ## Why TOS Network for Smart Contracts?
 
-### Java 8 Compatibility
-- **Familiar Syntax**: Use Java 8 that millions of developers already know
-- **Rich Ecosystem**: Leverage existing Java libraries and patterns
-- **Enterprise Ready**: Production-grade language for serious applications
-- **No Learning Curve**: Start building immediately with existing skills
+### Rust Smart Contracts
+- **Modern Language**: Use Rust's safety guarantees and performance
+- **No Runtime Overhead**: Compiles to efficient TBPFv3 bytecode
+- **Native Features**: Direct access to VRF, referrals, batch transfers
+- **Ultra-Low Gas**: $0.001 per transaction average
 
-### Rust Virtual Machine (RVM)
-- **High Performance**: Rust-based execution for maximum speed
-- **Memory Safety**: Zero-cost abstractions with guaranteed safety
-- **Concurrent Execution**: Native support for parallel smart contract execution
-- **Security First**: Comprehensive sandboxing and isolation
+### TAKO Runtime
+- **eBPF-Inspired**: Efficient, sandboxed execution
+- **Fast Compilation**: Quick development iteration
+- **Predictable Costs**: Gas costs are transparent and low
+- **Security First**: Memory-safe execution environment
 
-### Privacy Integration
-- **Confidential Contracts**: Execute smart contracts with private inputs
-- **Encrypted State**: Store sensitive data with homomorphic encryption
-- **Zero-Knowledge Integration**: Generate and verify cryptographic proofs
-- **Private Transactions**: Interact with contracts while maintaining privacy
-
-### TOS Network Features
-- **Energy Payments**: Use staked TOS energy for gas-free contract execution
-- **BlockDAG Integration**: Parallel contract execution across multiple blocks
-- **DeFi Integration**: Smart contracts can interact with DeFi protocols
-- **Advanced Cryptography**: Built-in support for privacy-preserving operations
+### Native Features Integration
+- **VRF Randomness**: Verifiable random numbers for gaming and lotteries
+- **Referral System**: Built-in referral rewards at protocol level
+- **Batch Transfers**: Send to multiple recipients in one transaction
+- **Privacy Options**: Optional encrypted transfers with UNO
 
 ## Development Environment Setup
 
 ### Prerequisites
 
 Before starting, ensure you have:
-- **Java Development Kit (JDK) 8+**
-- **Maven or Gradle** for dependency management
+- **Rust 1.70+** with `wasm32-unknown-unknown` target
+- **TOS Platform Tools** for compilation
 - **Git** for version control
-- **TOS Network CLI** for deployment and interaction
+- **TOS CLI** for deployment
 
 ### Install TOS Development Tools
 
 ```bash
-# Install TOS CLI
-curl -fsSL https://install.tos.network | bash
-source ~/.bashrc
+# Install Rust (if not already installed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Add WebAssembly target
+rustup target add wasm32-unknown-unknown
+
+# Install TOS Platform Tools
+curl -fsSL https://install.tos.network/tools | bash
 
 # Verify installation
-tos version
-# Expected output: TOS CLI v1.0.0
-
-# Install TOS Smart Contract SDK
-npm install -g @tos-network/contract-cli
+tos-tools --version
 ```
 
 ### Create Development Project
 
 ```bash
 # Create new smart contract project
-tos create-contract --name MyFirstContract --template basic
-cd MyFirstContract
+cargo new --lib my_first_contract
+cd my_first_contract
 
 # Project structure
-MyFirstContract/
+my_first_contract/
 ├── src/
-│   └── main/
-│       └── java/
-│           └── com/
-│               └── example/
-│                   └── MyFirstContract.java
-├── contracts/
-│   └── examples/
-├── tests/
-├── pom.xml
-├── tos-config.json
+│   └── lib.rs
+├── Cargo.toml
 └── README.md
 ```
 
-### Configure Development Environment
+### Configure Cargo.toml
 
-```json
-// tos-config.json
-{
-  "network": "testnet",
-  "compiler": {
-    "java_version": "8",
-    "optimization_level": "standard",
-    "debug_symbols": true
-  },
-  "deployment": {
-    "gas_limit": 1000000,
-    "energy_limit": 500000,
-    "auto_verify": true
-  },
-  "privacy": {
-    "confidential_state": false,
-    "encrypted_inputs": false,
-    "zero_knowledge_proofs": false
-  }
-}
+```toml
+[package]
+name = "my_first_contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako_sdk = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
 ```
 
 ## Your First Smart Contract
 
-### Basic Token Contract
+### Hello World Contract
 
-Let's create a simple token contract to understand TOS smart contract development:
+Create `src/lib.rs`:
 
-```java
-package com.example;
+```rust
+#![no_std]
+#![no_main]
 
-import com.tosnetwork.contract.*;
-import com.tosnetwork.contract.annotations.*;
-import com.tosnetwork.contract.types.*;
-import java.util.Map;
-import java.util.HashMap;
+use tako_sdk::*;
 
-@Contract
-public class SimpleToken {
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Log a message (visible in transaction logs)
+    log("Hello from TOS Network!");
 
-    // State variables
-    @State
-    private String name;
-
-    @State
-    private String symbol;
-
-    @State
-    private long totalSupply;
-
-    @State
-    private Map<Address, Long> balances;
-
-    @State
-    private Map<Address, Map<Address, Long>> allowances;
-
-    // Events
-    @Event
-    public static class Transfer {
-        @Indexed
-        public Address from;
-
-        @Indexed
-        public Address to;
-
-        public long amount;
-
-        public Transfer(Address from, Address to, long amount) {
-            this.from = from;
-            this.to = to;
-            this.amount = amount;
-        }
-    }
-
-    @Event
-    public static class Approval {
-        @Indexed
-        public Address owner;
-
-        @Indexed
-        public Address spender;
-
-        public long amount;
-
-        public Approval(Address owner, Address spender, long amount) {
-            this.owner = owner;
-            this.spender = spender;
-            this.amount = amount;
-        }
-    }
-
-    // Constructor
-    @Constructor
-    public void init(String name, String symbol, long initialSupply) {
-        this.name = name;
-        this.symbol = symbol;
-        this.totalSupply = initialSupply;
-        this.balances = new HashMap<>();
-        this.allowances = new HashMap<>();
-
-        // Assign all tokens to contract deployer
-        Address deployer = Context.getCaller();
-        balances.put(deployer, initialSupply);
-
-        // Emit initial transfer event
-        emit(new Transfer(Address.ZERO, deployer, initialSupply));
-    }
-
-    // Public view functions
-    @View
-    public String getName() {
-        return name;
-    }
-
-    @View
-    public String getSymbol() {
-        return symbol;
-    }
-
-    @View
-    public long getTotalSupply() {
-        return totalSupply;
-    }
-
-    @View
-    public long balanceOf(Address account) {
-        return balances.getOrDefault(account, 0L);
-    }
-
-    @View
-    public long allowance(Address owner, Address spender) {
-        return allowances.getOrDefault(owner, new HashMap<>())
-                         .getOrDefault(spender, 0L);
-    }
-
-    // Public functions
-    @Public
-    public boolean transfer(Address to, long amount) {
-        Address from = Context.getCaller();
-        return _transfer(from, to, amount);
-    }
-
-    @Public
-    public boolean approve(Address spender, long amount) {
-        Address owner = Context.getCaller();
-
-        // Update allowance
-        allowances.computeIfAbsent(owner, k -> new HashMap<>())
-                  .put(spender, amount);
-
-        // Emit approval event
-        emit(new Approval(owner, spender, amount));
-
-        return true;
-    }
-
-    @Public
-    public boolean transferFrom(Address from, Address to, long amount) {
-        Address caller = Context.getCaller();
-
-        // Check allowance
-        long currentAllowance = allowance(from, caller);
-        require(currentAllowance >= amount, "Insufficient allowance");
-
-        // Update allowance
-        allowances.get(from).put(caller, currentAllowance - amount);
-
-        // Perform transfer
-        return _transfer(from, to, amount);
-    }
-
-    // Internal functions
-    private boolean _transfer(Address from, Address to, long amount) {
-        require(!to.equals(Address.ZERO), "Cannot transfer to zero address");
-        require(amount > 0, "Amount must be positive");
-
-        long fromBalance = balanceOf(from);
-        require(fromBalance >= amount, "Insufficient balance");
-
-        // Update balances
-        balances.put(from, fromBalance - amount);
-        balances.put(to, balanceOf(to) + amount);
-
-        // Emit transfer event
-        emit(new Transfer(from, to, amount));
-
-        return true;
-    }
-
-    // Utility functions
-    private void require(boolean condition, String message) {
-        if (!condition) {
-            revert(message);
-        }
-    }
-
-    private void revert(String message) {
-        throw new ContractException(message);
-    }
-
-    private void emit(Object event) {
-        Context.emitEvent(event);
-    }
+    // Return success
+    SUCCESS
 }
 ```
 
-### Understanding the Contract Structure
+### Build and Deploy
 
-#### Annotations Explained
+```bash
+# Build the contract
+cargo build --release --target wasm32-unknown-unknown
 
-```java
-@Contract              // Marks class as smart contract
-@State                // Persistent state variable
-@Constructor          // Contract initialization function
-@Public               // Publicly callable function
-@View                 // Read-only function (no state changes)
-@Event                // Event definition
-@Indexed              // Indexed event parameter for filtering
+# Deploy to testnet
+tos deploy \
+    --contract target/wasm32-unknown-unknown/release/my_first_contract.wasm \
+    --network testnet
 ```
 
-#### TOS-Specific Features
+## Understanding TAKO Contracts
 
-```java
-// TOS Network Context API
-Address caller = Context.getCaller();           // Transaction sender
-Address contractAddress = Context.getAddress(); // This contract's address
-long blockHeight = Context.getBlockHeight();    // Current block height
-long timestamp = Context.getTimestamp();        // Block timestamp
-long energyRemaining = Context.getEnergyLeft(); // Remaining energy units
+### Contract Structure
 
-// Privacy features (if enabled)
-EncryptedValue encryptedAmount = Context.encrypt(amount);
-ZKProof proof = Context.generateProof(secret, public_input);
-boolean isValid = Context.verifyProof(proof);
-```
+```rust
+#![no_std]
+#![no_main]
 
-## Advanced Smart Contract Features
+use tako_sdk::*;
 
-### Privacy-Preserving Contracts
+// Contract entrypoint - called for every transaction
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Get the method being called
+    let method = get_method();
 
-```java
-@Contract
-@PrivacyEnabled
-public class PrivateAuction {
-
-    @State
-    @Encrypted
-    private Map<Address, EncryptedValue> bids;
-
-    @State
-    private Address highestBidder;
-
-    @State
-    @Encrypted
-    private EncryptedValue highestBid;
-
-    @State
-    private long auctionEndTime;
-
-    @Constructor
-    public void init(long durationMinutes) {
-        this.auctionEndTime = Context.getTimestamp() + (durationMinutes * 60);
-        this.bids = new HashMap<>();
-        this.highestBid = EncryptedValue.zero();
-    }
-
-    @Public
-    @PrivateInputs
-    public void placeBid(@Encrypted long bidAmount, ZKProof validityProof) {
-        require(Context.getTimestamp() < auctionEndTime, "Auction ended");
-        require(Context.verifyProof(validityProof), "Invalid proof");
-
-        Address bidder = Context.getCaller();
-        EncryptedValue encryptedBid = Context.encrypt(bidAmount);
-
-        // Store encrypted bid
-        bids.put(bidder, encryptedBid);
-
-        // Update highest bid using homomorphic comparison
-        if (encryptedBid.isGreaterThan(highestBid)) {
-            highestBid = encryptedBid;
-            highestBidder = bidder;
-        }
-
-        emit(new BidPlaced(bidder, encryptedBid));
-    }
-
-    @Public
-    public void revealWinner() {
-        require(Context.getTimestamp() >= auctionEndTime, "Auction still active");
-        require(highestBidder != null, "No bids placed");
-
-        // Reveal winner (amount stays encrypted)
-        emit(new AuctionEnded(highestBidder, highestBid));
-    }
-
-    @Event
-    public static class BidPlaced {
-        @Indexed
-        public Address bidder;
-
-        @Encrypted
-        public EncryptedValue bid;
-
-        public BidPlaced(Address bidder, EncryptedValue bid) {
-            this.bidder = bidder;
-            this.bid = bid;
+    // Route to appropriate handler
+    match method.as_str() {
+        "initialize" => initialize(),
+        "transfer" => transfer(),
+        "balance_of" => balance_of(),
+        _ => {
+            log("Unknown method");
+            ERROR_INVALID_METHOD
         }
     }
 }
 ```
 
-### Energy-Optimized Contracts
+### Storage Operations
 
-```java
-@Contract
-@EnergyOptimized
-public class EnergyEfficientVoting {
+```rust
+use tako_sdk::*;
 
-    @State
-    private Map<String, Proposal> proposals;
+// Store a value
+fn store_balance(address: &[u8], amount: u64) -> u64 {
+    let key = ["balance:", address].concat();
+    storage_write(&key, &amount.to_le_bytes())
+}
 
-    @State
-    private Map<Address, Map<String, Boolean>> hasVoted;
-
-    @Public
-    @EnergyPriority("low")  // Use energy instead of gas when possible
-    public void createProposal(String proposalId, String description) {
-        require(!proposals.containsKey(proposalId), "Proposal already exists");
-
-        proposals.put(proposalId, new Proposal(
-            proposalId,
-            description,
-            Context.getCaller(),
-            Context.getTimestamp(),
-            0L  // vote count
-        ));
-
-        emit(new ProposalCreated(proposalId, description));
+// Read a value
+fn get_balance(address: &[u8]) -> u64 {
+    let key = ["balance:", address].concat();
+    let mut buffer = [0u8; 8];
+    if storage_read(&key, &mut buffer) == SUCCESS {
+        u64::from_le_bytes(buffer)
+    } else {
+        0
     }
+}
 
-    @Public
-    @EnergyPriority("high")  // Prefer energy for frequent operations
-    public void vote(String proposalId, boolean support) {
-        require(proposals.containsKey(proposalId), "Proposal not found");
-
-        Address voter = Context.getCaller();
-        require(!hasVoted.getOrDefault(voter, new HashMap<>())
-                         .getOrDefault(proposalId, false),
-                "Already voted");
-
-        // Record vote
-        hasVoted.computeIfAbsent(voter, k -> new HashMap<>())
-                .put(proposalId, true);
-
-        // Update proposal
-        Proposal proposal = proposals.get(proposalId);
-        if (support) {
-            proposal.voteCount++;
-        }
-
-        emit(new VoteCast(voter, proposalId, support));
-    }
-
-    @View
-    @EnergyFree  // Read operations don't consume energy
-    public Proposal getProposal(String proposalId) {
-        return proposals.get(proposalId);
-    }
+// Delete a value
+fn clear_balance(address: &[u8]) -> u64 {
+    let key = ["balance:", address].concat();
+    storage_delete(&key)
 }
 ```
 
-### Task Marketplace Example
+### Getting Transaction Context
 
-```java
-@Contract
-public class TaskMarketplace {
+```rust
+use tako_sdk::*;
 
-    @State
-    private Map<String, Task> tasks;
+fn get_context() {
+    // Get transaction sender
+    let sender = get_caller();
 
-    @State
-    private Map<String, Solution> solutions;
+    // Get contract address
+    let contract = get_address();
 
-    @Public
-    public void publishTask(
-        String taskId,
-        String description,
-        TaskType taskType,
-        long reward,
-        long deadline
-    ) {
-        require(!tasks.containsKey(taskId), "Task already exists");
-        require(reward > 0, "Reward must be positive");
-        require(deadline > Context.getTimestamp(), "Deadline must be in future");
+    // Get TOS value sent with transaction
+    let value = get_value();
 
-        Address publisher = Context.getCaller();
+    // Get current block height
+    let height = get_block_height();
 
-        // Transfer reward to contract as escrow
-        TOSToken.transferFrom(publisher, Context.getAddress(), reward);
+    // Get block timestamp
+    let timestamp = get_timestamp();
+}
+```
 
-        tasks.put(taskId, new Task(
-            taskId,
-            description,
-            taskType,
-            publisher,
-            reward,
-            deadline,
-            TaskStatus.OPEN
-        ));
+## Token Contract Example
 
-        emit(new TaskPublished(taskId, publisher, reward));
+### ERC20-Compatible Token
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+const DECIMALS: u8 = 8;
+const TOTAL_SUPPLY: u64 = 1_000_000_00000000; // 1M tokens
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let method = get_method();
+
+    match method.as_str() {
+        "initialize" => initialize(),
+        "name" => name(),
+        "symbol" => symbol(),
+        "decimals" => decimals(),
+        "total_supply" => total_supply(),
+        "balance_of" => balance_of(),
+        "transfer" => transfer(),
+        "approve" => approve(),
+        "allowance" => allowance(),
+        "transfer_from" => transfer_from(),
+        _ => ERROR_INVALID_METHOD
+    }
+}
+
+fn initialize() -> u64 {
+    // Only allow initialization once
+    let mut initialized = [0u8; 1];
+    if storage_read(b"initialized", &mut initialized) == SUCCESS {
+        return ERROR_ALREADY_INITIALIZED;
     }
 
-    @Public
-    public void submitSolution(
-        String taskId,
-        String solutionData,
-        long qualityScore,
-        ZKProof qualityProof
-    ) {
-        require(tasks.containsKey(taskId), "Task not found");
-        require(Context.verifyProof(qualityProof), "Invalid quality proof");
+    // Set owner and initial supply
+    let owner = get_caller();
+    storage_write(b"initialized", &[1]);
+    storage_write(b"owner", &owner);
 
-        Task task = tasks.get(taskId);
-        require(task.status == TaskStatus.OPEN, "Task not open");
-        require(Context.getTimestamp() < task.deadline, "Task deadline passed");
+    // Give all tokens to owner
+    let key = [b"balance:", &owner[..]].concat();
+    storage_write(&key, &TOTAL_SUPPLY.to_le_bytes());
 
-        Address solver = Context.getCaller();
+    // Emit event
+    emit_event("Transfer", &[&[0u8; 32], &owner, &TOTAL_SUPPLY.to_le_bytes()]);
 
-        solutions.put(taskId, new Solution(
-            taskId,
-            solver,
-            solutionData,
-            qualityScore,
-            Context.getTimestamp()
-        ));
+    SUCCESS
+}
 
-        emit(new SolutionSubmitted(taskId, solver, qualityScore));
+fn transfer() -> u64 {
+    let args = get_args();
+    let to = &args[0..32];
+    let amount = u64::from_le_bytes(args[32..40].try_into().unwrap());
+
+    let from = get_caller();
+
+    // Get sender balance
+    let from_key = [b"balance:", &from[..]].concat();
+    let mut from_balance_bytes = [0u8; 8];
+    storage_read(&from_key, &mut from_balance_bytes);
+    let from_balance = u64::from_le_bytes(from_balance_bytes);
+
+    // Check sufficient balance
+    if from_balance < amount {
+        return ERROR_INSUFFICIENT_BALANCE;
     }
 
-    @Public
-    public void acceptSolution(String taskId) {
-        require(tasks.containsKey(taskId), "Task not found");
-        require(solutions.containsKey(taskId), "No solution submitted");
+    // Get recipient balance
+    let to_key = [b"balance:", to].concat();
+    let mut to_balance_bytes = [0u8; 8];
+    storage_read(&to_key, &mut to_balance_bytes);
+    let to_balance = u64::from_le_bytes(to_balance_bytes);
 
-        Task task = tasks.get(taskId);
-        require(Context.getCaller().equals(task.publisher), "Only publisher can accept");
+    // Update balances
+    storage_write(&from_key, &(from_balance - amount).to_le_bytes());
+    storage_write(&to_key, &(to_balance + amount).to_le_bytes());
 
-        Solution solution = solutions.get(taskId);
+    // Emit transfer event
+    emit_event("Transfer", &[&from, to, &amount.to_le_bytes()]);
 
-        // Transfer reward to solver
-        TOSToken.transfer(solution.solver, task.reward);
+    SUCCESS
+}
 
-        // Update task status
-        task.status = TaskStatus.COMPLETED;
+fn balance_of() -> u64 {
+    let args = get_args();
+    let account = &args[0..32];
 
-        emit(new TaskCompleted(taskId, solution.solver, task.reward));
+    let key = [b"balance:", account].concat();
+    let mut balance_bytes = [0u8; 8];
+    storage_read(&key, &mut balance_bytes);
+
+    // Return balance in result
+    set_return_data(&balance_bytes);
+    SUCCESS
+}
+
+fn name() -> u64 {
+    set_return_data(b"My Token");
+    SUCCESS
+}
+
+fn symbol() -> u64 {
+    set_return_data(b"MTK");
+    SUCCESS
+}
+
+fn decimals() -> u64 {
+    set_return_data(&[DECIMALS]);
+    SUCCESS
+}
+
+fn total_supply() -> u64 {
+    set_return_data(&TOTAL_SUPPLY.to_le_bytes());
+    SUCCESS
+}
+
+fn approve() -> u64 {
+    let args = get_args();
+    let spender = &args[0..32];
+    let amount = u64::from_le_bytes(args[32..40].try_into().unwrap());
+
+    let owner = get_caller();
+
+    // Store allowance
+    let key = [b"allowance:", &owner[..], b":", spender].concat();
+    storage_write(&key, &amount.to_le_bytes());
+
+    emit_event("Approval", &[&owner, spender, &amount.to_le_bytes()]);
+    SUCCESS
+}
+
+fn allowance() -> u64 {
+    let args = get_args();
+    let owner = &args[0..32];
+    let spender = &args[32..64];
+
+    let key = [b"allowance:", owner, b":", spender].concat();
+    let mut amount_bytes = [0u8; 8];
+    storage_read(&key, &mut amount_bytes);
+
+    set_return_data(&amount_bytes);
+    SUCCESS
+}
+
+fn transfer_from() -> u64 {
+    let args = get_args();
+    let from = &args[0..32];
+    let to = &args[32..64];
+    let amount = u64::from_le_bytes(args[64..72].try_into().unwrap());
+
+    let spender = get_caller();
+
+    // Check allowance
+    let allowance_key = [b"allowance:", from, b":", &spender[..]].concat();
+    let mut allowance_bytes = [0u8; 8];
+    storage_read(&allowance_key, &mut allowance_bytes);
+    let current_allowance = u64::from_le_bytes(allowance_bytes);
+
+    if current_allowance < amount {
+        return ERROR_INSUFFICIENT_ALLOWANCE;
     }
+
+    // Update allowance
+    storage_write(&allowance_key, &(current_allowance - amount).to_le_bytes());
+
+    // Perform transfer (similar to transfer())
+    let from_key = [b"balance:", from].concat();
+    let mut from_balance_bytes = [0u8; 8];
+    storage_read(&from_key, &mut from_balance_bytes);
+    let from_balance = u64::from_le_bytes(from_balance_bytes);
+
+    if from_balance < amount {
+        return ERROR_INSUFFICIENT_BALANCE;
+    }
+
+    let to_key = [b"balance:", to].concat();
+    let mut to_balance_bytes = [0u8; 8];
+    storage_read(&to_key, &mut to_balance_bytes);
+    let to_balance = u64::from_le_bytes(to_balance_bytes);
+
+    storage_write(&from_key, &(from_balance - amount).to_le_bytes());
+    storage_write(&to_key, &(to_balance + amount).to_le_bytes());
+
+    emit_event("Transfer", &[from, to, &amount.to_le_bytes()]);
+    SUCCESS
+}
+```
+
+## Using Native Features
+
+### VRF Random Numbers
+
+```rust
+use tako_sdk::*;
+
+fn lottery_draw() -> u64 {
+    // Request VRF random number
+    let seed = get_args();
+    let random = vrf_random(&seed);
+
+    // Use random number for lottery
+    let winner_index = random % get_participant_count();
+
+    // ... distribute prize
+    SUCCESS
+}
+```
+
+### Referral Rewards
+
+```rust
+use tako_sdk::*;
+
+fn register_with_referral() -> u64 {
+    let args = get_args();
+    let referrer = &args[0..32];
+    let new_user = get_caller();
+
+    // Register referral relationship
+    referral_set(&new_user, referrer);
+
+    SUCCESS
+}
+
+fn distribute_referral_rewards() -> u64 {
+    let user = get_caller();
+    let amount: u64 = 100_00000000; // 100 tokens
+
+    // Automatically distribute to referral chain
+    referral_distribute(&user, amount);
+
+    SUCCESS
+}
+```
+
+### Batch Transfers
+
+```rust
+use tako_sdk::*;
+
+fn airdrop() -> u64 {
+    let args = get_args();
+
+    // Parse recipients and amounts
+    let count = args[0] as usize;
+    let mut recipients = Vec::new();
+    let mut amounts = Vec::new();
+
+    let mut offset = 1;
+    for _ in 0..count {
+        recipients.push(&args[offset..offset+32]);
+        offset += 32;
+        amounts.push(u64::from_le_bytes(args[offset..offset+8].try_into().unwrap()));
+        offset += 8;
+    }
+
+    // Execute batch transfer
+    batch_transfer(&recipients, &amounts);
+
+    SUCCESS
 }
 ```
 
 ## Testing Smart Contracts
 
-### Unit Testing Framework
+### Unit Testing
 
-```java
-// Test class using TOS Testing Framework
-package com.example.test;
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tako_sdk::testing::*;
 
-import com.tosnetwork.testing.*;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.*;
-
-public class SimpleTokenTest {
-
-    private TOSTestEnvironment testEnv;
-    private SimpleToken contract;
-    private Address deployer;
-    private Address user1;
-    private Address user2;
-
-    @BeforeEach
-    public void setup() {
-        testEnv = new TOSTestEnvironment();
-        deployer = testEnv.createAccount("deployer", 1000000);
-        user1 = testEnv.createAccount("user1", 100000);
-        user2 = testEnv.createAccount("user2", 100000);
+    #[test]
+    fn test_transfer() {
+        // Setup test environment
+        let mut env = TestEnv::new();
+        let owner = env.create_account(1000_00000000);
+        let recipient = env.create_account(0);
 
         // Deploy contract
-        contract = testEnv.deploy(SimpleToken.class, deployer)
-                         .withArgs("Test Token", "TEST", 1000000L)
-                         .withGasLimit(500000)
-                         .execute();
-    }
+        env.set_caller(owner);
+        let result = initialize();
+        assert_eq!(result, SUCCESS);
 
-    @Test
-    public void testInitialState() {
-        assertEquals("Test Token", contract.getName());
-        assertEquals("TEST", contract.getSymbol());
-        assertEquals(1000000L, contract.getTotalSupply());
-        assertEquals(1000000L, contract.balanceOf(deployer));
-    }
+        // Check initial balance
+        env.set_args(&owner);
+        balance_of();
+        let balance = env.get_return_data_u64();
+        assert_eq!(balance, 1000_00000000);
 
-    @Test
-    public void testTransfer() {
-        // Perform transfer
-        testEnv.call(contract, deployer)
-               .method("transfer")
-               .withArgs(user1, 1000L)
-               .execute();
+        // Transfer tokens
+        let transfer_args = [&recipient[..], &100_00000000u64.to_le_bytes()].concat();
+        env.set_args(&transfer_args);
+        let result = transfer();
+        assert_eq!(result, SUCCESS);
 
         // Verify balances
-        assertEquals(999000L, contract.balanceOf(deployer));
-        assertEquals(1000L, contract.balanceOf(user1));
+        env.set_args(&owner);
+        balance_of();
+        assert_eq!(env.get_return_data_u64(), 900_00000000);
 
-        // Check events
-        TransferEvent event = testEnv.getLastEvent(TransferEvent.class);
-        assertEquals(deployer, event.from);
-        assertEquals(user1, event.to);
-        assertEquals(1000L, event.amount);
-    }
-
-    @Test
-    public void testTransferInsufficientBalance() {
-        // Try to transfer more than balance
-        assertThrows(ContractException.class, () -> {
-            testEnv.call(contract, user1)
-                   .method("transfer")
-                   .withArgs(user2, 1000L)
-                   .execute();
-        });
-    }
-
-    @Test
-    public void testApproveAndTransferFrom() {
-        // Approve user1 to spend tokens
-        testEnv.call(contract, deployer)
-               .method("approve")
-               .withArgs(user1, 500L)
-               .execute();
-
-        assertEquals(500L, contract.allowance(deployer, user1));
-
-        // Transfer from deployer to user2 using user1's allowance
-        testEnv.call(contract, user1)
-               .method("transferFrom")
-               .withArgs(deployer, user2, 300L)
-               .execute();
-
-        assertEquals(999700L, contract.balanceOf(deployer));
-        assertEquals(300L, contract.balanceOf(user2));
-        assertEquals(200L, contract.allowance(deployer, user1));
-    }
-
-    @Test
-    public void testEnergyOptimization() {
-        // Test energy consumption
-        EnergyMeter meter = testEnv.createEnergyMeter();
-
-        meter.start();
-        testEnv.call(contract, deployer)
-               .method("transfer")
-               .withArgs(user1, 100L)
-               .preferEnergy()  // Use energy instead of gas
-               .execute();
-        long energyUsed = meter.stop();
-
-        assertTrue(energyUsed > 0);
-        assertTrue(energyUsed < 50); // Should be efficient
+        env.set_args(&recipient);
+        balance_of();
+        assert_eq!(env.get_return_data_u64(), 100_00000000);
     }
 }
 ```
 
-### Integration Testing
-
-```java
-@Test
-public void testComplexScenario() {
-    // Create a complex multi-contract scenario
-    DEXContract dex = testEnv.deploy(DEXContract.class, deployer)
-                            .withArgs(contract.getAddress())
-                            .execute();
-
-    // Add liquidity
-    testEnv.call(contract, deployer)
-           .method("approve")
-           .withArgs(dex.getAddress(), 10000L)
-           .execute();
-
-    testEnv.call(dex, deployer)
-           .method("addLiquidity")
-           .withArgs(10000L)
-           .withTOSValue(1000000L) // 1 TOS
-           .execute();
-
-    // Test swap
-    long initialBalance = contract.balanceOf(user1);
-    testEnv.call(dex, user1)
-           .method("swapTOSForTokens")
-           .withTOSValue(100000L) // 0.1 TOS
-           .execute();
-
-    assertTrue(contract.balanceOf(user1) > initialBalance);
-}
-```
-
-## Deployment and Management
-
-### Deploy to Testnet
+### Running Tests
 
 ```bash
-# Compile contract
-tos compile src/main/java/com/example/SimpleToken.java
+# Run all tests
+cargo test
+
+# Run specific test
+cargo test test_transfer
+
+# Run with output
+cargo test -- --nocapture
+```
+
+## Deployment
+
+### Testnet Deployment
+
+```bash
+# Build optimized contract
+cargo build --release --target wasm32-unknown-unknown
 
 # Deploy to testnet
-tos deploy SimpleToken \
+tos deploy \
+    --contract target/wasm32-unknown-unknown/release/my_token.wasm \
     --network testnet \
-    --args "My Token,MTK,1000000" \
-    --gas-limit 1000000 \
-    --from 0xYourAddress
+    --gas-limit 1000000
 
-# Example output:
-Contract deployed successfully!
-Address: tos1contract-address-here...
-Transaction: 0xtxhash...
-Gas used: 847,293
-Deployment cost: 0.847 TOS
+# Output:
+# Contract deployed!
+# Address: tos1contract_abc123...
+# Transaction: 0xtxhash...
+# Gas used: 234,567
+# Cost: $0.002
 ```
 
-### Verify Contract
-
-```bash
-# Verify contract source code
-tos verify SimpleToken \
-    --address tos1contract-address-here... \
-    --source src/main/java/com/example/SimpleToken.java \
-    --args "My Token,MTK,1000000"
-
-# Contract verification successful!
-# Explorer link: https://testnet-explorer.tos.network/contract/tos1contract-address-here...
-```
-
-### Interact with Deployed Contract
-
-```javascript
-// Using TOS JavaScript SDK
-const { TOSNetwork } = require('@tos-network/sdk');
-
-const tos = new TOSNetwork({
-    network: 'testnet',
-    privateKey: 'your-private-key'
-});
-
-// Load contract
-const contract = tos.contract(
-    'SimpleToken',
-    'tos1contract-address-here...'
-);
-
-// Call view functions
-const balance = await contract.balanceOf('tos1user-address...');
-console.log('Balance:', balance);
-
-// Execute transactions
-const tx = await contract.transfer(
-    'tos1recipient-address...',
-    1000,
-    { energyLimit: 100000 }
-);
-
-console.log('Transaction hash:', tx.hash);
-await tx.wait(); // Wait for confirmation
-```
-
-### Contract Monitoring
-
-```javascript
-// Monitor contract events
-contract.on('Transfer', (from, to, amount, event) => {
-    console.log(`Transfer: ${from} -> ${to}: ${amount}`);
-    console.log('Block:', event.blockNumber);
-    console.log('Transaction:', event.transactionHash);
-});
-
-// Monitor all events
-contract.on('*', (eventName, event) => {
-    console.log(`Event ${eventName}:`, event);
-});
-
-// Get historical events
-const transfers = await contract.queryFilter(
-    contract.filters.Transfer(),
-    startBlock,
-    endBlock
-);
-```
-
-## Best Practices and Security
-
-### Security Guidelines
-
-#### Input Validation
-```java
-@Public
-public void withdraw(long amount) {
-    require(amount > 0, "Amount must be positive");
-    require(amount <= balances.get(Context.getCaller()), "Insufficient balance");
-    require(amount <= address(this).balance, "Insufficient contract balance");
-
-    // Checks-Effects-Interactions pattern
-    balances.put(Context.getCaller(), balances.get(Context.getCaller()) - amount);
-    Context.transfer(Context.getCaller(), amount);
-}
-```
-
-#### Reentrancy Protection
-```java
-@State
-private boolean locked = false;
-
-@Modifier
-public void nonReentrant() {
-    require(!locked, "Reentrant call");
-    locked = true;
-
-    // Function execution happens here
-
-    locked = false;
-}
-
-@Public
-@nonReentrant
-public void sensitiveFunction() {
-    // Protected against reentrancy
-}
-```
-
-#### Access Control
-```java
-@State
-private Address owner;
-
-@State
-private Map<Address, Boolean> admins;
-
-@Modifier
-public void onlyOwner() {
-    require(Context.getCaller().equals(owner), "Not owner");
-}
-
-@Modifier
-public void onlyAdmin() {
-    require(admins.getOrDefault(Context.getCaller(), false), "Not admin");
-}
-
-@Public
-@onlyOwner
-public void setAdmin(Address admin, boolean isAdmin) {
-    admins.put(admin, isAdmin);
-}
-```
-
-### Performance Optimization
-
-#### Gas Optimization
-```java
-// Efficient storage patterns
-@State
-private Map<Address, UserInfo> users; // Struct packing
-
-public static class UserInfo {
-    public long balance;
-    public long lastActivity;
-    public boolean isActive;
-
-    // Pack multiple values in single storage slot
-}
-
-// Batch operations
-@Public
-public void batchTransfer(Address[] recipients, long[] amounts) {
-    require(recipients.length == amounts.length, "Array length mismatch");
-
-    for (int i = 0; i < recipients.length; i++) {
-        _transfer(Context.getCaller(), recipients[i], amounts[i]);
-    }
-}
-```
-
-#### Energy Optimization
-```java
-@Public
-@EnergyOptimized
-public void energyEfficientFunction() {
-    // Use minimal state changes
-    // Prefer local variables over state variables
-    // Cache frequently accessed state
-
-    long cachedValue = expensiveStateVariable; // Cache once
-
-    for (int i = 0; i < 100; i++) {
-        // Use cached value instead of accessing state repeatedly
-        processValue(cachedValue);
-    }
-}
-```
-
-### Testing Strategies
-
-#### Comprehensive Test Coverage
-```java
-@Test
-public void testEdgeCases() {
-    // Test boundary conditions
-    testTransferZeroAmount();
-    testTransferMaxAmount();
-    testTransferToSelf();
-    testTransferToZeroAddress();
-
-    // Test overflow conditions
-    testOverflowProtection();
-    testUnderflowProtection();
-
-    // Test access control
-    testUnauthorizedAccess();
-    testOwnershipTransfer();
-}
-
-@Test
-public void testGasConsumption() {
-    GasMeter meter = testEnv.createGasMeter();
-
-    // Measure gas for different operations
-    long transferGas = meter.measure(() ->
-        contract.transfer(user1, 1000L)
-    );
-
-    long approveGas = meter.measure(() ->
-        contract.approve(user1, 1000L)
-    );
-
-    // Assert gas consumption is within expected limits
-    assertTrue(transferGas < 100000);
-    assertTrue(approveGas < 50000);
-}
-```
-
-## Advanced Topics
-
-### Cross-Contract Communication
-
-```java
-@Contract
-public class TokenFactory {
-
-    @State
-    private Address[] deployedTokens;
-
-    @Public
-    public Address createToken(String name, String symbol, long supply) {
-        // Deploy new token contract
-        SimpleToken newToken = new SimpleToken();
-        newToken.init(name, symbol, supply);
-
-        Address tokenAddress = newToken.getAddress();
-        deployedTokens.push(tokenAddress);
-
-        emit(new TokenCreated(tokenAddress, name, symbol, supply));
-
-        return tokenAddress;
-    }
-
-    @View
-    public long getTotalTokenBalance(Address user) {
-        long totalBalance = 0;
-
-        for (Address tokenAddr : deployedTokens) {
-            SimpleToken token = SimpleToken.at(tokenAddr);
-            totalBalance += token.balanceOf(user);
-        }
-
-        return totalBalance;
-    }
-}
-```
-
-### Upgradeable Contracts
-
-```java
-@Contract
-@Upgradeable
-public class UpgradeableToken {
-
-    @State
-    @Immutable
-    private Address proxyContract;
-
-    @State
-    private uint256 version;
-
-    @Public
-    @onlyOwner
-    public void upgrade(Address newImplementation) {
-        require(newImplementation != address(0), "Invalid implementation");
-
-        // Validate new implementation
-        require(isValidImplementation(newImplementation), "Invalid implementation");
-
-        // Update proxy to point to new implementation
-        Proxy(proxyContract).upgrade(newImplementation);
-
-        version++;
-        emit(new ContractUpgraded(newImplementation, version));
-    }
-
-    @View
-    public uint256 getVersion() {
-        return version;
-    }
-}
-```
-
-### Oracle Integration
-
-```java
-@Contract
-public class PriceOracle {
-
-    @State
-    private Map<String, PriceData> prices;
-
-    @State
-    private Map<Address, Boolean> oracles;
-
-    @Public
-    @onlyOracle
-    public void updatePrice(String asset, long price, long timestamp) {
-        require(price > 0, "Invalid price");
-        require(timestamp > prices.get(asset).timestamp, "Stale data");
-
-        prices.put(asset, new PriceData(price, timestamp, Context.getCaller()));
-
-        emit(new PriceUpdated(asset, price, timestamp));
-    }
-
-    @View
-    public long getPrice(String asset) {
-        PriceData data = prices.get(asset);
-        require(data != null, "Price not available");
-        require(Context.getTimestamp() - data.timestamp < 3600, "Price too old");
-
-        return data.price;
-    }
-}
-```
-
-## Deployment Strategies
-
-### Mainnet Deployment Checklist
+### Mainnet Deployment
 
 ```bash
 # Pre-deployment checklist
-□ Comprehensive testing completed
-□ Security audit performed
-□ Gas optimization verified
-□ Access controls reviewed
-□ Error handling tested
-□ Documentation complete
-□ Monitoring setup prepared
+# - All tests passing
+# - Security review completed
+# - Gas optimization verified
 
-# Deployment script
-#!/bin/bash
-
-# 1. Final compilation
-echo "Compiling contracts..."
-tos compile --optimize
-
-# 2. Deploy to mainnet
-echo "Deploying to mainnet..."
-tos deploy MyContract \
+# Deploy to mainnet
+tos deploy \
+    --contract target/wasm32-unknown-unknown/release/my_token.wasm \
     --network mainnet \
-    --args "constructor,args,here" \
     --gas-limit 2000000 \
-    --gas-price 20 \
     --confirm
-
-# 3. Verify contract
-echo "Verifying contract..."
-tos verify MyContract \
-    --address $CONTRACT_ADDRESS \
-    --args "constructor,args,here"
-
-# 4. Setup monitoring
-echo "Setting up monitoring..."
-tos monitor setup \
-    --contract $CONTRACT_ADDRESS \
-    --events Transfer,Approval \
-    --webhook https://your-monitoring-service.com/webhook
-
-echo "Deployment complete!"
 ```
 
-### Multi-Environment Management
+### Interacting with Contracts
 
-```json
-// environments.json
-{
-  "development": {
-    "network": "localhost",
-    "gas_price": 1,
-    "confirmations": 1,
-    "timeout": 30000
-  },
-  "testnet": {
-    "network": "tos-testnet",
-    "gas_price": 10,
-    "confirmations": 6,
-    "timeout": 60000
-  },
-  "mainnet": {
-    "network": "tos-mainnet",
-    "gas_price": 20,
-    "confirmations": 12,
-    "timeout": 120000
-  }
-}
-```
-
-## Troubleshooting and Debugging
-
-### Common Issues and Solutions
-
-#### Contract Compilation Errors
 ```bash
-# Error: Cannot find symbol
-# Solution: Check imports and class path
-javac -cp "lib/*:src/" src/main/java/com/example/MyContract.java
+# Call view function
+tos call \
+    --contract tos1contract_abc123... \
+    --method balance_of \
+    --args "tos1user_address..."
 
-# Error: Annotation not found
-# Solution: Include TOS contract annotations
-import com.tosnetwork.contract.annotations.*;
+# Send transaction
+tos send \
+    --contract tos1contract_abc123... \
+    --method transfer \
+    --args "tos1recipient...,1000000000"
 ```
 
-#### Deployment Failures
-```bash
-# Error: Out of gas
-# Solution: Increase gas limit
-tos deploy MyContract --gas-limit 3000000
+## Gas Costs
 
-# Error: Insufficient balance
-# Solution: Add funds to deployer account
-tos account fund --amount 10 --to 0xYourAddress
-```
+| Operation | Approximate Cost |
+|-----------|:----------------:|
+| Deploy contract | $0.01 - $0.05 |
+| Token transfer | $0.001 |
+| Storage write | $0.0001 per byte |
+| Storage read | Free |
+| VRF random | $0.002 |
+| Batch transfer (10 recipients) | $0.005 |
 
-#### Runtime Errors
-```java
-// Debug contract execution
-@Public
-public void debugFunction(long input) {
-    emit(new DebugEvent("Function called", input));
+## Best Practices
 
-    try {
-        riskyOperation(input);
-        emit(new DebugEvent("Operation succeeded", input));
-    } catch (Exception e) {
-        emit(new DebugEvent("Operation failed", e.getMessage()));
-        revert("Operation failed: " + e.getMessage());
+### Security
+
+```rust
+// Always validate inputs
+fn transfer() -> u64 {
+    let args = get_args();
+    if args.len() < 40 {
+        return ERROR_INVALID_ARGS;
     }
+
+    let amount = u64::from_le_bytes(args[32..40].try_into().unwrap());
+    if amount == 0 {
+        return ERROR_ZERO_AMOUNT;
+    }
+
+    // ... continue
+}
+
+// Use checked arithmetic
+fn safe_add(a: u64, b: u64) -> Option<u64> {
+    a.checked_add(b)
+}
+
+// Implement access control
+fn only_owner() -> bool {
+    let caller = get_caller();
+    let mut owner = [0u8; 32];
+    storage_read(b"owner", &mut owner);
+    caller == owner
 }
 ```
 
-### Performance Profiling
+### Gas Optimization
 
-```javascript
-// Profile contract performance
-const profiler = new ContractProfiler(contract);
+```rust
+// Cache storage reads
+fn optimized_batch() -> u64 {
+    let from = get_caller();
+    let from_key = [b"balance:", &from[..]].concat();
 
-await profiler.profile('transfer', async () => {
-    await contract.transfer(recipient, amount);
-});
+    // Read balance once
+    let mut balance_bytes = [0u8; 8];
+    storage_read(&from_key, &mut balance_bytes);
+    let mut balance = u64::from_le_bytes(balance_bytes);
 
-const report = profiler.getReport();
-console.log('Gas used:', report.gasUsed);
-console.log('Energy used:', report.energyUsed);
-console.log('Execution time:', report.executionTime);
+    // Process all transfers
+    for (recipient, amount) in transfers {
+        balance -= amount;
+        // Update recipient...
+    }
+
+    // Write sender balance once
+    storage_write(&from_key, &balance.to_le_bytes());
+    SUCCESS
+}
 ```
-
-## Resources and Next Steps
-
-### Documentation Resources
-- **TOS Network Docs**: Complete platform documentation
-- **Java 8 Reference**: Oracle Java documentation
-- **RVM Specification**: Rust Virtual Machine details
-- **Contract Examples**: Open-source contract library
-
-### Development Tools
-- **TOS CLI**: Command-line development tools
-- **Contract IDE**: Browser-based development environment
-- **Testing Framework**: Comprehensive testing tools
-- **Debugging Tools**: Contract debugging and profiling
-
-### Community Resources
-- **Developer Discord**: Real-time help and discussions
-- **GitHub Repository**: Open-source contracts and tools
-
-### Sample Projects
-```bash
-# Clone sample projects
-git clone https://github.com/tos-network/contract-examples.git
-
-# Available examples:
-├── token-contracts/          # ERC20, ERC721, custom tokens
-├── defi-protocols/          # DEX, lending, staking
-├── gaming-contracts/        # NFT games, tournaments
-├── dao-governance/          # Voting, proposals, treasury
-├── privacy-contracts/       # Confidential computations
-└── marketplace/             # Marketplace contracts
-```
-
-## Conclusion
-
-Congratulations! You now have a comprehensive understanding of smart contract development on TOS Network. You've learned:
-
-- **Java 8 Development**: Build contracts using familiar Java syntax
-- **RVM Integration**: Leverage Rust performance with Java ease
-- **Privacy Features**: Implement confidential smart contracts
-- **Energy Optimization**: Build cost-effective applications
-- **Security Best Practices**: Develop secure, auditable contracts
-- **Testing Strategies**: Ensure contract reliability and performance
-
-TOS Network's smart contract platform embodies the principle **"Don't Trust, Verify it"** - every contract execution is mathematically verified, cryptographically secure, and transparently auditable.
-
-Start building the next generation of decentralized applications with the power of Java, the performance of Rust, and the privacy of advanced cryptography!
 
 ## Next Steps
 
-- **Build Your First DApp**: Create a complete decentralized application
-2. **Join Developer Community**: Connect with other TOS developers
-3. **Contribute to Ecosystem**: Build open-source tools and libraries
-4. **Explore Advanced Features**: Dive deeper into privacy and AI integration
+<Callout type="info">
+Ready to build more advanced contracts? Check out the complete examples and SDK reference.
+</Callout>
 
-Remember: **"Don't Trust, Verify it"** - Build applications that users can cryptographically verify and mathematically trust!
+- **[Smart Contracts Overview](/smart-contracts)** - Full TAKO documentation
+- **[TAKO SDK Reference](/smart-contracts/tako-sdk)** - Complete API reference
+- **[Contract Examples](/smart-contracts/examples)** - ERC20, VRF, Referrals, and more
+- **[Native Features](/native-features)** - VRF, Referrals, Batch Transfers

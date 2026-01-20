@@ -1,0 +1,551 @@
+---
+title: Perpetual DEX
+description: GMX-style perpetual futures trading platform in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Perpetual DEX Contract
+
+A GMX-style perpetual futures trading platform that allows leveraged trading with no funding rates, using a multi-asset liquidity pool (GLP model).
+
+## Features
+
+- **Leveraged Trading**: Up to 50x leverage on perpetual positions
+- **Zero Funding Rates**: No periodic funding payments
+- **Multi-Asset Liquidity Pool**: Single pool backs all markets
+- **Real-Time Pricing**: AI Oracle integration for accurate prices
+- **Auto-Deleveraging**: Automatic position reduction in extreme conditions
+- **Keeper Network**: Liquidation and order execution
+
+## How It Works
+
+```
+Traditional Perps:
+- Traders bet against each other
+- Funding rates balance longs vs shorts
+- Complex order matching
+
+GMX Model (This Implementation):
+- Traders bet against the liquidity pool (GLP)
+- Pool provides liquidity for all trades
+- GLP holders earn fees from trading losses
+- No funding rates needed
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitVault | `[gov:32][fee_bps:4]` |
+| 0x01 | AddLiquidity | `[token:32][amount:8][lock_id:8]` |
+| 0x02 | RemoveLiquidity | `[glp_amount:8][token_out:32][lock_id:8]` |
+| 0x03 | IncreasePosition | `[collateral:32][index:32][size:8][is_long:1][lock_id:8]` |
+| 0x04 | DecreasePosition | `[collateral:32][index:32][size:8][is_long:1]` |
+| 0x05 | Liquidate | `[account:32][collateral:32][index:32][is_long:1]` |
+
+## Storage Layout
+
+```rust
+// Vault state
+const KEY_VAULT_AUM: &[u8] = b"aum";           // Assets under management
+const KEY_GLP_TOKEN: &[u8] = b"glp";           // GLP token hash
+const KEY_WHITELISTED: &[u8] = b"whitelist:";  // whitelist:{token} -> bool
+
+// Position keys
+const KEY_POSITION_PREFIX: &[u8] = b"pos:";    // pos:{key} -> Position
+// key = keccak256(account, collateral, index_token, is_long)
+
+// Global limits
+const KEY_MAX_LEVERAGE: &[u8] = b"max_lev";    // e.g., 500000 = 50x
+const KEY_LIQ_FEE_USD: &[u8] = b"liq_fee";     // Liquidation fee
+const KEY_MARGIN_FEE_BPS: &[u8] = b"margin_fee";
+```
+
+## Core Data Structures
+
+```rust
+/// Position (long or short)
+struct Position {
+    /// Position size in USD (30 decimals)
+    size: u128,
+    /// Collateral amount in USD (30 decimals)
+    collateral: u128,
+    /// Average entry price (30 decimals)
+    average_price: u128,
+    /// Entry funding rate
+    entry_funding_rate: u128,
+    /// Reserved amount (for longs: collateral token, for shorts: stable)
+    reserve_amount: u128,
+    /// Realized PnL
+    realized_pnl: i128,
+    /// Last update time
+    last_increased_time: u64,
+}
+
+/// Vault configuration per token
+struct TokenConfig {
+    /// Token decimals
+    decimals: u8,
+    /// Weight in GLP (basis points)
+    weight: u16,
+    /// Min profit basis points
+    min_profit_bps: u16,
+    /// Max USDG amount (debt ceiling)
+    max_usdg_amount: u128,
+    /// Is stable token
+    is_stable: bool,
+    /// Is shortable
+    is_shortable: bool,
+}
+```
+
+## Constants
+
+```rust
+const PRICE_PRECISION: u128 = 10_u128.pow(30);
+const USD_DECIMALS: u8 = 30;
+const BASIS_POINTS_DIVISOR: u128 = 10000;
+const FUNDING_RATE_PRECISION: u128 = 1_000_000;
+const MAX_LEVERAGE: u128 = 500000; // 50x
+const MIN_LEVERAGE: u128 = 11000;  // 1.1x
+const LIQUIDATION_FEE_USD: u128 = 5 * PRICE_PRECISION; // $5
+```
+
+## Core Implementation
+
+### Increase Position (Open/Add)
+
+```rust
+/// Open or increase a leveraged position
+fn increase_position(
+    caller: &Address,
+    collateral_token: &Hash,
+    index_token: &Hash,
+    size_delta: u128,    // USD value to add to position
+    is_long: bool,
+    lock_id: u64
+) -> entrypoint::Result<()> {
+    validate_tokens(collateral_token, index_token, is_long)?;
+
+    // Get prices from AI Oracle
+    let price = if is_long {
+        get_max_price(index_token)? // Longs pay higher price
+    } else {
+        get_min_price(index_token)? // Shorts pay lower price
+    };
+
+    // Verify and use collateral lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *collateral_token {
+        return Err(InvalidLock);
+    }
+
+    // Convert collateral to USD
+    let collateral_price = get_min_price(collateral_token)?;
+    let collateral_delta_usd = token_to_usd(
+        lock.amount as u128,
+        collateral_price,
+        get_decimals(collateral_token)?
+    );
+
+    lock_use(caller, collateral_token, lock.amount, lock_id)?;
+
+    // Calculate fees
+    let fee = calculate_position_fee(size_delta)?;
+    let fee_tokens = usd_to_token(fee, collateral_price, get_decimals(collateral_token)?);
+
+    // Load or create position
+    let position_key = get_position_key(caller, collateral_token, index_token, is_long);
+    let mut position = load_position(&position_key).unwrap_or_default();
+
+    // Update average price
+    if position.size > 0 && size_delta > 0 {
+        position.average_price = get_next_average_price(
+            index_token,
+            position.size,
+            position.average_price,
+            is_long,
+            price,
+            size_delta,
+            position.last_increased_time
+        )?;
+    } else {
+        position.average_price = price;
+    }
+
+    // Update position
+    position.collateral = position.collateral
+        .checked_add(collateral_delta_usd).unwrap()
+        .checked_sub(fee).unwrap();
+    position.size = position.size.checked_add(size_delta).unwrap();
+    position.last_increased_time = get_block_timestamp();
+
+    // Validate leverage
+    let leverage = position.size
+        .checked_mul(BASIS_POINTS_DIVISOR).unwrap()
+        .checked_div(position.collateral).unwrap();
+
+    if leverage > MAX_LEVERAGE {
+        return Err(MaxLeverageExceeded);
+    }
+
+    // Reserve tokens in vault for potential payout
+    let reserve_delta = usd_to_token(
+        size_delta,
+        price,
+        get_decimals(if is_long { index_token } else { collateral_token })?
+    );
+    position.reserve_amount = position.reserve_amount
+        .checked_add(reserve_delta).unwrap();
+
+    // Validate position
+    validate_position(position.size, position.collateral)?;
+    validate_liquidation(
+        caller,
+        collateral_token,
+        index_token,
+        is_long,
+        false // Don't raise on liquidatable
+    )?;
+
+    save_position(&position_key, &position)?;
+
+    // Update global tracking
+    if is_long {
+        increase_global_long_size(index_token, size_delta)?;
+    } else {
+        increase_global_short_size(index_token, size_delta)?;
+    }
+
+    log("Position increased");
+    Ok(())
+}
+```
+
+### Decrease Position (Close/Reduce)
+
+```rust
+/// Decrease or close a position
+fn decrease_position(
+    caller: &Address,
+    collateral_token: &Hash,
+    index_token: &Hash,
+    collateral_delta: u128,  // USD to withdraw
+    size_delta: u128,        // USD to close
+    is_long: bool
+) -> entrypoint::Result<(u128, i128)> {
+    let position_key = get_position_key(caller, collateral_token, index_token, is_long);
+    let mut position = load_position(&position_key)?;
+
+    if position.size == 0 {
+        return Err(PositionNotFound);
+    }
+
+    // Get current price
+    let price = if is_long {
+        get_min_price(index_token)? // Longs sell at lower price
+    } else {
+        get_max_price(index_token)? // Shorts buy at higher price
+    };
+
+    // Calculate PnL
+    let (has_profit, pnl) = get_delta(
+        index_token,
+        position.size,
+        position.average_price,
+        is_long,
+        price
+    )?;
+
+    // Calculate fees
+    let fee = calculate_position_fee(size_delta)?;
+
+    // Adjust collateral based on PnL
+    let mut usd_out: u128 = 0;
+    let mut usd_out_after_fee: u128 = 0;
+
+    if has_profit && pnl > 0 {
+        // Profitable - add PnL to output
+        let pnl_portion = pnl
+            .checked_mul(size_delta).unwrap()
+            .checked_div(position.size).unwrap();
+
+        usd_out = collateral_delta.checked_add(pnl_portion).unwrap();
+        position.realized_pnl = position.realized_pnl
+            .checked_add(pnl_portion as i128).unwrap();
+    } else {
+        // Loss - deduct from collateral
+        let loss_portion = pnl
+            .checked_mul(size_delta).unwrap()
+            .checked_div(position.size).unwrap();
+
+        position.collateral = position.collateral.saturating_sub(loss_portion);
+        position.realized_pnl = position.realized_pnl
+            .checked_sub(loss_portion as i128).unwrap();
+
+        usd_out = collateral_delta;
+    }
+
+    // Apply fee
+    if usd_out > fee {
+        usd_out_after_fee = usd_out.checked_sub(fee).unwrap();
+    } else {
+        position.collateral = position.collateral.saturating_sub(fee - usd_out);
+        usd_out_after_fee = 0;
+    }
+
+    // Update position
+    position.collateral = position.collateral.saturating_sub(collateral_delta);
+    position.size = position.size.saturating_sub(size_delta);
+
+    // Calculate reserve to release
+    let reserve_delta = position.reserve_amount
+        .checked_mul(size_delta).unwrap()
+        .checked_div(position.size.checked_add(size_delta).unwrap()).unwrap();
+    position.reserve_amount = position.reserve_amount.saturating_sub(reserve_delta);
+
+    if position.size > 0 {
+        // Validate remaining position
+        validate_position(position.size, position.collateral)?;
+
+        let leverage = position.size
+            .checked_mul(BASIS_POINTS_DIVISOR).unwrap()
+            .checked_div(position.collateral).unwrap();
+
+        if leverage > MAX_LEVERAGE {
+            return Err(MaxLeverageExceeded);
+        }
+
+        save_position(&position_key, &position)?;
+    } else {
+        // Position fully closed
+        delete_position(&position_key)?;
+    }
+
+    // Transfer collateral out
+    if usd_out_after_fee > 0 {
+        let collateral_price = get_min_price(collateral_token)?;
+        let token_amount = usd_to_token(
+            usd_out_after_fee,
+            collateral_price,
+            get_decimals(collateral_token)?
+        );
+        transfer(caller, collateral_token, token_amount as u64)?;
+    }
+
+    // Update global tracking
+    if is_long {
+        decrease_global_long_size(index_token, size_delta)?;
+    } else {
+        decrease_global_short_size(index_token, size_delta)?;
+    }
+
+    log("Position decreased");
+    Ok((usd_out_after_fee, position.realized_pnl))
+}
+```
+
+### Liquidation
+
+```rust
+/// Liquidate an undercollateralized position
+fn liquidate_position(
+    liquidator: &Address,
+    account: &Address,
+    collateral_token: &Hash,
+    index_token: &Hash,
+    is_long: bool
+) -> entrypoint::Result<()> {
+    // Check AI Oracle safety
+    let safety = oracle_check_liquidation_safe(
+        collateral_token,
+        index_token,
+        is_long
+    )?;
+
+    if !safety.is_safe {
+        return Err(LiquidationUnsafe);
+    }
+
+    let position_key = get_position_key(account, collateral_token, index_token, is_long);
+    let position = load_position(&position_key)?;
+
+    // Validate position is liquidatable
+    let (liquidation_state, margin_fee) = validate_liquidation(
+        account,
+        collateral_token,
+        index_token,
+        is_long,
+        true // Raise if not liquidatable
+    )?;
+
+    if liquidation_state != LiquidationState::Liquidate {
+        return Err(PositionNotLiquidatable);
+    }
+
+    // Get current price
+    let price = if is_long {
+        get_min_price(index_token)?
+    } else {
+        get_max_price(index_token)?
+    };
+
+    // Calculate remaining collateral after losses
+    let (has_profit, pnl) = get_delta(
+        index_token,
+        position.size,
+        position.average_price,
+        is_long,
+        price
+    )?;
+
+    let remaining_collateral = if !has_profit {
+        position.collateral.saturating_sub(pnl)
+    } else {
+        position.collateral
+    };
+
+    // Liquidation fee to liquidator
+    let liq_fee = LIQUIDATION_FEE_USD.min(remaining_collateral);
+
+    // Close the position completely
+    decrease_position(
+        account,
+        collateral_token,
+        index_token,
+        0, // Don't withdraw collateral
+        position.size, // Close entire position
+        is_long
+    )?;
+
+    // Pay liquidator
+    let collateral_price = get_min_price(collateral_token)?;
+    let fee_tokens = usd_to_token(
+        liq_fee,
+        collateral_price,
+        get_decimals(collateral_token)?
+    );
+    transfer(liquidator, collateral_token, fee_tokens as u64)?;
+
+    log("Position liquidated");
+    Ok(())
+}
+```
+
+### Add Liquidity (Mint GLP)
+
+```rust
+/// Add liquidity to vault, receive GLP tokens
+fn add_liquidity(
+    caller: &Address,
+    token: &Hash,
+    amount: u64,
+    min_glp: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    if !is_whitelisted(token) {
+        return Err(TokenNotWhitelisted);
+    }
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *token {
+        return Err(InvalidLock);
+    }
+
+    let token_price = get_min_price(token)?;
+    let usd_amount = token_to_usd(amount as u128, token_price, get_decimals(token)?);
+
+    // Calculate GLP to mint
+    let aum = get_aum(true)?; // Max AUM for minting
+    let glp_supply = get_total_supply(&read_hash(KEY_GLP_TOKEN)?);
+
+    let glp_amount = if glp_supply == 0 {
+        usd_amount as u64
+    } else {
+        (usd_amount as u128)
+            .checked_mul(glp_supply as u128).unwrap()
+            .checked_div(aum).unwrap() as u64
+    };
+
+    if glp_amount < min_glp {
+        return Err(SlippageExceeded);
+    }
+
+    // Use locked tokens
+    lock_use(caller, token, amount, lock_id)?;
+
+    // Update vault AUM
+    increase_pool_amount(token, amount as u128)?;
+
+    // Mint GLP
+    let glp_token = read_hash(KEY_GLP_TOKEN)?;
+    mint(&glp_token, caller, glp_amount)?;
+
+    log("Liquidity added");
+    Ok(glp_amount)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 2001 | MaxLeverageExceeded | Position leverage > 50x |
+| 2002 | PositionNotFound | No position exists |
+| 2003 | PositionNotLiquidatable | Cannot liquidate healthy position |
+| 2004 | LiquidationUnsafe | AI Oracle rejected liquidation |
+| 2005 | TokenNotWhitelisted | Token not allowed |
+| 2006 | InsufficientCollateral | Not enough collateral |
+| 2007 | InvalidPosition | Position validation failed |
+
+## Usage Example
+
+```rust
+// 1. Add liquidity to vault (become LP)
+let lock = lock_asset(eth, 10e18, contract, 1000000)?;
+let glp = add_liquidity(&user, &eth, 10e18, 0, lock)?;
+
+// 2. Open 10x long ETH position
+// $1000 collateral, $10,000 position size
+let collateral_lock = lock_asset(usdc, 1000e6, contract, 10000)?;
+increase_position(
+    &user,
+    &usdc,           // collateral token
+    &eth,            // index token (what we're betting on)
+    10_000e30,       // $10,000 size (30 decimals)
+    true,            // is_long
+    collateral_lock
+)?;
+
+// 3. Close half the position
+decrease_position(
+    &user,
+    &usdc,
+    &eth,
+    500e30,          // withdraw $500 collateral
+    5_000e30,        // close $5000 of position
+    true
+)?;
+
+// 4. If position becomes undercollateralized, liquidator can liquidate
+liquidate_position(&liquidator, &user, &usdc, &eth, true)?;
+```
+
+## Risk Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Max Leverage | 50x | Maximum position/collateral ratio |
+| Liquidation Fee | $5 | Fixed fee paid to liquidator |
+| Position Fee | 0.1% | Fee on position size changes |
+| Funding Rate | 0% | No funding (GLP absorbs) |
+
+## Related Examples
+
+- [AMM DEX](/smart-contracts/examples/amm-dex) - Spot trading
+- [Lending Protocol](/smart-contracts/examples/lending) - Collateral management
+- [Security Patterns](/smart-contracts/examples/security-patterns) - Safety patterns

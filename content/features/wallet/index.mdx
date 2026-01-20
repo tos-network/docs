@@ -284,30 +284,25 @@ Plus: Gas price protection during network congestion
 
 TOS wallets provide seamless smart contract interaction:
 
-```java
-// Example Java smart contract interaction from wallet
-public class WalletContractInterface {
-    public void callContract(String contractAddress, String method, Object[] params) {
-        // Prepare contract call
-        ContractCall call = new ContractCall(contractAddress, method, params);
+```rust
+// Example TAKO smart contract interaction
+use tako_sdk::*;
 
-        // Estimate energy/gas costs
-        CostEstimate estimate = estimateCallCost(call);
+fn call_contract(contract_address: &[u8], method: &str, params: &[u8]) -> u64 {
+    // Prepare contract call
+    let call_data = encode_call(method, params);
 
-        // User chooses payment method
-        PaymentMethod payment = userSelectsPaymentMethod(estimate);
+    // Estimate energy/gas costs
+    let estimate = estimate_call_cost(contract_address, &call_data);
 
-        // Execute with privacy protection
-        PrivateContractExecution execution = new PrivateContractExecution(call, payment);
-        wallet.executeContract(execution);
-    }
+    // Execute the call
+    cross_contract_call(contract_address, &call_data)
+}
 
-    private CostEstimate estimateCallCost(ContractCall call) {
-        return new CostEstimate(
-            gasEstimate: calculateGasCost(call),
-            energyEstimate: calculateEnergyCost(call),
-            privateDataSize: calculatePrivateDataOverhead(call)
-        );
+fn estimate_call_cost(contract: &[u8], data: &[u8]) -> CostEstimate {
+    CostEstimate {
+        gas_estimate: calculate_gas_cost(data),
+        energy_estimate: calculate_energy_cost(data),
     }
 }
 ```

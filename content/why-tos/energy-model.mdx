@@ -1,0 +1,270 @@
+---
+title: Energy Model
+description: Stake TOS tokens to generate Energy for gas-free transactions
+---
+
+# TOS Energy Model (TEM)
+
+The TOS Energy Model allows users to **stake TOS tokens** to generate "Energy" that can be used for **gas-free transactions**, providing predictable costs and eliminating the need to hold gas for every operation.
+
+## How It Works
+
+```
+1. Stake TOS tokens (lock period: 7-365 days)
+2. Generate Energy based on stake amount and duration
+3. Use Energy instead of TOS for transaction fees
+4. Energy regenerates over time while staked
+```
+
+## Benefits
+
+### For Users
+- **No gas fees** for everyday transactions
+- **Predictable costs** - stake once, transact freely
+- **Earn while staking** - tokens remain yours, just locked
+
+### For Projects
+- **Sponsor user gas** - stake on behalf of users
+- **Reduce friction** - no "need gas" popups for users
+- **Budget predictability** - fixed staking cost vs variable gas
+
+### For Network
+- **Reduced circulating supply** - staked tokens are locked
+- **Long-term alignment** - stakers committed to network success
+- **Spam prevention** - still requires stake commitment
+
+## Energy Generation
+
+Energy is generated based on:
+- **Stake amount**: More TOS = More energy
+- **Lock duration**: Longer lock = Higher multiplier
+- **Time staked**: Energy accumulates over time
+
+### Lock Period Multipliers
+
+| Lock Period | Energy Multiplier | Example (1000 TOS) |
+|:-----------:|:-----------------:|:------------------:|
+| 7 days | 1.0x | 1,000 Energy/day |
+| 30 days | 1.5x | 1,500 Energy/day |
+| 90 days | 2.0x | 2,000 Energy/day |
+| 180 days | 2.5x | 2,500 Energy/day |
+| 365 days | 3.0x | 3,000 Energy/day |
+
+## Transaction Types
+
+### Pay with TOS (Default)
+
+```rust
+let tx = Transaction {
+    fee_type: FeeType::TOS,
+    gas_limit: 10_000,
+    // Fee paid from TOS balance
+};
+```
+
+### Pay with Energy (Gas-Free)
+
+```rust
+let tx = Transaction {
+    fee_type: FeeType::Energy,
+    // No gas_limit needed, uses Energy
+};
+```
+
+### Supported Operations
+
+| Transaction Type | Energy Cost | Notes |
+|-----------------|:-----------:|-------|
+| Transfer | 1,000 | Basic send |
+| Token Transfer | 1,500 | ERC20-style |
+| Contract Call | 5,000+ | Varies by complexity |
+| Batch Transfer | 500/recipient | 50% discount |
+| UNO Transfer | 50,000 | Privacy operations |
+| Shield/Unshield | 50,000 | Privacy conversion |
+
+## Staking Operations
+
+### Freeze TOS (Stake)
+
+```bash
+# CLI
+tos_wallet freeze_tos --amount 1000 --days 30
+```
+
+```javascript
+// JavaScript SDK
+await tos.freezeTos({
+    amount: 1000_00000000, // 1000 TOS
+    lockDays: 30
+});
+```
+
+### Unfreeze TOS (Unstake)
+
+```bash
+# CLI (after lock period ends)
+tos_wallet unfreeze_tos --amount 1000
+```
+
+```javascript
+// JavaScript SDK (after lock period)
+await tos.unfreezeTos({
+    amount: 1000_00000000
+});
+```
+
+### Check Energy Balance
+
+```bash
+tos_wallet get_energy
+```
+
+```javascript
+const energy = await tos.getEnergy(address);
+console.log(`Available Energy: ${energy.available}`);
+console.log(`Daily Generation: ${energy.dailyGeneration}`);
+```
+
+## Energy Regeneration
+
+Energy regenerates continuously based on your stake:
+
+```
+Energy per second = (stake_amount × multiplier) / 86400
+
+Example:
+1000 TOS staked for 30 days (1.5x multiplier)
+= 1000 × 1.5 / 86400
+= 0.0174 Energy/second
+= 1,500 Energy/day
+```
+
+### Maximum Energy Cap
+
+Energy caps at 30 days worth of generation:
+
+```
+Max Energy = daily_generation × 30
+
+Example:
+Daily: 1,500 Energy
+Max: 45,000 Energy
+```
+
+## Use Cases
+
+### Individual User
+
+```
+Stake: 1,000 TOS for 30 days
+Daily Energy: 1,500
+
+This covers approximately:
+- 1 transfer/day (1,000 energy)
+- OR 1 contract call every 3 days (5,000 energy)
+```
+
+### Active Trader
+
+```
+Stake: 10,000 TOS for 90 days
+Daily Energy: 20,000
+
+This covers approximately:
+- 20 transfers/day
+- OR 4 DEX swaps/day
+- OR combination of both
+```
+
+### Project Sponsorship
+
+```
+Project stakes: 100,000 TOS for 365 days
+Daily Energy: 300,000
+
+This sponsors approximately:
+- 300 user transfers/day
+- OR 60 contract calls/day
+```
+
+## Fee Type Selection
+
+Transactions can specify which fee method to use:
+
+```rust
+pub enum FeeType {
+    /// Pay with TOS balance (default)
+    TOS = 0,
+
+    /// Pay with Energy (gas-free)
+    Energy = 1,
+
+    /// Pay with UNO balance (for privacy transactions)
+    UNO = 2,
+}
+```
+
+### Automatic Fallback
+
+If Energy is insufficient, transaction fails with clear error:
+
+```rust
+Error::InsufficientEnergy {
+    required: 5000,
+    available: 3000,
+}
+```
+
+User can then retry with `FeeType::TOS` or wait for Energy regeneration.
+
+## Delegation (Coming Soon)
+
+Users will be able to delegate their Energy to others:
+
+```rust
+// Delegate Energy to another address
+delegate_energy(recipient, amount_per_day);
+
+// Revoke delegation
+revoke_energy_delegation(recipient);
+```
+
+This enables:
+- Projects sponsoring user transactions
+- Services providing gas-free experience
+- Parents funding children's wallets
+
+## Economic Impact
+
+### For Token Price
+- Reduces circulating supply
+- Creates natural demand for TOS
+- Long-term holder incentives
+
+### For Network
+- Sustainable fee model
+- Spam resistance maintained
+- Predictable network economics
+
+## Comparison with Other Models
+
+| Feature | Ethereum Gas | TRON Energy | **TOS Energy** |
+|---------|:------------:|:-----------:|:--------------:|
+| Staking Required | No | Yes | **Yes** |
+| Gas-Free Option | No | Yes | **Yes** |
+| Lock Flexibility | N/A | 3 days | **7-365 days** |
+| Multiplier | N/A | Fixed | **1x-3x** |
+| Delegation | N/A | Yes | **Coming** |
+| Regeneration | N/A | 24h full | **Continuous** |
+
+## Summary
+
+The TOS Energy Model provides:
+
+- **Gas-free transactions** through staking
+- **Flexible lock periods** from 7 to 365 days
+- **Higher rewards** for longer commitments
+- **Continuous regeneration** of Energy
+- **Project sponsorship** capability
+
+This creates a sustainable economic model where active network participants can transact freely while maintaining network security through stake requirements.

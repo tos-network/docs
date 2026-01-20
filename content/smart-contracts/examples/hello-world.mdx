@@ -1,0 +1,168 @@
+---
+title: Hello World
+description: The simplest TAKO smart contract
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Hello World Contract
+
+The simplest possible TAKO smart contract that logs "Hello, TOS!" when called.
+
+## Full Source Code
+
+```rust
+//! Hello World Smart Contract for TAKO
+//!
+//! This is a minimal example contract that demonstrates logging.
+
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+/// Main contract entrypoint
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Log hello message
+    log("Hello, TOS!");
+
+    // Return success
+    SUCCESS
+}
+
+/// Panic handler (required for no_std)
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+## Understanding the Code
+
+### Required Attributes
+
+```rust
+#![no_std]   // No standard library (blockchain environment)
+#![no_main]  // No main() function (we use entrypoint)
+```
+
+TAKO contracts run in a constrained environment without access to the standard library or operating system.
+
+### SDK Import
+
+```rust
+use tako_sdk::*;
+```
+
+Imports all TAKO SDK functions including `log`, `SUCCESS`, and other utilities.
+
+### Entry Point
+
+```rust
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    // Contract logic here
+    SUCCESS
+}
+```
+
+- `#[no_mangle]` - Prevents Rust from changing the function name
+- `extern "C"` - Uses C calling convention for the runtime
+- Returns `u64` - 0 for success, non-zero for error
+
+### Logging
+
+```rust
+log("Hello, TOS!");
+```
+
+Logs a message that appears in transaction receipts and can be viewed in explorers.
+
+### Panic Handler
+
+```rust
+#[panic_handler]
+fn panic(_info: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+```
+
+Required for `no_std` crates. In production, panics should be avoided - use explicit error returns instead.
+
+## Project Setup
+
+### Cargo.toml
+
+```toml
+[package]
+name = "hello-world"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako-sdk = { git = "https://github.com/tos-network/tako" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+```
+
+### .cargo/config.toml
+
+```toml
+[build]
+target = "tbpfv3-tos-tos"
+
+[target.tbpfv3-tos-tos]
+rustflags = [
+    "-C", "link-arg=-z", "-C", "link-arg=notext",
+]
+```
+
+### rust-toolchain.toml
+
+```toml
+[toolchain]
+channel = "1.89.0-dev"
+```
+
+## Building
+
+```bash
+# Build the contract
+cargo build --release
+
+# The output is at:
+# target/tbpfv3-tos-tos/release/hello_world.so
+```
+
+## Deploying
+
+```bash
+# Deploy to testnet
+tos_wallet deploy_contract ./hello_world.so
+
+# Output:
+# Contract deployed at: tos1abc123...
+```
+
+## Calling
+
+```bash
+# Call the contract (no input needed)
+tos_wallet call_contract tos1abc123...
+
+# Check transaction logs to see "Hello, TOS!"
+```
+
+## What's Next?
+
+- **[Counter](/smart-contracts/examples/counter)** - Add state management
+- **[ERC20 Token](/smart-contracts/examples/erc20-token)** - Build a full token
+- **[VRF Random](/smart-contracts/examples/vrf-random)** - Use native randomness

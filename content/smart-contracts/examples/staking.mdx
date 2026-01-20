@@ -1,0 +1,298 @@
+---
+title: Staking Contract
+description: Token staking with reward distribution in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Staking Contract
+
+A staking contract that allows users to stake tokens and earn rewards over time, with configurable reward rates.
+
+## Features
+
+- **Token Staking**: Stake tokens to earn rewards
+- **Time-Based Rewards**: Rewards accumulate based on staking duration
+- **Proportional Distribution**: Rewards distributed proportionally to stake
+- **Claim Anytime**: Withdraw rewards without unstaking
+- **Owner Controls**: Admin can adjust reward rates
+
+## Instruction Format
+
+All instructions use format: `[opcode:1][params:N]`
+
+| Opcode | Name | Parameters | Returns |
+|:------:|------|------------|---------|
+| 0x00 | Init | `[owner:32][reward_rate:8]` | - |
+| 0x01 | Stake | `[user:32][amount:8][current_time:8]` | - |
+| 0x02 | Unstake | `[user:32][amount:8][current_time:8]` | - |
+| 0x03 | ClaimRewards | `[user:32][current_time:8]` | `rewards:8` |
+| 0x04 | SetRewardRate | `[caller:32][new_rate:8][current_time:8]` | - |
+| 0x05 | GetStake | `[user:32]` | `staked:8` |
+
+## Storage Layout
+
+```rust
+// Global state
+const KEY_OWNER: &[u8] = b"owner";           // Contract owner
+const KEY_REWARD_RATE: &[u8] = b"rr";        // Rewards per second per token
+const KEY_TOTAL_STAKED: &[u8] = b"ts";       // Total staked tokens
+const KEY_LAST_UPDATE: &[u8] = b"lu";        // Last reward update time
+const KEY_REWARD_PER_TOKEN: &[u8] = b"rpt";  // Global reward per token
+
+// Per-user state
+const KEY_STAKE_PREFIX: &[u8] = b"stk:";     // stk:{address} -> staked amount
+const KEY_USER_RPT_PREFIX: &[u8] = b"urpt:"; // urpt:{address} -> user's RPT snapshot
+const KEY_REWARDS_PREFIX: &[u8] = b"rwd:";   // rwd:{address} -> pending rewards
+```
+
+## Core Implementation
+
+### Initialize Contract
+
+```rust
+fn init(owner: &Address, reward_rate: u64) -> entrypoint::Result<()> {
+    storage_write(KEY_OWNER, owner)?;
+    storage_write(KEY_REWARD_RATE, &reward_rate.to_le_bytes())?;
+    storage_write(KEY_TOTAL_STAKED, &0u64.to_le_bytes())?;
+    storage_write(KEY_LAST_UPDATE, &0u64.to_le_bytes())?;
+    storage_write(KEY_REWARD_PER_TOKEN, &0u64.to_le_bytes())?;
+
+    log("Staking contract initialized");
+    Ok(())
+}
+```
+
+### Stake Tokens
+
+```rust
+fn stake(user: &Address, amount: u64, current_time: u64) -> entrypoint::Result<()> {
+    if amount == 0 {
+        return Err(ZeroAmount);
+    }
+
+    // Update global reward state first
+    update_reward_per_token(current_time)?;
+
+    // Update user's pending rewards before changing stake
+    update_user_rewards(user)?;
+
+    // Add to user's stake
+    let current_stake = read_stake(user);
+    let stake_key = make_stake_key(user);
+    storage_write(&stake_key, &(current_stake + amount).to_le_bytes())?;
+
+    // Update total staked
+    let total_staked = read_u64(KEY_TOTAL_STAKED);
+    storage_write(KEY_TOTAL_STAKED, &(total_staked + amount).to_le_bytes())?;
+
+    log("Tokens staked");
+    Ok(())
+}
+```
+
+### Unstake Tokens
+
+```rust
+fn unstake(user: &Address, amount: u64, current_time: u64) -> entrypoint::Result<()> {
+    if amount == 0 {
+        return Err(ZeroAmount);
+    }
+
+    let current_stake = read_stake(user);
+    if current_stake < amount {
+        return Err(InsufficientStake);
+    }
+
+    // Update rewards before changing stake
+    update_reward_per_token(current_time)?;
+    update_user_rewards(user)?;
+
+    // Reduce user's stake
+    let stake_key = make_stake_key(user);
+    storage_write(&stake_key, &(current_stake - amount).to_le_bytes())?;
+
+    // Update total staked
+    let total_staked = read_u64(KEY_TOTAL_STAKED);
+    storage_write(KEY_TOTAL_STAKED, &total_staked.saturating_sub(amount).to_le_bytes())?;
+
+    log("Tokens unstaked");
+    Ok(())
+}
+```
+
+### Reward Calculation
+
+```rust
+/// Update the global reward per token based on time elapsed
+fn update_reward_per_token(current_time: u64) -> entrypoint::Result<()> {
+    let total_staked = read_u64(KEY_TOTAL_STAKED);
+    let last_update = read_u64(KEY_LAST_UPDATE);
+    let reward_per_token = read_u64(KEY_REWARD_PER_TOKEN);
+    let reward_rate = read_u64(KEY_REWARD_RATE);
+
+    if total_staked > 0 && current_time > last_update {
+        let time_delta = current_time - last_update;
+        let rewards = time_delta * reward_rate;
+
+        // Scale by 1_000_000 for precision
+        let new_rpt = reward_per_token + (rewards * 1_000_000 / total_staked);
+        storage_write(KEY_REWARD_PER_TOKEN, &new_rpt.to_le_bytes())?;
+    }
+
+    storage_write(KEY_LAST_UPDATE, &current_time.to_le_bytes())?;
+    Ok(())
+}
+
+/// Update a user's pending rewards
+fn update_user_rewards(user: &Address) -> entrypoint::Result<()> {
+    let user_stake = read_stake(user);
+    if user_stake == 0 {
+        return Ok(());
+    }
+
+    let reward_per_token = read_u64(KEY_REWARD_PER_TOKEN);
+    let user_rpt = read_user_rpt(user);
+
+    if reward_per_token > user_rpt {
+        // Calculate new rewards
+        let pending = user_stake * (reward_per_token - user_rpt) / 1_000_000;
+        let current_rewards = read_user_pending_rewards(user);
+
+        // Add to pending rewards
+        let rewards_key = make_user_rewards_key(user);
+        storage_write(&rewards_key, &(current_rewards + pending).to_le_bytes())?;
+    }
+
+    // Update user's RPT snapshot
+    let user_rpt_key = make_user_rpt_key(user);
+    storage_write(&user_rpt_key, &reward_per_token.to_le_bytes())?;
+
+    Ok(())
+}
+```
+
+### Claim Rewards
+
+```rust
+fn claim_rewards(user: &Address, current_time: u64) -> entrypoint::Result<()> {
+    // Update all rewards first
+    update_reward_per_token(current_time)?;
+    update_user_rewards(user)?;
+
+    // Get pending rewards
+    let rewards = read_user_pending_rewards(user);
+    if rewards == 0 {
+        return Err(NoRewardsToClaim);
+    }
+
+    // Clear pending rewards
+    let rewards_key = make_user_rewards_key(user);
+    storage_write(&rewards_key, &0u64.to_le_bytes())?;
+
+    // Return claimed amount
+    set_return_data(&rewards.to_le_bytes());
+    log("Rewards claimed");
+    Ok(())
+}
+```
+
+### Admin Functions
+
+```rust
+fn set_reward_rate(
+    caller: &Address,
+    new_rate: u64,
+    current_time: u64
+) -> entrypoint::Result<()> {
+    let owner = read_owner()?;
+    if *caller != owner {
+        return Err(OnlyOwner);
+    }
+
+    // Update rewards with old rate first
+    update_reward_per_token(current_time)?;
+
+    // Set new rate
+    storage_write(KEY_REWARD_RATE, &new_rate.to_le_bytes())?;
+    log("Reward rate updated");
+    Ok(())
+}
+```
+
+## Reward Formula
+
+The staking contract uses a "reward per token" model:
+
+```
+reward_per_token += (time_elapsed * reward_rate) / total_staked
+
+user_rewards = user_stake * (current_rpt - user_rpt_snapshot)
+```
+
+This ensures:
+- Rewards are distributed proportionally to stake amount
+- Late stakers don't receive rewards for time before they staked
+- No loops required to calculate rewards (gas efficient)
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1601 | OnlyOwner | Caller is not the contract owner |
+| 1602 | ZeroAmount | Cannot stake/unstake zero |
+| 1603 | InsufficientStake | Unstake amount exceeds balance |
+| 1604 | NoRewardsToClaim | No pending rewards |
+| 1605 | StorageError | Storage operation failed |
+| 1606 | InvalidInput | Invalid instruction input |
+
+## Usage Example
+
+```rust
+// 1. Initialize staking contract (100 tokens/second reward rate)
+let init_data = [0u8; 41];
+init_data[0] = 0; // Opcode: Init
+init_data[1..33].copy_from_slice(&owner_address);
+init_data[33..41].copy_from_slice(&100u64.to_le_bytes());
+
+// 2. Stake 1000 tokens
+let stake_data = [0u8; 49];
+stake_data[0] = 1; // Opcode: Stake
+stake_data[1..33].copy_from_slice(&user_address);
+stake_data[33..41].copy_from_slice(&1000u64.to_le_bytes());
+stake_data[41..49].copy_from_slice(&current_timestamp.to_le_bytes());
+
+// 3. After some time, claim rewards
+let claim_data = [0u8; 41];
+claim_data[0] = 3; // Opcode: ClaimRewards
+claim_data[1..33].copy_from_slice(&user_address);
+claim_data[33..41].copy_from_slice(&later_timestamp.to_le_bytes());
+
+// 4. Unstake tokens
+let unstake_data = [0u8; 49];
+unstake_data[0] = 2; // Opcode: Unstake
+unstake_data[1..33].copy_from_slice(&user_address);
+unstake_data[33..41].copy_from_slice(&500u64.to_le_bytes());
+unstake_data[41..49].copy_from_slice(&current_timestamp.to_le_bytes());
+```
+
+## Use Cases
+
+- **Liquidity Mining**: Reward LP token stakers
+- **Token Distribution**: Fair launch token distribution
+- **Governance Incentives**: Encourage token lockup for voting
+- **Protocol Revenue Sharing**: Distribute protocol fees to stakers
+
+## Security Considerations
+
+1. **Timestamp Dependency**: Use block timestamps, not user-provided time in production
+2. **Precision Loss**: Scale calculations to avoid rounding errors
+3. **Reward Exhaustion**: Ensure contract has sufficient reward tokens
+4. **Flash Loan Attacks**: Consider snapshot-based rewards for large stakes
+
+## Related Examples
+
+- [ERC20 Token](/smart-contracts/examples/erc20-token) - Token for staking
+- [Governance](/smart-contracts/examples/governance) - Staking for voting power

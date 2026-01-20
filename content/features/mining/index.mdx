@@ -29,7 +29,7 @@ TOS uses a custom **TOS-Hash algorithm** optimized for both ASICs and GPUs:
 pub struct TOSMiningAlgorithm {
     pub base_algorithm: TOSHash,
     pub difficulty_adjustment: DynamicDifficulty,
-    pub block_time_target: Duration, // ~15 seconds
+    pub block_time_target: Duration, // ~1 second
     pub mining_rewards: RewardSchedule,
 }
 
@@ -60,7 +60,7 @@ The network automatically adjusts mining difficulty to maintain the target block
 
 ```rust
 pub struct DifficultyAdjustment {
-    pub target_block_time: Duration,  // 15 seconds
+    pub target_block_time: Duration,  // 1 second
     pub adjustment_interval: u64,      // blocks
     pub max_adjustment_factor: f64,    // limits sudden changes
 }

@@ -1,0 +1,214 @@
+---
+title: Ultra-Low Gas Fees
+description: TOS Network offers $0.001 transfers - 100x cheaper than TRON/BSC
+---
+
+# Ultra-Low Gas Fees
+
+TOS Network delivers **$0.001 per transfer** - making it 100x cheaper than TRON and BSC, while matching Solana's low costs with additional native features.
+
+## Why Low Gas Matters
+
+Consider a referral distribution scenario:
+
+```
+User invests $100
+→ Distribute rewards to 10 uplines ($1-10 each)
+
+On TRON:
+- 10 transfers × $0.10 = $1.00 gas cost (1% of investment)
+- Significant profit erosion for projects
+
+On TOS:
+- 1 batch transfer = $0.025 gas cost (0.025%)
+- 40x savings with native batch transfer
+```
+
+## Gas Fee Comparison
+
+### Basic Operations
+
+| Operation | Ethereum | TRON | BSC | Solana | **TOS** |
+|-----------|:--------:|:----:|:---:|:------:|:-------:|
+| Simple Transfer | $2.00 | $0.10 | $0.10 | $0.001 | **$0.001** |
+| Token Transfer | $5.00 | $0.10 | $0.10 | $0.002 | **$0.001** |
+| 100-recipient Distribution | $200+ | $10 | $10 | $0.10 | **$0.05** |
+
+### Smart Contract Operations
+
+| Operation | Ethereum | TRON | BSC | Solana | **TOS** |
+|-----------|:--------:|:----:|:---:|:------:|:-------:|
+| Simple Contract Call | $5 | $0.50 | $0.30 | $0.01 | **$0.01** |
+| Complex Contract | $50 | $2.00 | $1.00 | $0.05 | **$0.05** |
+| DEX Swap | $30 | $1.00 | $0.50 | $0.02 | **$0.02** |
+
+### Batch Operations (TOS Native)
+
+| Recipients | Individual Transfers | TOS Batch Transfer | Savings |
+|:----------:|:--------------------:|:------------------:|:-------:|
+| 10 | $0.01 | **$0.005** | 50% |
+| 100 | $0.10 | **$0.05** | 50% |
+| 500 | $0.50 | **$0.25** | 50% |
+
+## How TOS Achieves Low Gas
+
+### 1. Efficient Consensus
+
+```
+TOS BlockDAG:
+├── 1-second block time
+├── 10,000+ TPS capacity
+├── Fixed validator set (no election overhead)
+└── Parallel transaction processing
+```
+
+### 2. Optimized Storage
+
+- State compression for smaller footprint
+- Hot/cold data separation
+- Efficient indexing structures
+
+### 3. High-Performance VM
+
+- TAKO runtime (eBPF-based)
+- Precompiled contracts for common operations
+- Native syscalls bypass contract overhead
+
+### 4. Economic Model
+
+- Inflation-subsidized gas
+- No MEV extraction
+- Energy model for gas-free option
+
+## Gas Pricing Structure
+
+```rust
+// Base operations
+pub const TRANSFER: u64 = 1_000;           // ~$0.001
+pub const CONTRACT_CALL_BASE: u64 = 5_000; // ~$0.005
+pub const STORAGE_PER_BYTE: u64 = 100;     // ~$0.0001
+
+// Native feature operations
+pub const BATCH_TRANSFER_PER_TARGET: u64 = 500;  // ~$0.0005/recipient
+pub const VRF_REQUEST: u64 = 10_000;             // ~$0.01
+pub const BIND_REFERRER: u64 = 10_000;           // ~$0.01
+pub const PRIVATE_TRANSFER: u64 = 50_000;        // ~$0.05
+```
+
+## Batch Transfer Discount
+
+TOS provides a **50% gas discount** for batch operations:
+
+| Operation Type | Single Gas | Batch Gas (per item) | Discount |
+|----------------|:----------:|:--------------------:|:--------:|
+| Transfer | 1,000 | 500 | 50% |
+| Reward Distribution | 1,000 | 500 | 50% |
+| Airdrop | 1,000 | 300 | 70% |
+
+## High-Frequency User Rewards
+
+Active users receive automatic gas discounts:
+
+| Daily Transactions | Discount |
+|:------------------:|:--------:|
+| 0-10 | 0% |
+| 11-50 | 5% |
+| 51-100 | 10% |
+| 101-500 | 15% |
+| 500+ | 20% (max) |
+
+## Payment Options
+
+### 1. Pay with TOS
+```rust
+// Default: pay gas in TOS
+let tx = Transaction {
+    gas_price: 1,      // 1 unit = ~$0.001
+    gas_limit: 10_000,
+    ..
+};
+```
+
+### 2. Pay with Energy (Gas-Free)
+```rust
+// Use staked TOS energy for gas-free transactions
+let tx = Transaction {
+    fee_type: FeeType::Energy,
+    ..
+};
+```
+
+### 3. Project-Sponsored
+```rust
+// Project pays gas on behalf of users
+let tx = Transaction {
+    gas_sponsor: project_address,
+    ..
+};
+```
+
+## Anti-Spam Protection
+
+TOS maintains low costs while preventing abuse:
+
+```rust
+// Minimum gas price (prevents spam)
+pub const MIN_GAS_PRICE: u64 = 1;
+
+// Dynamic pricing during congestion
+fn dynamic_gas_price() -> u64 {
+    let pending = get_mempool_size();
+    let capacity = TARGET_TPS * BLOCK_TIME;
+
+    if pending > capacity * 5 {
+        MIN_GAS_PRICE * 5  // 5x during severe congestion
+    } else if pending > capacity * 2 {
+        MIN_GAS_PRICE * 2  // 2x during moderate congestion
+    } else {
+        MIN_GAS_PRICE      // Normal pricing
+    }
+}
+
+// Per-account rate limiting
+pub const MAX_GAS_PER_ACCOUNT_PER_SECOND: u64 = 1_000_000;
+```
+
+## Real-World Cost Examples
+
+### Referral Distribution
+```
+Scenario: Distribute rewards to 10-level upline
+
+TOS (batch):    1 tx × $0.025 = $0.025
+TRON (single):  10 tx × $0.10 = $1.00
+Savings: 97.5%
+```
+
+### Token Airdrop
+```
+Scenario: Airdrop to 1,000 addresses
+
+TOS (batch):    2 tx × $0.15 = $0.30
+TRON (single):  1,000 tx × $0.10 = $100
+Savings: 99.7%
+```
+
+### DEX Trading
+```
+Scenario: 100 trades per day
+
+TOS:    100 × $0.02 = $2.00/day
+TRON:   100 × $1.00 = $100/day
+Savings: 98%
+```
+
+## Summary
+
+TOS Network's ultra-low gas fees enable:
+
+- **Micro-transactions** that were previously uneconomical
+- **High-frequency applications** like gaming and trading
+- **Batch operations** for efficient distributions
+- **Predictable costs** for business planning
+
+Combined with the [Energy Model](/why-tos/energy-model), users can achieve truly gas-free transactions through staking.

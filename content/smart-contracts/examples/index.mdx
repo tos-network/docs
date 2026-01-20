@@ -1,0 +1,259 @@
+---
+title: Contract Examples
+description: Working examples of TAKO smart contracts
+---
+
+import { Cards } from 'nextra/components'
+import { Card } from '../../../components/card'
+
+# Contract Examples
+
+Learn from working examples of TAKO smart contracts. All examples are available in the [TOS Contract Kit](https://github.com/tos-network/tck) repository.
+
+## Basic Examples
+
+<Cards>
+  <Card
+    title="Hello World"
+    subtitle="Minimal contract that logs a message"
+    href="/smart-contracts/examples/hello-world"
+  />
+  <Card
+    title="Counter"
+    subtitle="Simple state management with storage"
+    href="/smart-contracts/examples/counter"
+  />
+</Cards>
+
+## Token Examples
+
+<Cards>
+  <Card
+    title="ERC20 Token"
+    subtitle="Full ERC20 implementation with mint/burn"
+    href="/smart-contracts/examples/erc20-token"
+  />
+</Cards>
+
+## Native Feature Examples
+
+<Cards>
+  <Card
+    title="VRF Random"
+    subtitle="Verifiable randomness for gaming"
+    href="/smart-contracts/examples/vrf-random"
+  />
+  <Card
+    title="Referral Rewards"
+    subtitle="Multi-level reward distribution"
+    href="/smart-contracts/examples/referral-rewards"
+  />
+</Cards>
+
+## Project Structure
+
+All TAKO contracts follow this structure:
+
+```
+my_contract/
+├── Cargo.toml
+├── Cargo.lock
+├── .cargo/
+│   └── config.toml
+├── rust-toolchain.toml
+├── build.sh
+└── src/
+    └── lib.rs
+```
+
+### Cargo.toml
+
+```toml
+[package]
+name = "my_contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako-sdk = { git = "https://github.com/tos-network/tako" }
+
+[profile.release]
+opt-level = "z"
+lto = true
+```
+
+### .cargo/config.toml
+
+```toml
+[build]
+target = "tbpfv3-tos-tos"
+
+[target.tbpfv3-tos-tos]
+rustflags = [
+    "-C", "link-arg=-z", "-C", "link-arg=notext",
+]
+```
+
+### rust-toolchain.toml
+
+```toml
+[toolchain]
+channel = "1.89.0-dev"
+```
+
+### build.sh
+
+```bash
+#!/bin/bash
+set -e
+
+cargo build --release
+
+# Copy output
+cp target/tbpfv3-tos-tos/release/*.so ./
+```
+
+## Common Patterns
+
+### Initialization Check
+
+```rust
+const KEY_INITIALIZED: &[u8] = b"init";
+
+fn is_initialized() -> bool {
+    let mut buf = [0u8; 1];
+    storage_read(KEY_INITIALIZED, &mut buf) > 0 && buf[0] == 1
+}
+
+fn set_initialized() {
+    let _ = storage_write(KEY_INITIALIZED, &[1u8]);
+}
+
+fn require_initialized() -> Result<(), u64> {
+    if !is_initialized() {
+        return Err(ERR_NOT_INITIALIZED);
+    }
+    Ok(())
+}
+```
+
+### Owner Check
+
+```rust
+const KEY_OWNER: &[u8] = b"owner";
+
+fn get_owner() -> [u8; 32] {
+    let mut owner = [0u8; 32];
+    storage_read(KEY_OWNER, &mut owner);
+    owner
+}
+
+fn require_owner() -> Result<(), u64> {
+    let caller = get_tx_sender();
+    let owner = get_owner();
+    if caller != owner {
+        return Err(ERR_UNAUTHORIZED);
+    }
+    Ok(())
+}
+```
+
+### Balance Management
+
+```rust
+const PREFIX_BALANCE: u8 = 0x10;
+
+fn get_balance(account: &[u8; 32]) -> u64 {
+    let mut key = [0u8; 33];
+    key[0] = PREFIX_BALANCE;
+    key[1..33].copy_from_slice(account);
+
+    let mut buf = [0u8; 8];
+    if storage_read(&key, &mut buf) == 8 {
+        u64::from_le_bytes(buf)
+    } else {
+        0
+    }
+}
+
+fn set_balance(account: &[u8; 32], amount: u64) {
+    let mut key = [0u8; 33];
+    key[0] = PREFIX_BALANCE;
+    key[1..33].copy_from_slice(account);
+    let _ = storage_write(&key, &amount.to_le_bytes());
+}
+```
+
+### Opcode Dispatch
+
+```rust
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let mut input = [0u8; 1024];
+    let len = get_input_data(&mut input);
+
+    if len == 0 {
+        return ERR_INVALID_INPUT;
+    }
+
+    let opcode = input[0];
+    let params = &input[1..len as usize];
+
+    match opcode {
+        0x00 => op_initialize(params),
+        0x01 => op_transfer(params),
+        0x02 => op_approve(params),
+        0x10 => op_balance_of(params),
+        _ => ERR_UNKNOWN_OPCODE,
+    }
+}
+```
+
+## Building Contracts
+
+```bash
+# Install platform tools (first time)
+curl -sSf https://tos.network/install.sh | sh
+
+# Build contract
+cd my_contract
+./build.sh
+
+# Or manually
+cargo build --release
+```
+
+## Testing Contracts
+
+```bash
+# Run local devnet
+tos daemon --network devnet
+
+# Deploy contract
+tos_wallet deploy_contract ./my_contract.so
+
+# Call contract
+tos_wallet call_contract <contract_address> <hex_input>
+```
+
+## Available Contracts
+
+The [TOS Contract Kit](https://github.com/tos-network/tck) includes:
+
+| Contract | Description |
+|----------|-------------|
+| `hello-world` | Minimal logging example |
+| `counter` | Simple storage example |
+| `erc20-openzeppelin` | Full ERC20 token |
+| `erc721-openzeppelin` | NFT token standard |
+| `erc1155-openzeppelin` | Multi-token standard |
+| `amm-dex` | Automated market maker |
+| `staking-contract` | Token staking with rewards |
+| `vrf-random` | VRF randomness example |
+| `referral-investment` | Referral-based rewards |
+| `multisig-wallet` | Multi-signature wallet |
+| `governance` | DAO governance contract |
+| `timelock-controller` | Time-delayed execution |

@@ -1,0 +1,824 @@
+---
+title: Prediction Market
+description: Decentralized prediction market with conditional tokens in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# Prediction Market Contract
+
+A decentralized prediction market implementation enabling users to bet on real-world event outcomes using conditional tokens, AMM trading, and AI-powered oracle resolution.
+
+## Features
+
+- **Conditional Tokens**: Each outcome represented as a Native Asset
+- **AMM Trading**: Automated market maker for price discovery
+- **Split/Merge**: Convert collateral to/from outcome tokens
+- **AI Oracle**: Outcome verification with manipulation detection
+- **Dispute Resolution**: Escalating bond mechanism for contested outcomes
+- **Multiple Categories**: Politics, Sports, Crypto, Economics, Science
+
+## How Prediction Markets Work
+
+```
+1. Market Creator defines a question with outcomes
+   "Who wins 2024 US Election?" → [Republican, Democrat]
+
+2. Users split collateral into outcome tokens
+   100 USDC → 100 YES tokens + 100 NO tokens
+
+3. Users trade outcome tokens (prices reflect probability)
+   Buy YES at $0.60 = 60% implied probability
+
+4. After event, oracle reports outcome
+   Republican wins → YES = $1.00, NO = $0.00
+
+5. Winners redeem tokens for collateral
+   100 YES tokens → 100 USDC
+```
+
+## Instruction Format
+
+All instructions use format: `[opcode:1][params:N]`
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | Init | `[admin:32][fee_recipient:32]` |
+| 0x01 | PrepareCondition | `[oracle:32][question_id:32][outcome_count:1][deadline:8]` |
+| 0x02 | CreateMarket | `[condition_id:32][collateral:32][category:1][deadline:8][liquidity:8][lock_id:8]` |
+| 0x03 | SplitPosition | `[market_id:32][amount:8][lock_id:8]` |
+| 0x04 | MergePositions | `[market_id:32][amount:8][lock_ids:N*8]` |
+| 0x05 | BuyOutcome | `[market_id:32][outcome:1][amount:8][min_out:8][lock_id:8]` |
+| 0x06 | SellOutcome | `[market_id:32][outcome:1][amount:8][min_out:8][lock_id:8]` |
+| 0x07 | ProposeResolution | `[market_id:32][winning_outcome:1][evidence_len:4][evidence:N]` |
+| 0x08 | DisputeResolution | `[market_id:32][alt_outcome:1][stake_lock_id:8]` |
+| 0x09 | FinalizeResolution | `[market_id:32]` |
+| 0x0A | RedeemPositions | `[market_id:32][lock_ids:N*8]` |
+
+## Storage Layout
+
+```rust
+// Global state
+const KEY_ADMIN: &[u8] = b"admin";
+const KEY_FEE_RECIPIENT: &[u8] = b"fee_rcpt";
+const KEY_PAUSED: &[u8] = b"paused";
+const KEY_DISPUTE_COUNT: &[u8] = b"dcount";
+
+// Conditions: cond:{id} -> condition data
+const KEY_CONDITION_PREFIX: &[u8] = b"cond:";
+
+// Markets: mkt:{id} -> market data
+const KEY_MARKET_PREFIX: &[u8] = b"mkt:";
+
+// AMM Pools: pool:{market_id} -> pool data
+const KEY_POOL_PREFIX: &[u8] = b"pool:";
+
+// User positions: pos:{user}{market_id} -> position
+const KEY_POSITION_PREFIX: &[u8] = b"pos:";
+
+// Disputes: disp:{id} -> dispute data
+const KEY_DISPUTE_PREFIX: &[u8] = b"disp:";
+```
+
+## Market Status Lifecycle
+
+```rust
+const STATUS_ACTIVE: u8 = 1;     // Trading open
+const STATUS_PAUSED: u8 = 2;     // Emergency pause
+const STATUS_RESOLVING: u8 = 3;  // Waiting for oracle
+const STATUS_DISPUTED: u8 = 4;   // Resolution challenged
+const STATUS_RESOLVED: u8 = 5;   // Final outcome confirmed
+const STATUS_VOIDED: u8 = 6;     // Market cancelled
+```
+
+## Core Implementation
+
+### Prepare Condition
+
+```rust
+/// Create a prediction question with multiple outcomes
+fn prepare_condition(
+    oracle: &Address,
+    question_id: &Hash,
+    outcome_count: u8,
+    resolution_deadline: u64
+) -> entrypoint::Result<Hash> {
+    // Validate inputs
+    if outcome_count < 2 || outcome_count > 8 {
+        return Err(InvalidOutcomeCount);
+    }
+
+    let current_block = get_block_height();
+    if resolution_deadline <= current_block {
+        return Err(InvalidDeadline);
+    }
+
+    // Generate condition ID
+    let mut data = [0u8; 73];
+    data[0..32].copy_from_slice(oracle);
+    data[32..64].copy_from_slice(question_id);
+    data[64..72].copy_from_slice(&(outcome_count as u64).to_le_bytes());
+    let condition_id = keccak256(&data);
+
+    // Store condition
+    // [outcome_count:1][resolved:1][deadline:8][oracle:32][payouts:8*N]
+    let mut cond_data = vec![0u8; 42 + 8 * outcome_count as usize];
+    cond_data[0] = outcome_count;
+    cond_data[1] = 0; // not resolved
+    cond_data[2..10].copy_from_slice(&resolution_deadline.to_le_bytes());
+    cond_data[10..42].copy_from_slice(oracle);
+    // payouts initialized to 0
+
+    let key = make_condition_key(&condition_id);
+    storage_write(&key, &cond_data)?;
+
+    set_return_data(&condition_id);
+    log("Condition prepared");
+    Ok(condition_id)
+}
+```
+
+### Create Market
+
+```rust
+/// Create a tradeable market for a condition
+fn create_market(
+    caller: &Address,
+    condition_id: &Hash,
+    collateral_token: &Hash,
+    category: u8,
+    trading_deadline: u64,
+    initial_liquidity: u64,
+    lock_id: u64
+) -> entrypoint::Result<Hash> {
+    // Load condition
+    let cond_key = make_condition_key(condition_id);
+    let mut cond_data = [0u8; 128];
+    let len = storage_read(&cond_key, &mut cond_data);
+    if len < 42 {
+        return Err(ConditionNotFound);
+    }
+
+    let outcome_count = cond_data[0];
+    let resolution_deadline = u64::from_le_bytes(
+        cond_data[2..10].try_into().unwrap()
+    );
+
+    if trading_deadline >= resolution_deadline {
+        return Err(InvalidDeadline);
+    }
+
+    if initial_liquidity < 1_000_000 { // Min 1 USDC
+        return Err(InsufficientLiquidity);
+    }
+
+    // Verify collateral lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != *collateral_token {
+        return Err(InvalidLock);
+    }
+    if lock.amount < initial_liquidity {
+        return Err(InsufficientAmount);
+    }
+
+    // Generate market ID
+    let market_id = keccak256(&(
+        condition_id,
+        collateral_token,
+        caller,
+        get_block_height()
+    ).encode());
+
+    // Create outcome tokens (Native Assets)
+    let mut outcome_tokens = Vec::new();
+    for i in 0..outcome_count {
+        let token = asset_create(
+            format!("OUT{}", i).as_bytes(),
+            format!("O{}", i).as_bytes(),
+            6, // decimals
+            0, // no initial supply
+            true, // mintable
+            true  // burnable
+        )?;
+        outcome_tokens.push(token);
+    }
+
+    // Use locked collateral
+    lock_use(caller, collateral_token, initial_liquidity, lock_id)?;
+
+    // Initialize AMM pool with equal liquidity per outcome
+    let liquidity_per_outcome = initial_liquidity as u128 / outcome_count as u128;
+
+    // Create LP token
+    let lp_token = asset_create(b"PM-LP", b"PMLP", 6, 0, true, true)?;
+    mint(&lp_token, caller, initial_liquidity)?;
+
+    // Store market data
+    // [status:1][category:1][outcome_count:1][creator:32][collateral:32]
+    // [deadline:8][total_collateral:8][volume:8][fees:8]
+    // [outcome_tokens:32*N]
+    let mut market_data = vec![0u8; 99 + 32 * outcome_count as usize];
+    market_data[0] = STATUS_ACTIVE;
+    market_data[1] = category;
+    market_data[2] = outcome_count;
+    market_data[3..35].copy_from_slice(caller);
+    market_data[35..67].copy_from_slice(collateral_token);
+    market_data[67..75].copy_from_slice(&trading_deadline.to_le_bytes());
+    market_data[75..83].copy_from_slice(&initial_liquidity.to_le_bytes());
+    // volume and fees start at 0
+
+    for (i, token) in outcome_tokens.iter().enumerate() {
+        let start = 99 + i * 32;
+        market_data[start..start+32].copy_from_slice(token);
+    }
+
+    let key = make_market_key(&market_id);
+    storage_write(&key, &market_data)?;
+
+    // Store AMM pool
+    store_amm_pool(&market_id, &outcome_tokens, liquidity_per_outcome, &lp_token)?;
+
+    set_return_data(&market_id);
+    log("Market created");
+    Ok(market_id)
+}
+```
+
+### Split Position
+
+```rust
+/// Split collateral into equal amounts of ALL outcome tokens
+/// 100 USDC → 100 YES + 100 NO (for binary market)
+fn split_position(
+    caller: &Address,
+    market_id: &Hash,
+    amount: u64,
+    lock_id: u64
+) -> entrypoint::Result<()> {
+    let market = load_market(market_id)?;
+
+    if market.status != STATUS_ACTIVE {
+        return Err(MarketNotActive);
+    }
+
+    if get_block_height() > market.trading_deadline {
+        return Err(TradingEnded);
+    }
+
+    // Verify and use collateral lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != market.collateral_token {
+        return Err(InvalidLock);
+    }
+    if lock.amount < amount {
+        return Err(InsufficientAmount);
+    }
+
+    lock_use(caller, &market.collateral_token, amount, lock_id)?;
+
+    // Mint equal amounts of ALL outcome tokens
+    for outcome_token in &market.outcome_tokens {
+        mint(outcome_token, caller, amount)?;
+    }
+
+    // Update market total collateral
+    update_market_collateral(market_id, amount as i128)?;
+
+    log("Position split");
+    Ok(())
+}
+```
+
+### Merge Positions
+
+```rust
+/// Merge equal amounts of ALL outcome tokens back to collateral
+/// 100 YES + 100 NO → 100 USDC
+fn merge_positions(
+    caller: &Address,
+    market_id: &Hash,
+    amount: u64,
+    outcome_lock_ids: &[u64]
+) -> entrypoint::Result<()> {
+    let market = load_market(market_id)?;
+
+    // Verify we have locks for all outcomes
+    if outcome_lock_ids.len() != market.outcome_tokens.len() {
+        return Err(InvalidLockCount);
+    }
+
+    // Verify and burn all outcome tokens
+    for (i, &lock_id) in outcome_lock_ids.iter().enumerate() {
+        let lock = get_lock_info(lock_id)?;
+        if lock.owner != *caller {
+            return Err(NotLockOwner);
+        }
+        if lock.asset != market.outcome_tokens[i] {
+            return Err(WrongOutcomeToken);
+        }
+        if lock.amount < amount {
+            return Err(InsufficientAmount);
+        }
+
+        lock_use(caller, &market.outcome_tokens[i], amount, lock_id)?;
+        burn(&market.outcome_tokens[i], amount)?;
+    }
+
+    // Return collateral
+    transfer(caller, &market.collateral_token, amount)?;
+
+    // Update market
+    update_market_collateral(market_id, -(amount as i128))?;
+
+    log("Positions merged");
+    Ok(())
+}
+```
+
+### Buy Outcome (AMM Trade)
+
+```rust
+/// Buy outcome tokens using AMM pricing
+fn buy_outcome(
+    caller: &Address,
+    market_id: &Hash,
+    outcome_index: u8,
+    collateral_amount: u64,
+    min_outcome_amount: u64,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    let market = load_market(market_id)?;
+    let mut pool = load_amm_pool(market_id)?;
+
+    if market.status != STATUS_ACTIVE {
+        return Err(MarketNotActive);
+    }
+
+    if get_block_height() > market.trading_deadline {
+        return Err(TradingEnded);
+    }
+
+    if outcome_index as usize >= market.outcome_tokens.len() {
+        return Err(InvalidOutcome);
+    }
+
+    // Verify collateral lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != market.collateral_token {
+        return Err(InvalidLock);
+    }
+    if lock.amount < collateral_amount {
+        return Err(InsufficientAmount);
+    }
+
+    // Calculate fees (1.5% total: 0.5% protocol + 1% creator)
+    let protocol_fee = collateral_amount
+        .checked_mul(50).unwrap()
+        .checked_div(10000).unwrap();
+    let creator_fee = collateral_amount
+        .checked_mul(100).unwrap()
+        .checked_div(10000).unwrap();
+    let net_amount = collateral_amount
+        .checked_sub(protocol_fee).unwrap()
+        .checked_sub(creator_fee).unwrap();
+
+    // CPMM formula: amount_out = reserve_out - (K / (reserve_in + amount_in))
+    let reserve_out = pool.liquidity[outcome_index as usize];
+    let reserve_in: u128 = pool.liquidity.iter()
+        .enumerate()
+        .filter(|(i, _)| *i != outcome_index as usize)
+        .map(|(_, l)| *l)
+        .sum();
+
+    let k = reserve_out.checked_mul(reserve_in).unwrap();
+    let new_reserve_in = reserve_in.checked_add(net_amount as u128).unwrap();
+    let new_reserve_out = k.checked_div(new_reserve_in).unwrap();
+    let outcome_amount = reserve_out
+        .checked_sub(new_reserve_out).unwrap() as u64;
+
+    if outcome_amount < min_outcome_amount {
+        return Err(SlippageExceeded);
+    }
+
+    // Use collateral
+    lock_use(caller, &market.collateral_token, collateral_amount, lock_id)?;
+
+    // Update pool liquidity
+    pool.liquidity[outcome_index as usize] = new_reserve_out;
+    for (i, liq) in pool.liquidity.iter_mut().enumerate() {
+        if i != outcome_index as usize {
+            *liq = liq.checked_add(
+                net_amount as u128 / (pool.liquidity.len() - 1) as u128
+            ).unwrap();
+        }
+    }
+    save_amm_pool(market_id, &pool)?;
+
+    // Mint outcome tokens to buyer
+    mint(&market.outcome_tokens[outcome_index as usize], caller, outcome_amount)?;
+
+    // Update market stats
+    update_market_volume(market_id, collateral_amount)?;
+    update_market_fees(market_id, protocol_fee, creator_fee)?;
+
+    set_return_data(&outcome_amount.to_le_bytes());
+    log("Outcome bought");
+    Ok(outcome_amount)
+}
+```
+
+### Propose Resolution
+
+```rust
+/// Oracle proposes the winning outcome
+fn propose_resolution(
+    caller: &Address,
+    market_id: &Hash,
+    winning_outcome: u8,
+    evidence: &[u8]
+) -> entrypoint::Result<()> {
+    let mut market = load_market(market_id)?;
+    let condition = load_condition(&market.condition_id)?;
+
+    // Only designated oracle can propose
+    if *caller != condition.oracle {
+        return Err(NotOracle);
+    }
+
+    // Must be past trading deadline
+    if get_block_height() <= market.trading_deadline {
+        return Err(TradingNotEnded);
+    }
+
+    if market.status != STATUS_ACTIVE && market.status != STATUS_RESOLVING {
+        return Err(InvalidMarketStatus);
+    }
+
+    if winning_outcome >= condition.outcome_count {
+        return Err(InvalidOutcome);
+    }
+
+    // AI Oracle verification (TOS innovation)
+    let evidence_hash = keccak256(evidence);
+    let verification = oracle_verify_outcome(
+        &condition.question_id,
+        winning_outcome,
+        evidence
+    )?;
+
+    if !verification.is_valid || verification.confidence < 70 {
+        return Err(InvalidResolution);
+    }
+
+    // Store resolution proposal
+    // [outcome:1][proposer:32][block:8][evidence_hash:32][confidence:1][round:1][finalized:1]
+    let mut resolution_data = [0u8; 76];
+    resolution_data[0] = winning_outcome;
+    resolution_data[1..33].copy_from_slice(caller);
+    resolution_data[33..41].copy_from_slice(&get_block_height().to_le_bytes());
+    resolution_data[41..73].copy_from_slice(&evidence_hash);
+    resolution_data[73] = verification.confidence;
+    resolution_data[74] = 0; // dispute round
+    resolution_data[75] = 0; // not finalized
+
+    let key = make_resolution_key(market_id);
+    storage_write(&key, &resolution_data)?;
+
+    // Update market status
+    market.status = STATUS_RESOLVING;
+    save_market(market_id, &market)?;
+
+    log("Resolution proposed");
+    Ok(())
+}
+```
+
+### Finalize Resolution
+
+```rust
+/// Finalize after dispute window passes
+fn finalize_resolution(market_id: &Hash) -> entrypoint::Result<()> {
+    let mut market = load_market(market_id)?;
+
+    if market.status != STATUS_RESOLVING {
+        return Err(NotInResolution);
+    }
+
+    let resolution = load_resolution(market_id)?;
+
+    // Check dispute window (11520 blocks ≈ 2 days)
+    let dispute_deadline = resolution.proposed_at
+        .checked_add(11520)
+        .unwrap();
+
+    if get_block_height() <= dispute_deadline {
+        return Err(DisputeWindowOpen);
+    }
+
+    // Finalize
+    let mut res_data = load_resolution_data(market_id)?;
+    res_data[75] = 1; // finalized = true
+    save_resolution_data(market_id, &res_data)?;
+
+    market.status = STATUS_RESOLVED;
+    save_market(market_id, &market)?;
+
+    // Update condition payouts
+    let mut condition = load_condition(&market.condition_id)?;
+    condition.payout_numerators[resolution.winning_outcome as usize] = 1;
+    condition.payout_denominator = 1;
+    condition.resolved = true;
+    save_condition(&market.condition_id, &condition)?;
+
+    log("Resolution finalized");
+    Ok(())
+}
+```
+
+### Redeem Positions
+
+```rust
+/// Redeem winning outcome tokens for collateral
+fn redeem_positions(
+    caller: &Address,
+    market_id: &Hash,
+    outcome_lock_ids: &[u64]
+) -> entrypoint::Result<u64> {
+    let market = load_market(market_id)?;
+
+    if market.status != STATUS_RESOLVED {
+        return Err(MarketNotResolved);
+    }
+
+    let condition = load_condition(&market.condition_id)?;
+
+    let mut total_payout: u64 = 0;
+
+    for (i, &lock_id) in outcome_lock_ids.iter().enumerate() {
+        if lock_id == 0 {
+            continue; // Skip if no tokens for this outcome
+        }
+
+        let lock = get_lock_info(lock_id)?;
+        if lock.owner != *caller {
+            return Err(NotLockOwner);
+        }
+        if lock.asset != market.outcome_tokens[i] {
+            return Err(WrongOutcomeToken);
+        }
+
+        // Calculate payout for this outcome
+        let payout_numerator = condition.payout_numerators[i];
+        if payout_numerator > 0 {
+            let payout = (lock.amount as u128)
+                .checked_mul(payout_numerator as u128).unwrap()
+                .checked_div(condition.payout_denominator as u128).unwrap() as u64;
+
+            total_payout = total_payout.checked_add(payout).unwrap();
+        }
+
+        // Burn outcome tokens
+        lock_use(caller, &market.outcome_tokens[i], lock.amount, lock_id)?;
+        burn(&market.outcome_tokens[i], lock.amount)?;
+    }
+
+    if total_payout == 0 {
+        return Err(NothingToRedeem);
+    }
+
+    // Transfer collateral to winner
+    transfer(caller, &market.collateral_token, total_payout)?;
+
+    set_return_data(&total_payout.to_le_bytes());
+    log("Positions redeemed");
+    Ok(total_payout)
+}
+```
+
+## Dispute Mechanism
+
+```rust
+/// Dispute a proposed resolution with escalating stake
+fn dispute_resolution(
+    caller: &Address,
+    market_id: &Hash,
+    alternative_outcome: u8,
+    stake_lock_id: u64
+) -> entrypoint::Result<u64> {
+    let mut market = load_market(market_id)?;
+
+    if market.status != STATUS_RESOLVING {
+        return Err(NotInResolution);
+    }
+
+    let resolution = load_resolution(market_id)?;
+
+    // Check dispute window
+    let dispute_deadline = resolution.proposed_at.checked_add(11520).unwrap();
+    if get_block_height() > dispute_deadline {
+        return Err(DisputeWindowClosed);
+    }
+
+    // Alternative must be different
+    if alternative_outcome == resolution.winning_outcome {
+        return Err(SameOutcome);
+    }
+
+    // Calculate required stake (1% of volume, doubling each round)
+    let base_stake = (market.total_volume as u128)
+        .checked_mul(100).unwrap()
+        .checked_div(10000).unwrap() as u64;
+
+    let required_stake = base_stake
+        .checked_mul(2u64.pow(resolution.dispute_round as u32))
+        .unwrap();
+
+    // Verify stake
+    let lock = get_lock_info(stake_lock_id)?;
+    if lock.owner != *caller || lock.amount < required_stake {
+        return Err(InsufficientStake);
+    }
+
+    // Use stake
+    lock_use(caller, &lock.asset, required_stake, stake_lock_id)?;
+
+    // Create dispute record
+    let dispute_id = read_u64(KEY_DISPUTE_COUNT);
+    storage_write(KEY_DISPUTE_COUNT, &(dispute_id + 1).to_le_bytes())?;
+
+    // Store dispute
+    let mut dispute_data = [0u8; 82];
+    dispute_data[0..32].copy_from_slice(market_id);
+    dispute_data[32..64].copy_from_slice(caller);
+    dispute_data[64] = alternative_outcome;
+    dispute_data[65..73].copy_from_slice(&required_stake.to_le_bytes());
+    dispute_data[73] = resolution.dispute_round + 1;
+    dispute_data[74..82].copy_from_slice(&get_block_height().to_le_bytes());
+
+    let key = make_dispute_key(dispute_id);
+    storage_write(&key, &dispute_data)?;
+
+    // Update market status
+    market.status = STATUS_DISPUTED;
+    save_market(market_id, &market)?;
+
+    set_return_data(&dispute_id.to_le_bytes());
+    log("Resolution disputed");
+    Ok(dispute_id)
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1601 | ConditionNotFound | Condition ID doesn't exist |
+| 1602 | ConditionExists | Condition already created |
+| 1603 | InvalidOutcomeCount | Must have 2-8 outcomes |
+| 1604 | MarketNotFound | Market ID doesn't exist |
+| 1605 | MarketNotActive | Market is not active |
+| 1606 | MarketNotResolved | Market not yet resolved |
+| 1607 | TradingEnded | Trading deadline passed |
+| 1608 | TradingNotEnded | Trading still active |
+| 1609 | InvalidOutcome | Outcome index out of range |
+| 1610 | InvalidDeadline | Deadline is invalid |
+| 1611 | SlippageExceeded | Price moved too much |
+| 1612 | NotOracle | Caller is not the oracle |
+| 1613 | NotInResolution | Market not in resolution phase |
+| 1614 | DisputeWindowClosed | Dispute period ended |
+| 1615 | DisputeWindowOpen | Dispute period still active |
+| 1616 | InsufficientStake | Dispute stake too low |
+| 1617 | SameOutcome | Cannot dispute with same outcome |
+| 1618 | NothingToRedeem | No winning tokens to redeem |
+| 1619 | InvalidResolution | AI Oracle rejected resolution |
+
+## Usage Examples
+
+### US Presidential Election Market
+
+```rust
+// 1. Create condition
+let question_id = keccak256(b"2024-us-presidential-election");
+let condition_data = [0u8; 73];
+condition_data[0] = 1; // PrepareCondition
+condition_data[1..33].copy_from_slice(&oracle_address);
+condition_data[33..65].copy_from_slice(&question_id);
+condition_data[65] = 2; // 2 outcomes
+condition_data[66..74].copy_from_slice(&election_deadline.to_le_bytes());
+// Returns: condition_id
+
+// 2. Lock collateral
+let lock_id = lock_asset(usdc, 100_000_000, contract, 1000000)?; // 100 USDC
+
+// 3. Create market (50/50 initial odds)
+let market_data = [0u8; 90];
+market_data[0] = 2; // CreateMarket
+market_data[1..33].copy_from_slice(&condition_id);
+market_data[33..65].copy_from_slice(&usdc);
+market_data[65] = 0; // Politics category
+market_data[66..74].copy_from_slice(&trading_deadline.to_le_bytes());
+market_data[74..82].copy_from_slice(&100_000_000u64.to_le_bytes());
+market_data[82..90].copy_from_slice(&lock_id.to_le_bytes());
+// Returns: market_id, outcome_tokens[Republican, Democrat]
+
+// 4. User buys "Republican" outcome
+let buy_lock = lock_asset(usdc, 10_000_000, contract, 10000)?; // 10 USDC
+let buy_data = [0u8; 58];
+buy_data[0] = 5; // BuyOutcome
+buy_data[1..33].copy_from_slice(&market_id);
+buy_data[33] = 0; // outcome 0 (Republican)
+buy_data[34..42].copy_from_slice(&10_000_000u64.to_le_bytes());
+buy_data[42..50].copy_from_slice(&9_000_000u64.to_le_bytes()); // min 9 tokens
+buy_data[50..58].copy_from_slice(&buy_lock.to_le_bytes());
+// Returns: outcome_amount
+
+// 5. After election - oracle resolves
+let resolve_data = [0u8; 38];
+resolve_data[0] = 7; // ProposeResolution
+resolve_data[1..33].copy_from_slice(&market_id);
+resolve_data[33] = 0; // Republican won
+resolve_data[34..38].copy_from_slice(&evidence_len.to_le_bytes());
+// + evidence bytes
+
+// 6. After dispute window - finalize
+let finalize_data = [0u8; 33];
+finalize_data[0] = 9; // FinalizeResolution
+finalize_data[1..33].copy_from_slice(&market_id);
+
+// 7. Winner redeems
+let outcome_lock = lock_asset(republican_token, 9_500_000, contract, 10000)?;
+let redeem_data = [0u8; 49];
+redeem_data[0] = 10; // RedeemPositions
+redeem_data[1..33].copy_from_slice(&market_id);
+redeem_data[33..41].copy_from_slice(&outcome_lock.to_le_bytes());
+redeem_data[41..49].copy_from_slice(&0u64.to_le_bytes()); // no Democrat tokens
+// Returns: 9_500_000 USDC
+```
+
+### Sports Betting Market
+
+```rust
+// Super Bowl prediction
+let question_id = keccak256(b"super-bowl-2025-winner");
+
+// Condition with initial odds: Chiefs -130 (56.5%), 49ers +110 (47.6%)
+// Market maker sets initial prices reflecting betting lines
+```
+
+### Crypto Price Prediction
+
+```rust
+// "Will BTC be above $100,000 on Dec 31, 2025?"
+let question_id = keccak256(b"btc-price-2025-12-31");
+
+// Binary outcome: Yes (>$100k) or No (≤$100k)
+// Oracle uses price feeds at specific timestamp
+```
+
+## Market Categories
+
+| Category | Code | Example Questions |
+|----------|:----:|-------------------|
+| Politics | 0 | Elections, legislation, policy |
+| Sports | 1 | Game outcomes, championships |
+| Crypto | 2 | Price predictions, protocol events |
+| Economics | 3 | GDP, inflation, interest rates |
+| Science | 4 | Research outcomes, discoveries |
+| Entertainment | 5 | Awards, releases, ratings |
+| Custom | 6 | Any other verifiable event |
+
+## TOS Innovations
+
+### Native Asset Outcome Tokens
+Unlike ERC1155 conditional tokens, TOS uses Native Assets for each outcome:
+- Full asset functionality (transfer, approve, etc.)
+- Better composability with DeFi
+- Lower gas costs for trades
+
+### Asset Lock for Collateral
+Secure collateral management using TOS's native Asset Lock:
+- Users lock collateral before operations
+- Contract uses locked assets atomically
+- Prevents front-running and MEV
+
+### AI Oracle Verification
+AI-powered outcome verification:
+- Multi-source data aggregation
+- Manipulation detection
+- Confidence scoring for resolutions
+
+## Security Considerations
+
+1. **Oracle Trust**: Carefully select trusted oracles for each category
+2. **Dispute Bonds**: Escalating stakes prevent frivolous disputes
+3. **Trading Deadlines**: Prevent trading after outcome is known
+4. **Collateral Safety**: All collateral backed by locked assets
+5. **Manipulation Detection**: AI Oracle monitors for suspicious activity
+
+## Related Examples
+
+- [AMM DEX](/smart-contracts/examples/amm-dex) - Underlying AMM mechanics
+- [Governance](/smart-contracts/examples/governance) - Dispute resolution patterns
+- [VRF Random](/smart-contracts/examples/vrf-random) - Randomness for fair selection

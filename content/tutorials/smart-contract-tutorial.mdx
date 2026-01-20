@@ -1,864 +1,321 @@
 ---
 title: Smart Contract Tutorial
-description: Complete guide to building, testing, and deploying Java smart contracts on TOS Network's RVM
+description: Learn to build Rust smart contracts on TOS Network with TAKO
 ---
 
-# Smart Contract Development Tutorial
+import { Callout } from 'nextra/components'
+import { Cards } from 'nextra/components'
+import { Card } from '../../components/card'
 
-Learn to build powerful smart contracts using familiar Java syntax on TOS Network's Rust Virtual Machine (RVM). This tutorial will guide you through creating a complete token contract from scratch.
+# Smart Contract Tutorial
 
-## 🎯 Learning Objectives
+<Callout type="info">
+This tutorial has been updated. TOS Network uses **Rust** smart contracts with the **TAKO runtime**.
+</Callout>
 
-By the end of this tutorial, you will:
-- Understand RVM architecture and Java compatibility
-- Build a complete ERC-20 compatible token contract
-- Implement advanced features like staking and governance
-- Deploy contracts to testnet and mainnet
-- Test contract functionality and security
+Learn to build smart contracts on TOS Network using Rust. This tutorial will guide you through creating your first contract with native features like VRF randomness and referral rewards.
 
-## ⏱️ Estimated Time: 2 hours
+## Quick Start
 
-## 🛠️ Prerequisites
-
-### Required Knowledge
-- Basic Java programming (classes, methods, inheritance)
-- Understanding of blockchain concepts (transactions, blocks, addresses)
-- Familiarity with token standards (helpful but not required)
-
-### Development Setup
-```bash
-# Install TOS SDK
-npm install -g @tos-network/sdk
-
-# Verify installation
-tos-sdk --version
-
-# Create project directory
-mkdir tos-token-tutorial
-cd tos-token-tutorial
-
-# Initialize project
-tos-sdk init --template smart-contract
-```
-
-### Environment Configuration
-```bash
-# Set up testnet configuration
-tos-sdk config set network testnet
-tos-sdk config set api-key YOUR_TESTNET_API_KEY
-
-# Get testnet tokens from faucet
-tos-sdk faucet request --address YOUR_WALLET_ADDRESS
-```
-
-## 📝 Step 1: Understanding RVM
-
-### RVM Architecture Overview
-
-The Rust Virtual Machine (RVM) enables Java 8 code execution on TOS Network:
-
-```java
-// This is valid Java 8 code that runs on RVM
-public class HelloTOS {
-    private String message;
-
-    public HelloTOS(String initialMessage) {
-        this.message = initialMessage;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String newMessage) {
-        this.message = newMessage;
-    }
-}
-```
-
-### Key RVM Features
-- **Full Java 8 Compatibility**: Standard Java syntax and libraries
-- **Blockchain Integration**: Special classes for blockchain operations
-- **Gas Metering**: Automatic resource management
-- **Security Sandbox**: Restricted system access
-- **Deterministic Execution**: Identical results across all nodes
-
-### RVM vs Traditional JVM
-
-| Feature | Traditional JVM | TOS RVM |
-|---------|----------------|---------|
-| **File System Access** | Full access | Blocked |
-| **Network Operations** | Full access | Blockchain only |
-| **Threading** | Full support | Deterministic only |
-| **Memory Management** | Garbage collected | Gas limited |
-| **Reflection** | Full support | Restricted |
-
-## 📝 Step 2: Basic Contract Structure
-
-### Contract Template
-
-Create `src/main/java/MyToken.java`:
-
-```java
-import network.tos.contracts.Contract;
-import network.tos.contracts.Address;
-import network.tos.contracts.BigInteger;
-import network.tos.contracts.Events;
-
-/**
- * MyToken - A complete ERC-20 compatible token contract
- */
-public class MyToken extends Contract {
-
-    // Token metadata
-    private final String name = "MyToken";
-    private final String symbol = "MTK";
-    private final int decimals = 18;
-
-    // Token state
-    private BigInteger totalSupply;
-    private Map<Address, BigInteger> balances;
-    private Map<Address, Map<Address, BigInteger>> allowances;
-
-    // Events
-    public static class Transfer extends Events.Event {
-        public final Address from;
-        public final Address to;
-        public final BigInteger value;
-
-        public Transfer(Address from, Address to, BigInteger value) {
-            this.from = from;
-            this.to = to;
-            this.value = value;
-        }
-    }
-
-    public static class Approval extends Events.Event {
-        public final Address owner;
-        public final Address spender;
-        public final BigInteger value;
-
-        public Approval(Address owner, Address spender, BigInteger value) {
-            this.owner = owner;
-            this.spender = spender;
-            this.value = value;
-        }
-    }
-
-    /**
-     * Constructor - Initialize token with initial supply
-     */
-    public MyToken(BigInteger initialSupply) {
-        this.totalSupply = initialSupply.multiply(BigInteger.valueOf(10).pow(decimals));
-        this.balances = new HashMap<>();
-        this.allowances = new HashMap<>();
-
-        // Give all tokens to contract creator
-        Address creator = getDeployer();
-        this.balances.put(creator, this.totalSupply);
-
-        // Emit initial transfer event
-        emit(new Transfer(Address.ZERO, creator, this.totalSupply));
-    }
-
-    // Getter methods
-    public String name() { return name; }
-    public String symbol() { return symbol; }
-    public int decimals() { return decimals; }
-    public BigInteger totalSupply() { return totalSupply; }
-
-    public BigInteger balanceOf(Address account) {
-        return balances.getOrDefault(account, BigInteger.ZERO);
-    }
-
-    public BigInteger allowance(Address owner, Address spender) {
-        return allowances.getOrDefault(owner, new HashMap<>())
-                        .getOrDefault(spender, BigInteger.ZERO);
-    }
-}
-```
-
-### Understanding Contract Base Class
-
-```java
-import network.tos.contracts.Contract;
-
-public abstract class Contract {
-    // Blockchain context methods
-    protected Address getCaller();     // Transaction sender
-    protected Address getDeployer();   // Contract deployer
-    protected BigInteger getValue();   // TOS sent with transaction
-    protected long getBlockHeight();   // Current block height
-    protected long getTimestamp();     // Block timestamp
-
-    // Gas and execution control
-    protected void requireGas(long amount);
-    protected void refundGas(long amount);
-
-    // Event emission
-    protected void emit(Events.Event event);
-
-    // Assertions and validation
-    protected void require(boolean condition, String message);
-    protected void revert(String message);
-}
-```
-
-## 📝 Step 3: Implementing Core Functions
-
-### Transfer Functionality
-
-```java
-/**
- * Transfer tokens from caller to recipient
- */
-public boolean transfer(Address to, BigInteger amount) {
-    Address from = getCaller();
-    return _transfer(from, to, amount);
-}
-
-/**
- * Transfer tokens from one address to another (with allowance)
- */
-public boolean transferFrom(Address from, Address to, BigInteger amount) {
-    Address spender = getCaller();
-
-    // Check allowance
-    BigInteger currentAllowance = allowance(from, spender);
-    require(currentAllowance.compareTo(amount) >= 0,
-            "Transfer amount exceeds allowance");
-
-    // Perform transfer
-    boolean success = _transfer(from, to, amount);
-
-    if (success) {
-        // Reduce allowance
-        _approve(from, spender, currentAllowance.subtract(amount));
-    }
-
-    return success;
-}
-
-/**
- * Internal transfer implementation
- */
-private boolean _transfer(Address from, Address to, BigInteger amount) {
-    require(from != null && to != null, "Transfer to/from zero address");
-    require(amount.compareTo(BigInteger.ZERO) > 0, "Transfer amount must be positive");
-
-    BigInteger fromBalance = balanceOf(from);
-    require(fromBalance.compareTo(amount) >= 0, "Transfer amount exceeds balance");
-
-    // Update balances
-    balances.put(from, fromBalance.subtract(amount));
-    balances.put(to, balanceOf(to).add(amount));
-
-    // Emit transfer event
-    emit(new Transfer(from, to, amount));
-
-    return true;
-}
-```
-
-### Approval System
-
-```java
-/**
- * Approve spender to transfer tokens on behalf of caller
- */
-public boolean approve(Address spender, BigInteger amount) {
-    Address owner = getCaller();
-    return _approve(owner, spender, amount);
-}
-
-/**
- * Increase allowance for spender
- */
-public boolean increaseAllowance(Address spender, BigInteger addedValue) {
-    Address owner = getCaller();
-    BigInteger currentAllowance = allowance(owner, spender);
-    return _approve(owner, spender, currentAllowance.add(addedValue));
-}
-
-/**
- * Decrease allowance for spender
- */
-public boolean decreaseAllowance(Address spender, BigInteger subtractedValue) {
-    Address owner = getCaller();
-    BigInteger currentAllowance = allowance(owner, spender);
-
-    require(currentAllowance.compareTo(subtractedValue) >= 0,
-            "Decreased allowance below zero");
-
-    return _approve(owner, spender, currentAllowance.subtract(subtractedValue));
-}
-
-/**
- * Internal approval implementation
- */
-private boolean _approve(Address owner, Address spender, BigInteger amount) {
-    require(owner != null && spender != null, "Approve to/from zero address");
-
-    allowances.computeIfAbsent(owner, k -> new HashMap<>()).put(spender, amount);
-
-    emit(new Approval(owner, spender, amount));
-    return true;
-}
-```
-
-## 📝 Step 4: Advanced Features
-
-### Minting and Burning
-
-```java
-// Access control
-private Address owner;
-private Map<Address, Boolean> minters;
-
-// Constructor addition
-public MyToken(BigInteger initialSupply) {
-    // ... existing constructor code ...
-    this.owner = getDeployer();
-    this.minters = new HashMap<>();
-    this.minters.put(owner, true);
-}
-
-/**
- * Mint new tokens (only authorized minters)
- */
-public boolean mint(Address to, BigInteger amount) {
-    Address caller = getCaller();
-    require(minters.getOrDefault(caller, false), "Caller is not a minter");
-    require(to != null, "Cannot mint to zero address");
-    require(amount.compareTo(BigInteger.ZERO) > 0, "Mint amount must be positive");
-
-    // Update total supply and balance
-    totalSupply = totalSupply.add(amount);
-    balances.put(to, balanceOf(to).add(amount));
-
-    emit(new Transfer(Address.ZERO, to, amount));
-    return true;
-}
-
-/**
- * Burn tokens from caller's balance
- */
-public boolean burn(BigInteger amount) {
-    Address caller = getCaller();
-    BigInteger callerBalance = balanceOf(caller);
-
-    require(callerBalance.compareTo(amount) >= 0, "Burn amount exceeds balance");
-    require(amount.compareTo(BigInteger.ZERO) > 0, "Burn amount must be positive");
-
-    // Update total supply and balance
-    totalSupply = totalSupply.subtract(amount);
-    balances.put(caller, callerBalance.subtract(amount));
-
-    emit(new Transfer(caller, Address.ZERO, amount));
-    return true;
-}
-
-/**
- * Add minter (only owner)
- */
-public boolean addMinter(Address minter) {
-    require(getCaller().equals(owner), "Only owner can add minters");
-    minters.put(minter, true);
-    return true;
-}
-```
-
-### Staking System
-
-```java
-// Staking state
-private Map<Address, StakeInfo> stakes;
-private BigInteger totalStaked;
-private final BigInteger STAKING_REWARD_RATE = BigInteger.valueOf(5); // 5% APR
-
-public static class StakeInfo {
-    public BigInteger amount;
-    public long startTime;
-    public BigInteger rewards;
-
-    public StakeInfo(BigInteger amount, long startTime) {
-        this.amount = amount;
-        this.startTime = startTime;
-        this.rewards = BigInteger.ZERO;
-    }
-}
-
-/**
- * Stake tokens to earn rewards
- */
-public boolean stake(BigInteger amount) {
-    Address staker = getCaller();
-    require(amount.compareTo(BigInteger.ZERO) > 0, "Stake amount must be positive");
-    require(balanceOf(staker).compareTo(amount) >= 0, "Insufficient balance");
-
-    // Update rewards before changing stake
-    updateRewards(staker);
-
-    // Transfer tokens to staking
-    balances.put(staker, balanceOf(staker).subtract(amount));
-    totalStaked = totalStaked.add(amount);
-
-    // Update stake info
-    StakeInfo currentStake = stakes.getOrDefault(staker,
-        new StakeInfo(BigInteger.ZERO, getTimestamp()));
-    currentStake.amount = currentStake.amount.add(amount);
-    stakes.put(staker, currentStake);
-
-    return true;
-}
-
-/**
- * Unstake tokens and claim rewards
- */
-public boolean unstake(BigInteger amount) {
-    Address staker = getCaller();
-    StakeInfo stakeInfo = stakes.get(staker);
-
-    require(stakeInfo != null, "No stake found");
-    require(stakeInfo.amount.compareTo(amount) >= 0, "Insufficient staked amount");
-
-    // Update rewards
-    updateRewards(staker);
-
-    // Return staked tokens
-    balances.put(staker, balanceOf(staker).add(amount));
-    totalStaked = totalStaked.subtract(amount);
-
-    // Update stake info
-    stakeInfo.amount = stakeInfo.amount.subtract(amount);
-    if (stakeInfo.amount.equals(BigInteger.ZERO)) {
-        stakes.remove(staker);
-    }
-
-    return true;
-}
-
-/**
- * Update staking rewards for address
- */
-private void updateRewards(Address staker) {
-    StakeInfo stakeInfo = stakes.get(staker);
-    if (stakeInfo == null || stakeInfo.amount.equals(BigInteger.ZERO)) {
-        return;
-    }
-
-    long currentTime = getTimestamp();
-    long stakingDuration = currentTime - stakeInfo.startTime;
-
-    // Calculate rewards: (amount * rate * time) / (365 * 24 * 60 * 60)
-    BigInteger timeReward = stakeInfo.amount
-        .multiply(STAKING_REWARD_RATE)
-        .multiply(BigInteger.valueOf(stakingDuration))
-        .divide(BigInteger.valueOf(365 * 24 * 60 * 60 * 100)); // 100 for percentage
-
-    stakeInfo.rewards = stakeInfo.rewards.add(timeReward);
-    stakeInfo.startTime = currentTime;
-}
-
-/**
- * Claim staking rewards
- */
-public boolean claimRewards() {
-    Address claimer = getCaller();
-    updateRewards(claimer);
-
-    StakeInfo stakeInfo = stakes.get(claimer);
-    require(stakeInfo != null && stakeInfo.rewards.compareTo(BigInteger.ZERO) > 0,
-            "No rewards to claim");
-
-    BigInteger rewards = stakeInfo.rewards;
-    stakeInfo.rewards = BigInteger.ZERO;
-
-    // Mint rewards (or transfer from reward pool)
-    balances.put(claimer, balanceOf(claimer).add(rewards));
-    totalSupply = totalSupply.add(rewards);
-
-    emit(new Transfer(Address.ZERO, claimer, rewards));
-    return true;
-}
-```
-
-## 📝 Step 5: Testing Your Contract
-
-### Unit Tests
-
-Create `src/test/java/MyTokenTest.java`:
-
-```java
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.*;
-import network.tos.testing.ContractTestRunner;
-import network.tos.contracts.Address;
-import network.tos.contracts.BigInteger;
-
-public class MyTokenTest {
-
-    private ContractTestRunner runner;
-    private MyToken token;
-    private Address deployer;
-    private Address user1;
-    private Address user2;
-
-    @BeforeEach
-    void setUp() {
-        runner = new ContractTestRunner();
-        deployer = runner.createAddress("deployer");
-        user1 = runner.createAddress("user1");
-        user2 = runner.createAddress("user2");
-
-        // Deploy contract
-        token = runner.deploy(MyToken.class, deployer,
-                             BigInteger.valueOf(1000000)); // 1M tokens
-    }
-
-    @Test
-    void testInitialSupply() {
-        assertEquals(BigInteger.valueOf(1000000).multiply(BigInteger.valueOf(10).pow(18)),
-                    token.totalSupply());
-        assertEquals(token.totalSupply(), token.balanceOf(deployer));
-        assertEquals(BigInteger.ZERO, token.balanceOf(user1));
-    }
-
-    @Test
-    void testTransfer() {
-        BigInteger transferAmount = BigInteger.valueOf(1000).multiply(BigInteger.valueOf(10).pow(18));
-
-        // Transfer from deployer to user1
-        runner.setCaller(deployer);
-        assertTrue(token.transfer(user1, transferAmount));
-
-        // Check balances
-        assertEquals(transferAmount, token.balanceOf(user1));
-        assertEquals(token.totalSupply().subtract(transferAmount), token.balanceOf(deployer));
-    }
-
-    @Test
-    void testApproveAndTransferFrom() {
-        BigInteger approveAmount = BigInteger.valueOf(500).multiply(BigInteger.valueOf(10).pow(18));
-        BigInteger transferAmount = BigInteger.valueOf(300).multiply(BigInteger.valueOf(10).pow(18));
-
-        // Deployer approves user1 to spend tokens
-        runner.setCaller(deployer);
-        assertTrue(token.approve(user1, approveAmount));
-        assertEquals(approveAmount, token.allowance(deployer, user1));
-
-        // User1 transfers from deployer to user2
-        runner.setCaller(user1);
-        assertTrue(token.transferFrom(deployer, user2, transferAmount));
-
-        // Check balances and allowance
-        assertEquals(transferAmount, token.balanceOf(user2));
-        assertEquals(approveAmount.subtract(transferAmount), token.allowance(deployer, user1));
-    }
-
-    @Test
-    void testStaking() {
-        BigInteger stakeAmount = BigInteger.valueOf(1000).multiply(BigInteger.valueOf(10).pow(18));
-
-        // Transfer some tokens to user1 first
-        runner.setCaller(deployer);
-        token.transfer(user1, stakeAmount.multiply(BigInteger.valueOf(2)));
-
-        // User1 stakes tokens
-        runner.setCaller(user1);
-        BigInteger balanceBefore = token.balanceOf(user1);
-        assertTrue(token.stake(stakeAmount));
-
-        // Check balance decreased
-        assertEquals(balanceBefore.subtract(stakeAmount), token.balanceOf(user1));
-
-        // Simulate time passage and check rewards
-        runner.increaseTime(365 * 24 * 60 * 60); // 1 year
-        assertTrue(token.claimRewards());
-
-        // Should have earned approximately 5% APR
-        assertTrue(token.balanceOf(user1).compareTo(balanceBefore.subtract(stakeAmount)) > 0);
-    }
-
-    @Test
-    void testFailures() {
-        BigInteger transferAmount = BigInteger.valueOf(1000).multiply(BigInteger.valueOf(10).pow(18));
-
-        // Transfer more than balance should fail
-        runner.setCaller(user1);
-        assertThrows(Exception.class, () -> {
-            token.transfer(user2, transferAmount);
-        });
-
-        // Transfer to zero address should fail
-        runner.setCaller(deployer);
-        assertThrows(Exception.class, () -> {
-            token.transfer(null, transferAmount);
-        });
-
-        // Non-minter cannot mint
-        runner.setCaller(user1);
-        assertThrows(Exception.class, () -> {
-            token.mint(user1, transferAmount);
-        });
-    }
-}
-```
-
-### Running Tests
+### 1. Setup Development Environment
 
 ```bash
-# Run all tests
-tos-sdk test
+# Install Rust
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Run specific test
-tos-sdk test MyTokenTest
+# Add WebAssembly target
+rustup target add wasm32-unknown-unknown
 
-# Run with coverage
-tos-sdk test --coverage
-
-# Generate test report
-tos-sdk test --report
+# Create new project
+cargo new --lib my_contract
+cd my_contract
 ```
 
-## 📝 Step 6: Deployment
+### 2. Configure Cargo.toml
 
-### Testnet Deployment
+```toml
+[package]
+name = "my_contract"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tako_sdk = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+panic = "abort"
+```
+
+### 3. Write Your Contract
+
+```rust
+#![no_std]
+#![no_main]
+
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    let method = get_method();
+
+    match method.as_str() {
+        "greet" => greet(),
+        "set_message" => set_message(),
+        "get_message" => get_message(),
+        _ => ERROR_INVALID_METHOD
+    }
+}
+
+fn greet() -> u64 {
+    log("Hello from TOS Network!");
+    SUCCESS
+}
+
+fn set_message() -> u64 {
+    let message = get_args();
+    storage_write(b"message", &message);
+    SUCCESS
+}
+
+fn get_message() -> u64 {
+    let mut buffer = [0u8; 256];
+    let len = storage_read(b"message", &mut buffer);
+    set_return_data(&buffer[..len as usize]);
+    SUCCESS
+}
+```
+
+### 4. Build and Deploy
 
 ```bash
-# Compile contract
-tos-sdk compile
+# Build
+cargo build --release --target wasm32-unknown-unknown
 
 # Deploy to testnet
-tos-sdk deploy --network testnet --contract MyToken --args 1000000
-
-# Example output:
-# Contract deployed successfully!
-# Address: tos1contract_abc123...
-# Transaction: tx_def456...
-# Gas used: 234567
+tos deploy \
+    --contract target/wasm32-unknown-unknown/release/my_contract.wasm \
+    --network testnet
 ```
 
-### Deployment Script
+## Full Documentation
 
-Create `scripts/deploy.js`:
+For comprehensive smart contract documentation, see:
 
-```javascript
-const { TOSNetwork, ContractFactory } = require('@tos-network/sdk');
+<Cards>
+  <Card
+    title="Smart Contracts Overview"
+    subtitle="Complete guide to TAKO smart contracts"
+    href="/smart-contracts"
+    arrow
+  />
+  <Card
+    title="Development Guide"
+    subtitle="Step-by-step development tutorial"
+    href="/getting-started/smart-contract-development"
+    arrow
+  />
+  <Card
+    title="TAKO SDK Reference"
+    subtitle="Full API documentation"
+    href="/smart-contracts/tako-sdk"
+    arrow
+  />
+  <Card
+    title="Contract Examples"
+    subtitle="ERC20, VRF, Referrals, and more"
+    href="/smart-contracts/examples"
+    arrow
+  />
+</Cards>
 
-async function deployToken() {
-    // Connect to network
-    const tos = new TOSNetwork({
-        network: 'testnet',
-        apiKey: process.env.TOS_API_KEY
-    });
+## Example Contracts
 
-    // Load wallet
-    const wallet = await tos.wallet.fromPrivateKey(process.env.PRIVATE_KEY);
+### Token Contract
 
-    // Create contract factory
-    const factory = new ContractFactory(
-        'MyToken',
-        './build/MyToken.class',
-        wallet
-    );
+```rust
+#![no_std]
+#![no_main]
 
-    // Deploy contract
-    console.log('Deploying MyToken...');
-    const contract = await factory.deploy(1000000); // 1M initial supply
+use tako_sdk::*;
 
-    console.log(`Contract deployed at: ${contract.address}`);
-    console.log(`Transaction hash: ${contract.deploymentTransaction.hash}`);
-
-    // Verify deployment
-    const totalSupply = await contract.totalSupply();
-    console.log(`Total supply: ${totalSupply}`);
-
-    return contract;
-}
-
-deployToken().catch(console.error);
-```
-
-### Verification
-
-```bash
-# Verify contract on block explorer
-tos-sdk verify --address tos1contract_abc123... --source ./src/main/java/MyToken.java
-
-# Interact with deployed contract
-tos-sdk console --contract tos1contract_abc123...
-
-# In console:
-> token.totalSupply()
-> token.balanceOf("tos1your_address...")
-> token.transfer("tos1recipient...", "1000000000000000000") // 1 token
-```
-
-## 💡 Best Practices
-
-### Security Considerations
-
-```java
-// Use SafeMath for arithmetic operations
-import network.tos.contracts.SafeMath;
-
-public boolean transfer(Address to, BigInteger amount) {
-    BigInteger balance = balanceOf(getCaller());
-
-    // Use SafeMath to prevent overflow/underflow
-    require(SafeMath.gte(balance, amount), "Insufficient balance");
-
-    balances.put(getCaller(), SafeMath.sub(balance, amount));
-    balances.put(to, SafeMath.add(balanceOf(to), amount));
-
-    return true;
-}
-
-// Input validation
-private void validateAddress(Address addr) {
-    require(addr != null, "Address cannot be null");
-    require(!addr.equals(Address.ZERO), "Address cannot be zero");
-}
-
-// Access control
-modifier onlyOwner() {
-    require(getCaller().equals(owner), "Only owner can call this function");
-}
-```
-
-### Gas Optimization
-
-```java
-// Cache repeated calculations
-public boolean batchTransfer(Address[] recipients, BigInteger[] amounts) {
-    require(recipients.length == amounts.length, "Array length mismatch");
-
-    Address sender = getCaller();
-    BigInteger senderBalance = balanceOf(sender);
-    BigInteger totalAmount = BigInteger.ZERO;
-
-    // Calculate total first
-    for (BigInteger amount : amounts) {
-        totalAmount = totalAmount.add(amount);
-    }
-
-    require(senderBalance.compareTo(totalAmount) >= 0, "Insufficient balance");
-
-    // Perform transfers
-    balances.put(sender, senderBalance.subtract(totalAmount));
-
-    for (int i = 0; i < recipients.length; i++) {
-        balances.put(recipients[i], balanceOf(recipients[i]).add(amounts[i]));
-        emit(new Transfer(sender, recipients[i], amounts[i]));
-    }
-
-    return true;
-}
-```
-
-### Event Design
-
-```java
-// Detailed events for better tracking
-public static class StakeEvent extends Events.Event {
-    public final Address staker;
-    public final BigInteger amount;
-    public final BigInteger totalStaked;
-    public final long timestamp;
-
-    public StakeEvent(Address staker, BigInteger amount, BigInteger totalStaked, long timestamp) {
-        this.staker = staker;
-        this.amount = amount;
-        this.totalStaked = totalStaked;
-        this.timestamp = timestamp;
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    match get_method().as_str() {
+        "transfer" => transfer(),
+        "balance_of" => balance_of(),
+        _ => ERROR_INVALID_METHOD
     }
 }
-```
 
-## 🔧 Troubleshooting
+fn transfer() -> u64 {
+    let args = get_args();
+    let to = &args[0..32];
+    let amount = u64::from_le_bytes(args[32..40].try_into().unwrap());
 
-### Common Issues
+    let from = get_caller();
+    let from_key = [b"balance:", &from[..]].concat();
 
-**Contract Compilation Errors**:
-```bash
-# Check Java version
-java -version # Should be 8 or higher
+    // Read balance
+    let mut balance_bytes = [0u8; 8];
+    storage_read(&from_key, &mut balance_bytes);
+    let from_balance = u64::from_le_bytes(balance_bytes);
 
-# Verify imports
-# Make sure all TOS imports are correct
+    if from_balance < amount {
+        return ERROR_INSUFFICIENT_BALANCE;
+    }
 
-# Check syntax
-# RVM supports Java 8 syntax only
-```
+    // Update sender balance
+    storage_write(&from_key, &(from_balance - amount).to_le_bytes());
 
-**Deployment Failures**:
-```bash
-# Check gas limit
-tos-sdk deploy --gas-limit 1000000
+    // Update recipient balance
+    let to_key = [b"balance:", to].concat();
+    let mut to_balance_bytes = [0u8; 8];
+    storage_read(&to_key, &mut to_balance_bytes);
+    let to_balance = u64::from_le_bytes(to_balance_bytes);
+    storage_write(&to_key, &(to_balance + amount).to_le_bytes());
 
-# Verify network connection
-tos-sdk network status
+    emit_event("Transfer", &[&from, to, &amount.to_le_bytes()]);
+    SUCCESS
+}
 
-# Check wallet balance
-tos-sdk wallet balance
-```
+fn balance_of() -> u64 {
+    let account = &get_args()[0..32];
+    let key = [b"balance:", account].concat();
 
-**Test Failures**:
-```bash
-# Run tests with verbose output
-tos-sdk test --verbose
+    let mut balance_bytes = [0u8; 8];
+    storage_read(&key, &mut balance_bytes);
 
-# Check test environment
-tos-sdk test --debug
-
-# Verify mock data
-tos-sdk test --trace
-```
-
-### Debugging Tools
-
-```java
-// Add logging to contracts (testnet only)
-import network.tos.contracts.Debug;
-
-public boolean transfer(Address to, BigInteger amount) {
-    Debug.log("Transfer called", getCaller(), to, amount);
-
-    // ... transfer logic ...
-
-    Debug.log("Transfer completed", success);
-    return success;
+    set_return_data(&balance_bytes);
+    SUCCESS
 }
 ```
 
-## 🚀 Next Steps
+### VRF Lottery Contract
 
-### Advanced Topics to Explore
+```rust
+#![no_std]
+#![no_main]
 
-1. **Multi-signature Wallets**: Implement shared ownership
-2. **Upgradeable Contracts**: Proxy pattern implementation
-3. **Oracle Integration**: External data feeds
-4. **Cross-chain Tokens**: Bridge to other networks
-5. **Governance Tokens**: Voting and proposals
+use tako_sdk::*;
 
-### Recommended Tutorials
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    match get_method().as_str() {
+        "enter" => enter_lottery(),
+        "draw" => draw_winner(),
+        _ => ERROR_INVALID_METHOD
+    }
+}
 
-- [**DeFi Integration**](/tutorials/defi-integration) - Add liquidity and trading
-- [**Privacy Implementation**](/tutorials/privacy-implementation) - Confidential tokens
-- [**Performance Optimization**](/tutorials/performance-optimization) - Scale your contracts
-- [**Security Best Practices**](/tutorials/security-best-practices) - Secure development
+fn enter_lottery() -> u64 {
+    let player = get_caller();
+    let entry_fee = get_value();
 
-### Community Resources
+    if entry_fee < 1_00000000 { // 1 TOS minimum
+        return ERROR_INSUFFICIENT_VALUE;
+    }
 
-- **Code Examples**: [github.com/tos-network/contract-examples](https://github.com/tos-network/contract-examples)
-- **Developer Chat**: [discord.gg/tos-dev](https://discord.gg/tos-dev)
-- **Stack Overflow**: Tag your questions with `tos-network`
-- **Office Hours**: Weekly developer Q&A sessions
+    // Add to participants
+    let mut count_bytes = [0u8; 8];
+    storage_read(b"count", &mut count_bytes);
+    let count = u64::from_le_bytes(count_bytes);
 
----
+    let key = [b"player:", &count.to_le_bytes()].concat();
+    storage_write(&key, &player);
+    storage_write(b"count", &(count + 1).to_le_bytes());
 
-**Congratulations!** You've successfully built a complete token contract with advanced features. Your contract is now ready for production use on TOS Network.
+    SUCCESS
+}
 
-**"Don't Trust, Verify it"** - Remember to thoroughly test your contracts and consider professional audits before mainnet deployment with significant value!
+fn draw_winner() -> u64 {
+    // Get participant count
+    let mut count_bytes = [0u8; 8];
+    storage_read(b"count", &mut count_bytes);
+    let count = u64::from_le_bytes(count_bytes);
+
+    if count == 0 {
+        return ERROR_NO_PARTICIPANTS;
+    }
+
+    // Get VRF random number
+    let random = vrf_random(&get_timestamp().to_le_bytes());
+
+    // Select winner
+    let winner_index = random % count;
+    let key = [b"player:", &winner_index.to_le_bytes()].concat();
+    let mut winner = [0u8; 32];
+    storage_read(&key, &mut winner);
+
+    // Transfer prize pool to winner
+    let prize = get_balance();
+    native_transfer(&winner, prize);
+
+    // Reset lottery
+    storage_write(b"count", &0u64.to_le_bytes());
+
+    emit_event("Winner", &[&winner, &prize.to_le_bytes()]);
+    SUCCESS
+}
+```
+
+## Key Concepts
+
+### Storage
+
+```rust
+// Write to storage
+storage_write(b"key", &value_bytes);
+
+// Read from storage
+let mut buffer = [0u8; 32];
+storage_read(b"key", &mut buffer);
+
+// Delete from storage
+storage_delete(b"key");
+```
+
+### Events
+
+```rust
+// Emit event with indexed parameters
+emit_event("Transfer", &[&from, &to, &amount.to_le_bytes()]);
+
+// Emit simple log
+log("Operation completed");
+```
+
+### Native Features
+
+```rust
+// VRF random number
+let random = vrf_random(&seed);
+
+// Referral system
+referral_set(&user, &referrer);
+referral_distribute(&user, amount);
+
+// Batch transfer
+batch_transfer(&recipients, &amounts);
+```
+
+## Gas Costs
+
+| Operation | Cost |
+|-----------|:----:|
+| Token transfer | $0.001 |
+| VRF random | $0.002 |
+| Storage write | $0.0001/byte |
+| Storage read | Free |
+| Deploy contract | $0.01-$0.05 |
+
+## Next Steps
+
+- Read the [full development guide](/getting-started/smart-contract-development)
+- Explore [contract examples](/smart-contracts/examples)
+- Learn about [native features](/native-features)
+- Check the [TAKO SDK reference](/smart-contracts/tako-sdk)

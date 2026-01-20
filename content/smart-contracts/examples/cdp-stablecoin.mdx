@@ -1,0 +1,521 @@
+---
+title: CDP Stablecoin
+description: MakerDAO-style collateralized debt position and stablecoin in TAKO
+---
+
+<div style={{color: 'red', fontSize: '0.85em', border: '1px solid red', padding: '10px', borderRadius: '5px', marginBottom: '20px'}}>
+⚠️ <strong>Disclaimer</strong>: This document is provided as a smart contract coding example only. The code has NOT been professionally audited. Use at your own risk - you bear full responsibility for any losses if deployed to production.
+</div>
+
+# CDP Stablecoin Contract
+
+A MakerDAO-style Collateralized Debt Position (CDP) system that allows users to mint stablecoins by locking collateral, with liquidation mechanisms to maintain the peg.
+
+## Features
+
+- **Vault Creation**: Lock collateral to create debt positions
+- **Stablecoin Minting**: Mint stablecoins against locked collateral
+- **Stability Fee**: Interest charged on outstanding debt
+- **Liquidation Engine**: Auction-based liquidation for undercollateralized vaults
+- **Price Oracle**: AI-powered price feeds with manipulation detection
+- **Emergency Shutdown**: Global settlement mechanism
+
+## How CDPs Work
+
+```
+1. User locks 10 ETH as collateral
+2. System values collateral at $20,000 (ETH = $2,000)
+3. With 150% collateralization ratio, user can mint up to $13,333 stablecoin
+4. User mints 10,000 TUSD (TOS USD)
+5. User must maintain >150% collateralization or face liquidation
+6. To withdraw collateral, user must repay debt + stability fee
+```
+
+## Instruction Format
+
+| Opcode | Name | Parameters |
+|:------:|------|------------|
+| 0x00 | InitCollateral | `[asset:32][ratio:2][liq_ratio:2][stability_fee:8]` |
+| 0x01 | OpenVault | `[collateral:32][lock_id:8]` |
+| 0x02 | DepositCollateral | `[vault_id:8][lock_id:8][amount:8]` |
+| 0x03 | WithdrawCollateral | `[vault_id:8][amount:8]` |
+| 0x04 | MintStablecoin | `[vault_id:8][amount:8]` |
+| 0x05 | RepayDebt | `[vault_id:8][amount:8][lock_id:8]` |
+| 0x06 | Liquidate | `[vault_id:8]` |
+
+## Storage Layout
+
+```rust
+// Collateral types
+const KEY_COLLATERAL_PREFIX: &[u8] = b"ilk:";  // ilk:{asset} -> CollateralType
+
+// Vaults (CDPs)
+const KEY_VAULT_PREFIX: &[u8] = b"urn:";       // urn:{id} -> Vault
+const KEY_VAULT_COUNT: &[u8] = b"vault_count";
+
+// Stablecoin
+const KEY_STABLECOIN: &[u8] = b"tusd";         // Stablecoin asset hash
+const KEY_TOTAL_DEBT: &[u8] = b"total_debt";   // Total system debt
+
+// Global parameters
+const KEY_GLOBAL_DEBT_CEILING: &[u8] = b"line";
+const KEY_EMERGENCY_SHUTDOWN: &[u8] = b"live";
+```
+
+## Core Data Structures
+
+```rust
+/// Collateral type configuration (like MakerDAO's "ilk")
+struct CollateralType {
+    /// Collateral asset
+    asset: Hash,
+    /// Collateralization ratio (basis points, e.g., 15000 = 150%)
+    col_ratio: u16,
+    /// Liquidation ratio (basis points, e.g., 13000 = 130%)
+    liq_ratio: u16,
+    /// Stability fee per second (ray, 1e27)
+    stability_fee: u128,
+    /// Debt ceiling for this collateral type
+    debt_ceiling: u128,
+    /// Total debt issued against this collateral
+    total_debt: u128,
+    /// Rate accumulator (for interest calculation)
+    rate: u128,
+    /// Last update timestamp
+    last_update: u64,
+}
+
+/// Individual vault (CDP)
+struct Vault {
+    id: u64,
+    owner: Address,
+    collateral_type: Hash,
+    /// Locked collateral amount
+    collateral: u128,
+    /// Lock ID for Asset Lock
+    lock_id: u64,
+    /// Normalized debt (actual debt = normalized * rate)
+    normalized_debt: u128,
+    /// Creation timestamp
+    created_at: u64,
+}
+```
+
+## Core Implementation
+
+### Initialize Collateral Type
+
+```rust
+fn init_collateral(
+    caller: &Address,
+    asset: &Hash,
+    col_ratio: u16,      // 15000 = 150%
+    liq_ratio: u16,      // 13000 = 130%
+    stability_fee: u128, // Per-second fee in ray
+    debt_ceiling: u128
+) -> entrypoint::Result<()> {
+    require_admin(caller)?;
+
+    if col_ratio <= 10000 || liq_ratio <= 10000 {
+        return Err(InvalidRatio);
+    }
+    if liq_ratio >= col_ratio {
+        return Err(InvalidLiquidationRatio);
+    }
+
+    let collateral_type = CollateralType {
+        asset: *asset,
+        col_ratio,
+        liq_ratio,
+        stability_fee,
+        debt_ceiling,
+        total_debt: 0,
+        rate: RAY, // Start at 1.0
+        last_update: get_block_timestamp(),
+    };
+
+    let key = make_collateral_key(asset);
+    storage_write(&key, &collateral_type.encode())?;
+
+    log("Collateral type initialized");
+    Ok(())
+}
+```
+
+### Open Vault
+
+```rust
+/// Open a new vault with initial collateral
+fn open_vault(
+    caller: &Address,
+    collateral_asset: &Hash,
+    lock_id: u64
+) -> entrypoint::Result<u64> {
+    check_not_shutdown()?;
+
+    // Verify collateral type exists
+    let collateral_type = load_collateral_type(collateral_asset)?;
+
+    // Verify lock
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller {
+        return Err(NotLockOwner);
+    }
+    if lock.asset != *collateral_asset {
+        return Err(WrongCollateral);
+    }
+
+    // Use the lock (collateral stays in user's account)
+    lock_use(caller, collateral_asset, lock.amount, lock_id)?;
+
+    // Mark lock as collateral (cannot be unlocked while vault exists)
+    set_lock_collateral(lock_id, true)?;
+
+    // Create vault
+    let vault_id = read_u64(KEY_VAULT_COUNT);
+    let vault = Vault {
+        id: vault_id,
+        owner: *caller,
+        collateral_type: *collateral_asset,
+        collateral: lock.amount as u128,
+        lock_id,
+        normalized_debt: 0,
+        created_at: get_block_timestamp(),
+    };
+
+    let key = make_vault_key(vault_id);
+    storage_write(&key, &vault.encode())?;
+    storage_write(KEY_VAULT_COUNT, &(vault_id + 1).to_le_bytes())?;
+
+    log("Vault opened");
+    Ok(vault_id)
+}
+```
+
+### Mint Stablecoin
+
+```rust
+/// Mint stablecoin against vault collateral
+fn mint_stablecoin(
+    caller: &Address,
+    vault_id: u64,
+    amount: u64
+) -> entrypoint::Result<()> {
+    check_not_shutdown()?;
+
+    let mut vault = load_vault(vault_id)?;
+    if vault.owner != *caller {
+        return Err(NotVaultOwner);
+    }
+
+    let mut collateral_type = load_collateral_type(&vault.collateral_type)?;
+
+    // Accrue stability fee
+    accrue_stability_fee(&mut collateral_type)?;
+
+    // Get collateral price
+    let price = get_price_safe(&vault.collateral_type, 500)?;
+    if !price.is_safe {
+        return Err(UnsafePriceConditions);
+    }
+
+    // Calculate collateral value in USD
+    let collateral_value = vault.collateral
+        .checked_mul(price.price).unwrap()
+        .checked_div(1e18 as u128).unwrap();
+
+    // Calculate current debt (normalized * rate)
+    let current_debt = vault.normalized_debt
+        .checked_mul(collateral_type.rate).unwrap()
+        .checked_div(RAY).unwrap();
+
+    // Calculate new total debt
+    let new_debt = current_debt.checked_add(amount as u128).unwrap();
+
+    // Check collateralization ratio
+    // Required collateral = debt * col_ratio / 10000
+    let required_collateral = new_debt
+        .checked_mul(collateral_type.col_ratio as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    if required_collateral > collateral_value {
+        return Err(InsufficientCollateral);
+    }
+
+    // Check debt ceiling
+    if collateral_type.total_debt.checked_add(amount as u128).unwrap()
+        > collateral_type.debt_ceiling {
+        return Err(DebtCeilingReached);
+    }
+
+    // Update normalized debt
+    let additional_normalized = (amount as u128)
+        .checked_mul(RAY).unwrap()
+        .checked_div(collateral_type.rate).unwrap();
+
+    vault.normalized_debt = vault.normalized_debt
+        .checked_add(additional_normalized).unwrap();
+    save_vault(vault_id, &vault)?;
+
+    // Update collateral type debt
+    collateral_type.total_debt = collateral_type.total_debt
+        .checked_add(amount as u128).unwrap();
+    save_collateral_type(&vault.collateral_type, &collateral_type)?;
+
+    // Update global debt
+    let total_debt = read_u128(KEY_TOTAL_DEBT);
+    storage_write(KEY_TOTAL_DEBT, &(total_debt + amount as u128).to_le_bytes())?;
+
+    // Mint stablecoin to vault owner
+    let stablecoin = read_hash(KEY_STABLECOIN)?;
+    mint(&stablecoin, caller, amount)?;
+
+    log("Stablecoin minted");
+    Ok(())
+}
+```
+
+### Repay Debt
+
+```rust
+/// Repay stablecoin debt
+fn repay_debt(
+    caller: &Address,
+    vault_id: u64,
+    amount: u64,
+    lock_id: u64
+) -> entrypoint::Result<()> {
+    let mut vault = load_vault(vault_id)?;
+    let mut collateral_type = load_collateral_type(&vault.collateral_type)?;
+
+    // Accrue stability fee first
+    accrue_stability_fee(&mut collateral_type)?;
+
+    // Calculate actual debt
+    let actual_debt = vault.normalized_debt
+        .checked_mul(collateral_type.rate).unwrap()
+        .checked_div(RAY).unwrap();
+
+    // Cannot repay more than owed
+    let repay_amount = (amount as u128).min(actual_debt);
+
+    // Verify stablecoin lock
+    let stablecoin = read_hash(KEY_STABLECOIN)?;
+    let lock = get_lock_info(lock_id)?;
+    if lock.owner != *caller || lock.asset != stablecoin {
+        return Err(InvalidLock);
+    }
+
+    // Use and burn stablecoins
+    lock_use(caller, &stablecoin, repay_amount as u64, lock_id)?;
+    burn(&stablecoin, repay_amount as u64)?;
+
+    // Update normalized debt
+    let normalized_repay = repay_amount
+        .checked_mul(RAY).unwrap()
+        .checked_div(collateral_type.rate).unwrap();
+
+    vault.normalized_debt = vault.normalized_debt
+        .saturating_sub(normalized_repay);
+    save_vault(vault_id, &vault)?;
+
+    // Update collateral type and global debt
+    collateral_type.total_debt = collateral_type.total_debt
+        .saturating_sub(repay_amount);
+    save_collateral_type(&vault.collateral_type, &collateral_type)?;
+
+    let total_debt = read_u128(KEY_TOTAL_DEBT);
+    storage_write(KEY_TOTAL_DEBT, &total_debt.saturating_sub(repay_amount).to_le_bytes())?;
+
+    log("Debt repaid");
+    Ok(())
+}
+```
+
+### Liquidation
+
+```rust
+/// Liquidate undercollateralized vault
+fn liquidate(
+    liquidator: &Address,
+    vault_id: u64,
+    max_debt_to_cover: u64,
+    stablecoin_lock_id: u64
+) -> entrypoint::Result<u64> {
+    check_not_shutdown()?;
+
+    let mut vault = load_vault(vault_id)?;
+    let mut collateral_type = load_collateral_type(&vault.collateral_type)?;
+
+    // Accrue fees
+    accrue_stability_fee(&mut collateral_type)?;
+
+    // Get price
+    let price = get_price(&vault.collateral_type)?;
+
+    // Calculate collateral value
+    let collateral_value = vault.collateral
+        .checked_mul(price.price).unwrap()
+        .checked_div(1e18 as u128).unwrap();
+
+    // Calculate actual debt
+    let actual_debt = vault.normalized_debt
+        .checked_mul(collateral_type.rate).unwrap()
+        .checked_div(RAY).unwrap();
+
+    // Check if undercollateralized
+    // Liquidation threshold = debt * liq_ratio / 10000
+    let liq_threshold = actual_debt
+        .checked_mul(collateral_type.liq_ratio as u128).unwrap()
+        .checked_div(10000).unwrap();
+
+    if collateral_value >= liq_threshold {
+        return Err(VaultSafe);
+    }
+
+    // AI Oracle safety check
+    let safety = is_liquidation_safe(
+        &vault.collateral_type,
+        &read_hash(KEY_STABLECOIN)?,
+        price.price,
+        1e18 as u128 // Stablecoin = $1
+    )?;
+
+    if !safety.is_safe {
+        return Err(LiquidationUnsafe);
+    }
+
+    // Calculate debt to cover (limited by max and actual debt)
+    let debt_to_cover = (max_debt_to_cover as u128).min(actual_debt);
+
+    // Calculate collateral to seize (with 13% penalty)
+    // collateral = debt * 1.13 / price
+    let collateral_to_seize = debt_to_cover
+        .checked_mul(11300).unwrap()  // 113%
+        .checked_div(10000).unwrap()
+        .checked_mul(1e18 as u128).unwrap()
+        .checked_div(price.price).unwrap();
+
+    let collateral_to_seize = collateral_to_seize.min(vault.collateral);
+
+    // Liquidator provides stablecoins
+    let stablecoin = read_hash(KEY_STABLECOIN)?;
+    let lock = get_lock_info(stablecoin_lock_id)?;
+    if lock.owner != *liquidator || lock.asset != stablecoin {
+        return Err(InvalidLock);
+    }
+
+    lock_use(liquidator, &stablecoin, debt_to_cover as u64, stablecoin_lock_id)?;
+    burn(&stablecoin, debt_to_cover as u64)?;
+
+    // Update vault
+    let normalized_covered = debt_to_cover
+        .checked_mul(RAY).unwrap()
+        .checked_div(collateral_type.rate).unwrap();
+
+    vault.normalized_debt = vault.normalized_debt
+        .saturating_sub(normalized_covered);
+    vault.collateral = vault.collateral
+        .saturating_sub(collateral_to_seize);
+    save_vault(vault_id, &vault)?;
+
+    // Transfer collateral to liquidator
+    lock_use(
+        &vault.owner,
+        &vault.collateral_type,
+        collateral_to_seize as u64,
+        vault.lock_id
+    )?;
+    transfer(liquidator, &vault.collateral_type, collateral_to_seize as u64)?;
+
+    // Update totals
+    collateral_type.total_debt = collateral_type.total_debt
+        .saturating_sub(debt_to_cover);
+    save_collateral_type(&vault.collateral_type, &collateral_type)?;
+
+    log("Vault liquidated");
+    Ok(collateral_to_seize as u64)
+}
+```
+
+### Stability Fee Accrual
+
+```rust
+/// Accrue stability fee (compound interest)
+fn accrue_stability_fee(
+    collateral_type: &mut CollateralType
+) -> entrypoint::Result<()> {
+    let now = get_block_timestamp();
+    let elapsed = now.saturating_sub(collateral_type.last_update);
+
+    if elapsed == 0 {
+        return Ok(());
+    }
+
+    // Compound: new_rate = old_rate * (1 + fee)^elapsed
+    // Approximation: new_rate = old_rate * (1 + fee * elapsed)
+    let fee_multiplier = RAY.checked_add(
+        collateral_type.stability_fee
+            .checked_mul(elapsed as u128).unwrap()
+    ).unwrap();
+
+    collateral_type.rate = collateral_type.rate
+        .checked_mul(fee_multiplier).unwrap()
+        .checked_div(RAY).unwrap();
+
+    collateral_type.last_update = now;
+
+    Ok(())
+}
+```
+
+## Error Codes
+
+| Code | Name | Description |
+|------|------|-------------|
+| 1801 | InvalidRatio | Collateralization ratio invalid |
+| 1802 | InvalidLiquidationRatio | Liquidation ratio must be < col ratio |
+| 1803 | NotVaultOwner | Caller doesn't own vault |
+| 1804 | InsufficientCollateral | Not enough collateral for mint |
+| 1805 | DebtCeilingReached | Debt ceiling exceeded |
+| 1806 | VaultSafe | Cannot liquidate safe vault |
+| 1807 | LiquidationUnsafe | AI Oracle rejected liquidation |
+| 1808 | EmergencyShutdown | System is in emergency shutdown |
+
+## Usage Example
+
+```rust
+// 1. Admin initializes ETH as collateral type
+// 150% col ratio, 130% liq ratio, 5% annual fee
+let annual_fee = RAY * 5 / 100 / SECONDS_PER_YEAR;
+init_collateral(&admin, &eth, 15000, 13000, annual_fee, 1_000_000e18);
+
+// 2. User opens vault with 10 ETH
+let lock_id = lock_asset(eth, 10e18, contract, 1000000)?;
+let vault_id = open_vault(&user, &eth, lock_id)?;
+
+// 3. User mints 10,000 TUSD (assumes ETH = $2000)
+mint_stablecoin(&user, vault_id, 10_000e18)?;
+
+// 4. Later, user repays 5,000 TUSD
+let repay_lock = lock_asset(tusd, 5_000e18, contract, 10000)?;
+repay_debt(&user, vault_id, 5_000e18, repay_lock)?;
+
+// 5. If ETH drops and vault becomes unsafe, liquidator can liquidate
+let liq_lock = lock_asset(tusd, 3_000e18, contract, 10000)?;
+let collateral_seized = liquidate(&liquidator, vault_id, 3_000e18, liq_lock)?;
+```
+
+## Security Considerations
+
+1. **Oracle Manipulation**: AI Oracle validates prices before liquidation
+2. **Stability Fee Accuracy**: Always accrue fees before operations
+3. **Debt Ceiling**: Prevents excessive system debt
+4. **Collateral Custody**: User maintains custody via Asset Lock
+5. **Emergency Shutdown**: Global settlement for black swan events
+
+## Related Examples
+
+- [Lending Protocol](/smart-contracts/examples/lending) - Similar collateral patterns
+- [Governance](/smart-contracts/examples/governance) - Parameter governance
+- [Security Patterns](/smart-contracts/examples/security-patterns) - Safety patterns

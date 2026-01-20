@@ -1,0 +1,405 @@
+---
+title: Syscalls API
+description: Native TOS features accessible from smart contracts
+---
+
+# Syscalls API
+
+TOS provides native features through syscalls - functions that access blockchain-level capabilities directly from smart contracts. These are more efficient than implementing the same logic in contract code.
+
+## Categories
+
+| Category | Description | Cost Range |
+|----------|-------------|:----------:|
+| **Environment** | Block info, caller, timestamps | 50-100 CU |
+| **Storage** | Read/write contract state | 200-20,000 CU |
+| **Transfer** | Move TOS between accounts | 1,000 CU |
+| **VRF** | Verifiable randomness | 5,000-10,000 CU |
+| **Referral** | Query referral relationships | 500-2,000 CU |
+| **Team Volume** | Track and query volumes | 500-5,000 CU |
+| **Crypto** | Hashing and verification | 100-5,000 CU |
+
+## Environment Syscalls
+
+### Block Information
+
+```rust
+/// Get current block number
+fn get_block_number() -> u64;
+
+/// Get current block hash
+fn get_block_hash() -> [u8; 32];
+
+/// Get current block timestamp (Unix seconds)
+fn get_timestamp() -> u64;
+
+/// Get previous block hash
+fn get_prev_block_hash() -> [u8; 32];
+```
+
+### Transaction Context
+
+```rust
+/// Get transaction sender (original signer)
+fn get_tx_sender() -> [u8; 32];
+
+/// Get immediate caller (may differ in CPI)
+fn get_caller() -> [u8; 32];
+
+/// Get TOS amount sent with this call
+fn get_call_value() -> u64;
+
+/// Get current contract address
+fn get_contract_hash() -> [u8; 32];
+```
+
+## Storage Syscalls
+
+### Read/Write
+
+```rust
+/// Read from storage
+/// Returns: bytes written to buffer (0 if key not found)
+/// Cost: 200 CU
+fn storage_read(key: &[u8], buffer: &mut [u8]) -> u32;
+
+/// Write to storage
+/// Cost: 20,000 CU (cold write), 5,000 CU (warm write)
+fn storage_write(key: &[u8], value: &[u8]) -> Result<(), u64>;
+
+/// Delete from storage
+/// Cost: 5,000 CU (with refund)
+fn storage_delete(key: &[u8]) -> Result<(), u64>;
+```
+
+### Storage Patterns
+
+```rust
+// Simple key-value
+storage_write(b"owner", &owner_address)?;
+
+// Prefixed keys for collections
+let mut key = [0u8; 33];
+key[0] = 0x10; // PREFIX_BALANCE
+key[1..33].copy_from_slice(&account);
+storage_write(&key, &balance.to_le_bytes())?;
+
+// Double-prefixed for mappings
+let mut key = [0u8; 65];
+key[0] = 0x20; // PREFIX_ALLOWANCE
+key[1..33].copy_from_slice(&owner);
+key[33..65].copy_from_slice(&spender);
+storage_write(&key, &allowance.to_le_bytes())?;
+```
+
+## Transfer Syscalls
+
+```rust
+/// Transfer TOS from contract to recipient
+/// Cost: 1,000 CU
+fn transfer(recipient: &[u8; 32], amount: u64) -> Result<(), u64>;
+
+/// Get contract's TOS balance
+fn get_contract_balance() -> u64;
+
+/// Get any account's TOS balance
+fn get_balance(account: &[u8; 32]) -> u64;
+```
+
+### Transfer Example
+
+```rust
+fn withdraw(recipient: &[u8; 32], amount: u64) -> Result<(), u64> {
+    // Check contract has sufficient balance
+    let contract_balance = get_contract_balance();
+    if contract_balance < amount {
+        return Err(ERR_INSUFFICIENT_BALANCE);
+    }
+
+    // Execute transfer
+    transfer(recipient, amount)?;
+
+    log("Withdrawal successful");
+    Ok(())
+}
+```
+
+## VRF Syscalls
+
+Verifiable Random Functions for provably fair randomness.
+
+```rust
+/// Generate VRF random number
+/// Cost: 10,000 CU
+fn vrf_random(seed: &[u8]) -> Result<VRFOutput, u64>;
+
+/// Verify VRF proof
+/// Cost: 5,000 CU
+fn vrf_verify(
+    public_key: &[u8; 32],
+    input: &[u8; 32],
+    pre_output: &[u8; 32],
+    proof: &[u8; 64],
+) -> Result<(), u64>;
+
+/// Get current block's VRF public key
+/// Cost: 100 CU
+fn vrf_public_key() -> Result<[u8; 32], u64>;
+```
+
+### VRF Output Structure
+
+```rust
+pub struct VRFOutput {
+    /// 32-byte random output
+    pub random: [u8; 32],
+
+    /// Pre-output for verification
+    pub pre_output: [u8; 32],
+
+    /// 64-byte proof
+    pub proof: [u8; 64],
+}
+```
+
+### VRF Example
+
+```rust
+fn roll_dice() -> u8 {
+    // Use block hash as seed
+    let seed = get_block_hash();
+
+    // Generate VRF random
+    let output = vrf_random(&seed).expect("VRF failed");
+
+    // Get verifiable public key
+    let pk = vrf_public_key().expect("No VRF key");
+
+    // Verify the random (optional, for transparency)
+    vrf_verify(&pk, &seed, &output.pre_output, &output.proof)
+        .expect("VRF verification failed");
+
+    // Map to dice value (1-6)
+    (output.random[0] % 6) + 1
+}
+```
+
+## Referral Syscalls
+
+Query the native referral relationship tree.
+
+```rust
+/// Check if user has bound a referrer
+/// Cost: 500 CU
+fn tos_has_referrer(user: &[u8; 32]) -> Result<bool, u64>;
+
+/// Get user's direct referrer
+/// Cost: 500 CU
+fn tos_get_referrer(user: &[u8; 32]) -> Result<[u8; 32], u64>;
+
+/// Get N levels of uplines (max 20)
+/// Cost: 500 + 200*N CU
+fn tos_get_uplines(
+    user: &[u8; 32],
+    levels: u8,
+) -> Result<UplinesResult, u64>;
+
+/// Get count of direct referrals
+/// Cost: 500 CU
+fn tos_get_direct_referrals_count(user: &[u8; 32]) -> Result<u32, u64>;
+
+/// Get total team size (cached)
+/// Cost: 500 CU
+fn tos_get_team_size(user: &[u8; 32]) -> Result<u64, u64>;
+
+/// Get user's depth in referral tree
+/// Cost: 500 CU
+fn tos_get_referral_level(user: &[u8; 32]) -> Result<u8, u64>;
+
+/// Check if descendant is in ancestor's downline
+/// Cost: 500 + 100*depth CU
+fn tos_is_downline(
+    ancestor: &[u8; 32],
+    descendant: &[u8; 32],
+    max_depth: u8,
+) -> Result<bool, u64>;
+```
+
+### Referral Example
+
+```rust
+fn distribute_to_uplines(buyer: &[u8; 32], amount: u64) {
+    // Get 3 levels of uplines
+    let (uplines, count) = match get_uplines(buyer, 3) {
+        Ok(result) => result,
+        Err(_) => return, // No referrer
+    };
+
+    // Distribution rates: 10%, 5%, 3%
+    let rates = [1000u64, 500, 300]; // basis points
+
+    for i in 0..(count as usize).min(3) {
+        let reward = amount * rates[i] / 10000;
+        if reward > 0 {
+            let _ = transfer(&uplines[i], reward);
+        }
+    }
+}
+```
+
+## Team Volume Syscalls
+
+Track sales/transaction volumes through referral chains.
+
+```rust
+/// Add volume to upline chain (WRITE)
+/// Cost: 1000 + 500*levels CU
+fn tos_add_team_volume(
+    user: &[u8; 32],
+    asset: &[u8; 32],
+    amount: u64,
+    levels: u8,
+) -> Result<(), u64>;
+
+/// Get total team volume for user-asset
+/// Cost: 500 CU
+fn tos_get_team_volume(
+    user: &[u8; 32],
+    asset: &[u8; 32],
+) -> Result<u64, u64>;
+
+/// Get direct referral volume only
+/// Cost: 500 CU
+fn tos_get_direct_volume(
+    user: &[u8; 32],
+    asset: &[u8; 32],
+) -> Result<u64, u64>;
+
+/// Get zone volumes (each direct referral's team volume)
+/// Cost: 500 + 100*count CU
+fn tos_get_zone_volumes(
+    user: &[u8; 32],
+    asset: &[u8; 32],
+    limit: u8,
+) -> Result<ZoneVolumesResult, u64>;
+```
+
+### Volume Tracking Example
+
+```rust
+fn on_purchase(buyer: &[u8; 32], amount: u64) {
+    let asset = get_contract_hash();
+
+    // Record volume to 10 levels of uplines
+    let _ = add_team_volume(buyer, &asset, amount, 10);
+
+    // Calculate rewards based on volume tiers
+    let (uplines, count) = get_uplines(buyer, 3).unwrap_or_default();
+
+    for i in 0..(count as usize).min(3) {
+        let upline = &uplines[i];
+
+        // Get their team volume
+        let team_vol = get_team_volume(upline, &asset).unwrap_or(0);
+
+        // Dynamic rate based on volume tier
+        let rate = if team_vol >= 1_000_000 {
+            1500 // 15% for Diamond
+        } else if team_vol >= 100_000 {
+            1000 // 10% for Gold
+        } else {
+            500  // 5% for Basic
+        };
+
+        let reward = amount * rate / 10000;
+        if reward > 0 {
+            let _ = transfer(upline, reward);
+        }
+    }
+}
+```
+
+## Crypto Syscalls
+
+```rust
+/// Blake3 hash
+/// Cost: 100 CU + 1 CU per 64 bytes
+fn blake3_hash(data: &[u8]) -> [u8; 32];
+
+/// Keccak256 hash (Ethereum compatible)
+/// Cost: 100 CU + 1 CU per 64 bytes
+fn keccak256(data: &[u8]) -> [u8; 32];
+
+/// SHA256 hash
+/// Cost: 100 CU + 1 CU per 64 bytes
+fn sha256(data: &[u8]) -> [u8; 32];
+
+/// Verify ed25519 signature
+/// Cost: 5,000 CU
+fn ed25519_verify(
+    public_key: &[u8; 32],
+    message: &[u8],
+    signature: &[u8; 64],
+) -> Result<(), u64>;
+```
+
+## Cross-Program Invocation (CPI)
+
+```rust
+/// Call another contract
+/// Cost: 10,000 CU base + callee costs
+fn cpi_call(
+    target: &[u8; 32],
+    input: &[u8],
+    return_buffer: &mut [u8],
+) -> Result<u32, u64>;
+```
+
+### CPI Example
+
+```rust
+fn get_token_balance(token: &[u8; 32], account: &[u8; 32]) -> u64 {
+    // Build call data: opcode + account
+    let mut input = [0u8; 33];
+    input[0] = 0x10; // OP_BALANCE_OF
+    input[1..33].copy_from_slice(account);
+
+    // Call token contract
+    let mut result = [0u8; 8];
+    let len = cpi_call(token, &input, &mut result)
+        .unwrap_or(0);
+
+    if len == 8 {
+        u64::from_le_bytes(result)
+    } else {
+        0
+    }
+}
+```
+
+## Compute Unit Limits
+
+| Limit | Value |
+|-------|:-----:|
+| Max CU per transaction | 1,400,000 |
+| Max CU per block | 48,000,000 |
+| CPI depth limit | 4 |
+| Max return data size | 10,240 bytes |
+| Max input data size | 10,240 bytes |
+
+## Error Handling
+
+All syscalls that return `Result` use these error codes:
+
+| Code | Constant | Meaning |
+|:----:|----------|---------|
+| 0 | SUCCESS | Operation succeeded |
+| 1 | ERROR | Generic failure |
+| 100 | ERR_INVALID_ARGUMENT | Bad parameter |
+| 101 | ERR_BUFFER_TOO_SMALL | Output buffer insufficient |
+| 102 | ERR_NOT_FOUND | Key/account not found |
+| 103 | ERR_PERMISSION_DENIED | Unauthorized operation |
+| 104 | ERR_INSUFFICIENT_FUNDS | Not enough balance |
+| 105 | ERR_CPI_FAILED | Cross-program call failed |
+| 106 | ERR_VRF_FAILED | VRF operation failed |
+| 107 | ERR_COMPUTE_EXCEEDED | Out of compute units |

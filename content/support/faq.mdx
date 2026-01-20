@@ -16,7 +16,7 @@ TOS Network is a next-generation blockchain that uses Proof-of-Work mining with 
 **Key Features**:
 - **Proof-of-Work Mining**: Secure and decentralized consensus
 - **BlockDAG Architecture**: Enhanced scalability and parallelization
-- **Smart Contracts**: Java-based contracts running on RVM (Rust Virtual Machine)
+- **Smart Contracts**: Rust contracts running on TAKO (eBPF-inspired runtime)
 - **Privacy Features**: Ring signatures and confidential transactions
 - **Cross-chain Bridges**: Multi-chain interoperability
 
@@ -34,7 +34,7 @@ graph LR
 1. **BlockDAG Architecture**: Enhanced scalability through parallel block processing
 2. **Privacy Features**: Advanced cryptographic privacy protections
 3. **Energy Model**: Gas-free transactions through energy staking
-4. **Developer-friendly**: Java smart contracts with familiar syntax
+4. **Developer-friendly**: Rust smart contracts with native features
 
 ### What is the TOS token used for?
 
@@ -78,47 +78,45 @@ const energyComparison = {
 
 ### What programming language is used for smart contracts?
 
-TOS Network uses **Java** for smart contract development, running on our custom **RVM (Rust Virtual Machine)**.
+TOS Network uses **Rust** for smart contract development, running on the **TAKO runtime** (eBPF-inspired execution environment).
 
-**Why Java?**:
-- **Familiar Syntax**: Most developers know Java
-- **Rich Ecosystem**: Existing libraries and tools
-- **Enterprise-Ready**: Battle-tested in production environments
-- **Type Safety**: Compile-time error detection
-- **Performance**: Optimized execution on RVM
+**Why Rust?**:
+- **Memory Safety**: Compile-time guarantees prevent runtime errors
+- **High Performance**: Zero-cost abstractions and efficient bytecode
+- **Modern Tooling**: Cargo ecosystem and excellent IDE support
+- **Type Safety**: Strong compile-time type checking
+- **Native Features**: Direct access to VRF, referrals, batch transfers
 
 **Example Contract**:
-```java
-import tos.contract.Contract;
-import tos.contract.annotations.*;
+```rust
+#![no_std]
+#![no_main]
+use tako_sdk::*;
 
-public class TokenContract extends Contract {
-    private Map<Address, BigInteger> balances;
-    private BigInteger totalSupply;
-
-    @Constructor
-    public TokenContract(BigInteger initialSupply) {
-        balances = new HashMap<>();
-        totalSupply = initialSupply;
-        balances.put(getCaller(), initialSupply);
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
+    match get_method().as_str() {
+        "transfer" => transfer(),
+        "balance_of" => balance_of(),
+        _ => ERROR_INVALID_METHOD
     }
+}
 
-    @View
-    public BigInteger balanceOf(Address account) {
-        return balances.getOrDefault(account, BigInteger.ZERO);
-    }
+fn transfer() -> u64 {
+    let args = get_args();
+    let to = &args[0..32];
+    let amount = u64::from_le_bytes(args[32..40].try_into().unwrap());
 
-    @External
-    public boolean transfer(Address to, BigInteger amount) {
-        Address from = getCaller();
-        require(balanceOf(from).compareTo(amount) >= 0, "Insufficient balance");
+    // Update balances...
+    SUCCESS
+}
 
-        balances.put(from, balances.get(from).subtract(amount));
-        balances.put(to, balances.getOrDefault(to, BigInteger.ZERO).add(amount));
-
-        emit(new TransferEvent(from, to, amount));
-        return true;
-    }
+fn balance_of() -> u64 {
+    let account = &get_args()[0..32];
+    let mut balance = [0u8; 8];
+    storage_read(&[b"balance:", account].concat(), &mut balance);
+    set_return_data(&balance);
+    SUCCESS
 }
 ```
 
@@ -126,32 +124,37 @@ public class TokenContract extends Contract {
 
 **Step-by-Step Deployment**:
 
-1. **Write Contract**:
-```java
-// MyContract.java
-public class MyContract extends Contract {
+1. **Write Contract** (Rust):
+```rust
+// src/lib.rs
+#![no_std]
+#![no_main]
+use tako_sdk::*;
+
+#[no_mangle]
+pub extern "C" fn entrypoint() -> u64 {
     // Contract implementation
+    SUCCESS
 }
 ```
 
 2. **Compile Contract**:
 ```bash
-# Using TOS CLI
-tos-cli compile MyContract.java
-
-# Output: MyContract.class (bytecode)
+# Build with Cargo
+cargo build --release --target wasm32-unknown-unknown
 ```
 
 3. **Deploy to Network**:
 ```bash
 # Deploy to testnet
-tos-cli deploy MyContract.class \
+tos deploy \
+  --contract target/wasm32-unknown-unknown/release/my_contract.wasm \
   --network testnet \
-  --constructor-args "1000000" \
   --gas-limit 1000000
 
 # Deploy to mainnet
-tos-cli deploy MyContract.class \
+tos deploy \
+  --contract target/wasm32-unknown-unknown/release/my_contract.wasm \
   --network mainnet \
   --constructor-args "1000000" \
   --gas-limit 1000000
