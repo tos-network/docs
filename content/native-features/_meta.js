@@ -3,6 +3,7 @@ export default {
   'referral-system': 'Referral System',
   'batch-transfer': 'Batch Transfer',
   'vrf-random': 'VRF Randomness',
+  'a2a-protocol': 'A2A Protocol',
   'privacy-transfer': 'Privacy Transfer (UNO)',
   'scheduled-tasks': 'Scheduled Tasks',
   'mev-protection': 'MEV Protection',

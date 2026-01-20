@@ -1,0 +1,394 @@
+---
+title: A2A Protocol
+description: Agent-to-Agent communication protocol with on-chain settlement
+---
+
+import { Callout } from 'nextra/components'
+
+# A2A Protocol
+
+TOS implements the **Agent-to-Agent (A2A) Protocol** for off-chain agent communication, seamlessly integrated with on-chain settlement capabilities.
+
+## Implementation Status
+
+<Callout type="info">
+**Status: 100% Implemented**
+
+Both the A2A Protocol Layer (off-chain) and On-Chain Settlement Layer are fully implemented.
+</Callout>
+
+| Component | Items | Status |
+|-----------|:-----:|:------:|
+| Core Data Structures | 11 | Complete |
+| Agent Card | 7 | Complete |
+| Security Schemes | 17 | Complete |
+| Service Operations | 11 | Complete |
+| Request/Response Types | 12 | Complete |
+| Push Notification | 8 | Complete |
+| TOS Extensions | 9 | Complete |
+| Error Types | 19 | Complete |
+| **Total** | **133** | **Complete** |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Client / Orchestrator                      │
+├─────────────────────────────────────────────────────────────┤
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              A2A Protocol Layer (Off-Chain)            │  │
+│  │  - Agent Discovery (Agent Card)                        │  │
+│  │  - Task Lifecycle Management (11 Operations)           │  │
+│  │  - Message & Streaming Communication                   │  │
+│  │  - Push Notifications                                  │  │
+│  │  - Standard Security (OAuth2, API Key, mTLS)          │  │
+│  │  - TOS Signature Authentication (Extension)            │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              │                               │
+│                              ▼                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │         Agent Account Protocol (On-Chain, Optional)    │  │
+│  │  - AgentAccountMeta (owner, controller, session_key)   │  │
+│  │  - SessionKey scope enforcement                        │  │
+│  │  - Energy pool fee management                          │  │
+│  │  - On-chain settlement (escrow)                        │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                              │                               │
+│                              ▼                               │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                    TOS Blockchain                       │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Key Features
+
+### Agent Discovery
+
+Agents publish an **Agent Card** at a well-known URL for discovery:
+
+```
+GET https://{domain}/.well-known/agent-card.json
+```
+
+The Agent Card describes:
+- Supported interfaces and protocol bindings
+- Security schemes (OAuth2, API Key, TOS Signature)
+- Agent capabilities and skills
+- TOS identity (optional extension)
+
+### Task Management
+
+11 standard A2A operations for task lifecycle:
+
+| Operation | Description |
+|-----------|-------------|
+| `SendMessage` | Send a message to the agent |
+| `SendStreamingMessage` | Streaming version with real-time updates |
+| `GetTask` | Get current task state |
+| `ListTasks` | List tasks with filtering |
+| `CancelTask` | Cancel a running task |
+| `SubscribeToTask` | Subscribe to task updates (SSE) |
+| `Set/Get/List/DeleteTaskPushNotificationConfig` | Manage push notifications |
+| `GetExtendedAgentCard` | Get authenticated agent card |
+
+### Protocol Bindings
+
+| Binding | Transport | Format | Use Case |
+|---------|-----------|--------|----------|
+| **JSON-RPC 2.0** | HTTP POST | JSON | Default, web-friendly |
+| **gRPC** | HTTP/2 | Protobuf | High-performance |
+| **HTTP+JSON** | REST | JSON | Simple integration |
+
+### Streaming Support
+
+| Transport | Endpoint | Format |
+|-----------|----------|--------|
+| **HTTP SSE** | `POST /v1/message:stream` | Server-Sent Events |
+| **WebSocket** | `GET /a2a/ws` | JSON-RPC 2.0 |
+
+---
+
+## Security Schemes
+
+TOS supports all standard A2A security schemes plus blockchain-native authentication:
+
+### Standard Security
+
+| Scheme | Description |
+|--------|-------------|
+| **API Key** | Simple API key in header/query/cookie |
+| **HTTP Auth** | Bearer token or Basic auth |
+| **OAuth 2.0** | Full OAuth2 flows support |
+| **OpenID Connect** | OIDC authentication |
+| **mTLS** | Mutual TLS certificates |
+
+### TOS Signature (Extension)
+
+Blockchain-based authentication using TOS Agent Accounts:
+
+```rust
+pub struct TosSignature {
+    pub signer: TosSignerType,  // Owner, Controller, or SessionKey
+    pub value: String,          // Hex-encoded signature
+    pub timestamp: u64,         // Unix timestamp
+    pub nonce: u64,             // Replay protection
+    pub session_key_id: Option<u64>,
+}
+```
+
+**Security Measures:**
+- Nonce replay protection (single-use within TTL)
+- Timestamp validation (configurable TTL, default 5 min)
+- Bounded nonce cache (10,000 entries, LRU eviction)
+- Verify-before-store (prevents memory exhaustion DoS)
+
+---
+
+## TOS Extensions
+
+TOS extends the A2A protocol with optional blockchain features:
+
+### On-Chain Settlement
+
+Link A2A tasks to on-chain escrow for trustless payment:
+
+```rust
+pub struct TosTaskAnchor {
+    pub escrow_id: u64,
+    pub agent_account: PublicKey,
+    pub settlement_status: SettlementStatus,
+}
+
+pub enum SettlementStatus {
+    None,
+    EscrowLocked,
+    Claimed,
+    Refunded,
+    Disputed,
+}
+```
+
+**Settlement Operations:**
+- `CreateTaskEscrow` - Lock funds for a task
+- `ClaimTaskReward` - Agent claims payment on completion
+- `ReclaimEscrowTimeout` - Client reclaims after timeout
+
+### Agent Identity
+
+On-chain identity verification for agents:
+
+```rust
+pub struct TosAgentIdentity {
+    pub agent_account: PublicKey,
+    pub controller: PublicKey,
+    pub reputation_score_bps: Option<u32>,
+    pub identity_proof: Option<TosIdentityProof>,
+}
+```
+
+---
+
+## HTTP Endpoints
+
+### Primary Endpoints (Unversioned)
+
+| Method | Endpoint | Operation |
+|--------|----------|-----------|
+| GET | `/.well-known/agent-card.json` | Get Agent Card (PUBLIC) |
+| POST | `/message:send` | SendMessage |
+| POST | `/message:stream` | SendStreamingMessage (SSE) |
+| GET | `/tasks` | ListTasks |
+| GET | `/tasks/{id}` | GetTask |
+| POST | `/tasks/{id}:cancel` | CancelTask |
+| POST | `/tasks/{id}:subscribe` | SubscribeToTask (SSE) |
+| GET | `/a2a/ws` | WebSocket Streaming |
+
+### Versioned Endpoints (A2A v1.0 Compatible)
+
+All endpoints also available under `/v1/` prefix for A2A v1.0 compatibility.
+
+---
+
+## Usage Example
+
+### SendMessage Request
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "messageId": "msg-001",
+      "role": "user",
+      "parts": [{ "text": "Swap 100 USDT for TOS" }]
+    },
+    "configuration": {
+      "acceptedOutputModes": ["text/plain"],
+      "blocking": false
+    }
+  }
+}
+```
+
+**HTTP Headers:**
+```
+Content-Type: application/json
+Authorization: Bearer <token>
+a2a-version: 1.0
+```
+
+### Task Response
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "req-001",
+  "result": {
+    "task": {
+      "id": "task-abc123",
+      "contextId": "ctx-xyz789",
+      "status": {
+        "state": "submitted",
+        "timestamp": "2024-01-08T12:00:00Z"
+      },
+      "artifacts": [],
+      "history": []
+    }
+  }
+}
+```
+
+### With TOS Settlement
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "req-002",
+  "method": "SendMessage",
+  "params": {
+    "message": {
+      "messageId": "msg-002",
+      "taskId": "task-abc123",
+      "role": "user",
+      "parts": [{ "text": "Swap 100 USDT for TOS" }]
+    },
+    "metadata": {
+      "tosSettlement": {
+        "maxCost": 5000000000,
+        "currency": "TOS",
+        "escrowHash": "0xabc123...def456",
+        "agentAccount": "tos1abc...xyz"
+      }
+    }
+  }
+}
+```
+
+---
+
+## Agent Card Example
+
+```json
+{
+  "protocolVersion": "1.0",
+  "name": "TOS Trading Agent",
+  "description": "Automated DeFi trading with on-chain settlement",
+  "version": "1.0.0",
+  "supportedInterfaces": [
+    { "url": "https://agent.example.com/a2a", "protocolBinding": "JSONRPC" },
+    { "url": "https://agent.example.com/a2a/grpc", "protocolBinding": "GRPC" }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": true,
+    "tosOnChainSettlement": true
+  },
+  "securitySchemes": {
+    "bearerAuth": {
+      "httpAuthSecurityScheme": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "tosSignature": {
+      "tosSignatureSecurityScheme": {
+        "chainId": 1337,
+        "allowedSigners": ["owner", "controller", "session-key"]
+      }
+    }
+  },
+  "skills": [
+    {
+      "id": "swap",
+      "name": "Token Swap",
+      "description": "Execute token swaps on DEXes",
+      "tags": ["defi", "swap", "trade"],
+      "examples": ["Swap 100 USDT for TOS"],
+      "tosBaseCost": 1000000
+    }
+  ],
+  "tosIdentity": {
+    "agentAccount": "tos1abc...xyz",
+    "controller": "tos1def...uvw",
+    "reputationScoreBps": 8500
+  }
+}
+```
+
+---
+
+## Error Codes
+
+### Standard JSON-RPC Errors
+| Code | Name | Description |
+|------|------|-------------|
+| -32700 | Parse Error | Invalid JSON |
+| -32600 | Invalid Request | Invalid request object |
+| -32601 | Method Not Found | Method does not exist |
+| -32602 | Invalid Params | Invalid parameters |
+| -32603 | Internal Error | Internal server error |
+
+### A2A Protocol Errors
+| Code | Name | Description |
+|------|------|-------------|
+| -32001 | TaskNotFoundError | Task does not exist |
+| -32002 | TaskNotCancelableError | Task cannot be cancelled |
+| -32003 | PushNotificationNotSupportedError | Push not supported |
+| -32004 | UnsupportedOperationError | Operation not supported |
+
+### TOS Extension Errors
+| Code | Name | Description |
+|------|------|-------------|
+| -32100 | TosIdentityVerificationFailed | Agent account invalid |
+| -32101 | TosSignatureInvalid | Signature verification failed |
+| -32102 | TosSessionKeyExpired | Session key expired |
+| -32103 | TosAccountFrozen | Agent account is frozen |
+| -32104 | TosEscrowFailed | Escrow operation failed |
+
+---
+
+## A2A v1.0 Compatibility
+
+TOS A2A is **fully compatible** with the [A2A Protocol v1.0](https://a2a-protocol.org/) specification:
+
+- All core data structures follow the official A2A schema
+- All 11 A2A operations are supported
+- Standard security schemes (OAuth2, API Key, OpenID Connect, mTLS) supported
+- TOS extensions are clearly marked and optional
+
+**Extension Mechanism:** TOS-specific fields use `#[serde(skip_serializing_if = "Option::is_none")]` and are safely ignored by non-TOS implementations.
+
+---
+
+## Related
+
+- [Scheduled Tasks](/native-features/scheduled-tasks) - Time-triggered execution
+- [Privacy Transfer](/native-features/privacy-transfer) - Encrypted transactions
+- [VRF Random](/native-features/vrf-random) - Verifiable randomness
