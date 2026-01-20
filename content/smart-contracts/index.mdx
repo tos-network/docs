@@ -55,12 +55,65 @@ TOS Network smart contracts are written in **Rust** and compiled to **TBPFv3** b
 
 ### 1. Install Platform Tools
 
+#### Method A: Quick Install (Recommended)
+
 ```bash
 # Install TOS Platform Tools
 curl -sSf https://tos.network/install.sh | sh
 
 # Verify installation
 cargo-tako --version
+```
+
+#### Method B: Manual Download from GitHub
+
+Download the appropriate package from [GitHub Releases](https://github.com/tos-network/platform-tools/releases):
+
+| Platform | Architecture | Download |
+|----------|--------------|----------|
+| **Linux** | x86_64 | [tos-platform-tools-linux-x86_64.tar.bz2](https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-linux-x86_64.tar.bz2) (549 MB) |
+| **Linux** | ARM64 | [tos-platform-tools-linux-aarch64.tar.bz2](https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-linux-aarch64.tar.bz2) (545 MB) |
+| **macOS** | Apple Silicon | [tos-platform-tools-osx-aarch64.tar.bz2](https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-osx-aarch64.tar.bz2) (415 MB) |
+| **macOS** | Intel | [tos-platform-tools-osx-x86_64.tar.bz2](https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-osx-x86_64.tar.bz2) (425 MB) |
+| **Windows** | x86_64 | [tos-platform-tools-windows-x86_64.tar.bz2](https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-windows-x86_64.tar.bz2) (597 MB) |
+
+**Installation Steps:**
+
+```bash
+# 1. Download (example for macOS Apple Silicon)
+curl -LO https://github.com/tos-network/platform-tools/releases/latest/download/tos-platform-tools-osx-aarch64.tar.bz2
+
+# 2. Create installation directory
+mkdir -p ~/.cache/tos/v1.54
+
+# 3. Extract
+tar -xjf tos-platform-tools-osx-aarch64.tar.bz2 -C ~/.cache/tos/v1.54
+
+# 4. Add to PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH="$HOME/.cache/tos/v1.54/tos-platform-tools/llvm/bin:$PATH"
+export PATH="$HOME/.cache/tos/v1.54/tos-platform-tools/rust/bin:$PATH"
+
+# 5. Verify installation
+cargo-tako --version
+# Output: cargo-tako 0.3.1
+```
+
+**Directory Structure After Installation:**
+
+```
+~/.cache/tos/v1.54/tos-platform-tools/
+├── llvm/
+│   └── bin/
+│       ├── clang           # LLVM Clang 20.1.7
+│       ├── lld             # LLVM Linker
+│       └── ...
+├── rust/
+│   └── bin/
+│       ├── cargo           # Cargo 0.94.0
+│       ├── cargo-tako      # TAKO build tool 0.3.1
+│       ├── rustc           # Rust 1.91.0-dev
+│       └── rustfmt
+└── version.md
 ```
 
 ### 2. Create a New Contract
@@ -217,13 +270,15 @@ transfer(&recipient, amount)?;
 
 ### Platform Tools (v1.54)
 
-Located at `~/.cache/tos/v1.54/`:
+Located at `~/.cache/tos/v1.54/tos-platform-tools/`:
 
-```
-├── llvm/     (clang 20.1.7-rust-dev)
-├── rust/     (rustc 1.89.0-dev, cargo-tako 0.3.1)
-└── version.md
-```
+| Component | Version | Description |
+|-----------|---------|-------------|
+| **LLVM/Clang** | 20.1.7 | C/C++ compiler for TBPF target |
+| **Rust** | 1.91.0-dev | Rust compiler with TOS target |
+| **Cargo** | 0.94.0 | Rust package manager |
+| **cargo-tako** | 0.3.1 | TAKO contract build tool |
+| **LLD** | 20.1.7 | LLVM linker |
 
 ### Cargo Configuration
 
@@ -245,7 +300,7 @@ rustflags = [
 
 ```toml
 [toolchain]
-channel = "1.89.0-dev"
+channel = "1.91.0-dev"
 ```
 
 ## Gas Costs
