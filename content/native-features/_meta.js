@@ -6,6 +6,7 @@ export default {
   'privacy-transfer': 'Privacy Transfer (UNO)',
   'scheduled-tasks': 'Scheduled Tasks',
   'mev-protection': 'MEV Protection',
+  'native-nft': 'Native NFT',
   'atomic-swap': 'Atomic Swap',
   'future-features': 'Future Features'
 }

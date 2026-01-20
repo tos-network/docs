@@ -53,63 +53,6 @@ pub mod CrossChainSyscall {
 
 ---
 
-### Native NFT Support
-
-**Target: Mainnet 6 months**
-
-Protocol-level NFT operations for gas-efficient minting and transfers.
-
-**Planned Capabilities:**
-- Native collection creation
-- Low-gas minting (batch support)
-- Royalty enforcement at protocol level
-- On-chain attribute storage
-
-```rust
-// Planned API
-pub mod NFTSyscall {
-    /// Create NFT collection
-    fn create_collection(
-        name: String,
-        symbol: String,
-        royalty_bps: u16,
-        max_supply: Option<u64>,
-    ) -> Result<Hash, NFTError>;
-
-    /// Mint NFT
-    fn mint(
-        collection: Hash,
-        to: Address,
-        metadata_uri: String,
-        attributes: Vec<(String, String)>,
-    ) -> Result<u64, NFTError>;
-
-    /// Transfer NFT
-    fn transfer(
-        collection: Hash,
-        token_id: u64,
-        to: Address,
-    ) -> Result<(), NFTError>;
-
-    /// Batch mint
-    fn batch_mint(
-        collection: Hash,
-        recipients: Vec<(Address, String)>,
-    ) -> Result<Vec<u64>, NFTError>;
-}
-```
-
-**Gas Comparison (Estimated):**
-
-| Operation | ERC721 (TRON) | **TOS Native** |
-|-----------|:-------------:|:--------------:|
-| Create collection | $1.00 | **$0.05** |
-| Mint single | $0.50 | **$0.02** |
-| Batch mint (100) | $50.00 | **$1.00** |
-| Transfer | $0.30 | **$0.01** |
-
----
-
 ### Oracle Integration
 
 **Target: Mainnet 6 months**
@@ -172,7 +115,6 @@ pub struct PriceData {
 
 ### Q3 2025
 - Cross-Chain Bridge (P2)
-- Native NFT (P2)
 
 ### Q4 2025
 - Oracle Integration (P2)

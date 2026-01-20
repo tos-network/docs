@@ -1,0 +1,489 @@
+---
+title: Native NFT
+description: Protocol-level NFT support with 30+ syscalls for gas-efficient operations
+---
+
+import { Callout } from 'nextra/components'
+
+# Native NFT Support
+
+TOS Network provides **protocol-level NFT operations** through native syscalls, enabling gas-efficient minting, transfers, and management without smart contract overhead.
+
+## Implementation Status
+
+<Callout type="info">
+**Status: Implemented (91%)**
+
+Core functionality complete. Only advanced features (Token Bound Accounts, Rental System) pending.
+</Callout>
+
+| Category | Status | Syscalls |
+|----------|:------:|:--------:|
+| Collection Management | ✅ Complete | 5 |
+| Minting | ✅ Complete | 2 |
+| Transfers | ✅ Complete | 2 |
+| Burns | ✅ Complete | 2 |
+| Approvals | ✅ Complete | 5 |
+| Freeze/Thaw | ✅ Complete | 5 |
+| Metadata | ✅ Complete | 3 |
+| Queries | ✅ Complete | 6 |
+
+## Features
+
+- **Low-Gas Operations**: 95% cheaper than ERC721
+- **Batch Operations**: Mint/transfer/burn up to 100 NFTs per transaction
+- **On-Chain Attributes**: Store metadata directly on-chain
+- **Royalty Enforcement**: Protocol-level royalty support
+- **Freeze/Thaw**: Collection owner can freeze individual NFTs
+- **Approval System**: Full ERC721-compatible approval mechanism
+
+## Gas Comparison
+
+| Operation | ERC721 (TRON) | **TOS Native** | Savings |
+|-----------|:-------------:|:--------------:|:-------:|
+| Create collection | $1.00 | **$0.05** | 95% |
+| Mint single | $0.50 | **$0.02** | 96% |
+| Batch mint (100) | $50.00 | **$1.00** | 98% |
+| Transfer | $0.30 | **$0.01** | 97% |
+| Batch transfer (100) | $30.00 | **$0.50** | 98% |
+
+## Syscall Reference
+
+### Collection Management
+
+#### `tos_nft_create_collection`
+
+Create a new NFT collection.
+
+```rust
+use tako_sdk::nft::*;
+
+let collection_id = nft_create_collection(
+    "My Collection",           // name
+    "MYC",                     // symbol
+    "https://example.com/",    // base_uri
+    500,                       // royalty_bps (5%)
+    Some(10000),               // max_supply (optional)
+)?;
+```
+
+**Cost**: 5000 CU + URI bytes
+
+#### `tos_nft_update_collection`
+
+Update collection metadata.
+
+```rust
+nft_update_collection(
+    &collection_id,
+    Some("New Name"),
+    Some("https://new-uri.com/"),
+)?;
+```
+
+**Cost**: 2000 CU + URI bytes
+
+#### `tos_nft_transfer_collection_ownership`
+
+Transfer collection ownership.
+
+```rust
+nft_transfer_collection_ownership(&collection_id, &new_owner)?;
+```
+
+**Cost**: 2000 CU
+
+#### `tos_nft_set_minting_paused`
+
+Pause/resume minting.
+
+```rust
+nft_set_minting_paused(&collection_id, true)?;  // Pause
+nft_set_minting_paused(&collection_id, false)?; // Resume
+```
+
+**Cost**: 1500 CU
+
+#### `tos_nft_collection_exists`
+
+Check if collection exists.
+
+```rust
+let exists = nft_collection_exists(&collection_id)?;
+```
+
+**Cost**: 500 CU
+
+---
+
+### Minting
+
+#### `tos_nft_mint`
+
+Mint a single NFT.
+
+```rust
+let token_id = nft_mint(
+    &collection_id,
+    &recipient,
+    "ipfs://Qm.../metadata.json",
+)?;
+```
+
+**Cost**: 3000 CU + URI bytes
+
+#### `tos_nft_batch_mint`
+
+Batch mint multiple NFTs.
+
+```rust
+let recipients = vec![
+    (address1, "ipfs://Qm.../1.json"),
+    (address2, "ipfs://Qm.../2.json"),
+    (address3, "ipfs://Qm.../3.json"),
+];
+
+let token_ids = nft_batch_mint(&collection_id, &recipients)?;
+```
+
+**Cost**: 3000 CU + 2500 CU per NFT + URI bytes
+
+**Limit**: 100 NFTs per transaction
+
+---
+
+### Transfers
+
+#### `tos_nft_transfer`
+
+Transfer a single NFT.
+
+```rust
+nft_transfer(&collection_id, token_id, &to_address)?;
+```
+
+**Cost**: 2000 CU
+
+#### `tos_nft_batch_transfer`
+
+Batch transfer multiple NFTs.
+
+```rust
+let transfers = vec![
+    (token_id_1, address_1),
+    (token_id_2, address_2),
+    (token_id_3, address_3),
+];
+
+nft_batch_transfer(&collection_id, &transfers)?;
+```
+
+**Cost**: 2000 CU + 1500 CU per NFT
+
+**Limit**: 100 NFTs per transaction
+
+---
+
+### Burns
+
+#### `tos_nft_burn`
+
+Burn a single NFT.
+
+```rust
+nft_burn(&collection_id, token_id)?;
+```
+
+**Cost**: 2000 CU
+
+#### `tos_nft_batch_burn`
+
+Batch burn multiple NFTs.
+
+```rust
+let token_ids = vec![1, 2, 3, 4, 5];
+nft_batch_burn(&collection_id, &token_ids)?;
+```
+
+**Cost**: 2000 CU + 1500 CU per NFT
+
+---
+
+### Approvals
+
+#### `tos_nft_approve`
+
+Approve address to transfer a specific NFT.
+
+```rust
+nft_approve(&collection_id, token_id, &operator)?;
+```
+
+**Cost**: 1500 CU
+
+#### `tos_nft_get_approved`
+
+Get approved address for NFT.
+
+```rust
+let approved = nft_get_approved(&collection_id, token_id)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_set_approval_for_all`
+
+Approve/revoke operator for all NFTs.
+
+```rust
+nft_set_approval_for_all(&collection_id, &operator, true)?;
+```
+
+**Cost**: 1500 CU
+
+#### `tos_nft_is_approved_for_all`
+
+Check if operator is approved for all.
+
+```rust
+let is_approved = nft_is_approved_for_all(&collection_id, &owner, &operator)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_revoke`
+
+Revoke approval for NFT.
+
+```rust
+nft_revoke(&collection_id, token_id)?;
+```
+
+**Cost**: 1500 CU
+
+---
+
+### Freeze/Thaw
+
+Collection owners can freeze NFTs to prevent transfers.
+
+#### `tos_nft_freeze`
+
+Freeze a single NFT.
+
+```rust
+nft_freeze(&collection_id, token_id)?;
+```
+
+**Cost**: 2000 CU
+
+#### `tos_nft_thaw`
+
+Unfreeze a frozen NFT.
+
+```rust
+nft_thaw(&collection_id, token_id)?;
+```
+
+**Cost**: 2000 CU
+
+#### `tos_nft_is_frozen`
+
+Check if NFT is frozen.
+
+```rust
+let frozen = nft_is_frozen(&collection_id, token_id)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_batch_freeze` / `tos_nft_batch_thaw`
+
+Batch freeze/thaw operations.
+
+```rust
+let token_ids = vec![1, 2, 3];
+nft_batch_freeze(&collection_id, &token_ids)?;
+nft_batch_thaw(&collection_id, &token_ids)?;
+```
+
+**Cost**: 2000 CU + 1500 CU per NFT
+
+---
+
+### Metadata
+
+#### `tos_nft_set_token_uri`
+
+Update NFT metadata URI.
+
+```rust
+nft_set_token_uri(&collection_id, token_id, "ipfs://Qm.../new.json")?;
+```
+
+**Cost**: 2000 CU + URI bytes
+
+#### `tos_nft_update_attribute`
+
+Set/update on-chain attribute.
+
+```rust
+nft_update_attribute(&collection_id, token_id, "rarity", "legendary")?;
+```
+
+**Cost**: 2000 CU + key/value bytes
+
+#### `tos_nft_remove_attribute`
+
+Remove on-chain attribute.
+
+```rust
+nft_remove_attribute(&collection_id, token_id, "temporary_buff")?;
+```
+
+**Cost**: 2000 CU + key bytes
+
+---
+
+### Queries
+
+#### `tos_nft_exists`
+
+Check if NFT exists.
+
+```rust
+let exists = nft_exists(&collection_id, token_id)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_owner_of`
+
+Get NFT owner.
+
+```rust
+let owner = nft_owner_of(&collection_id, token_id)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_balance_of`
+
+Get owner's NFT count in collection.
+
+```rust
+let balance = nft_balance_of(&collection_id, &owner)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_token_uri`
+
+Get NFT metadata URI.
+
+```rust
+let uri = nft_token_uri(&collection_id, token_id)?;
+```
+
+**Cost**: 500 CU + response bytes
+
+#### `tos_nft_get_total_supply`
+
+Get total minted NFTs in collection.
+
+```rust
+let supply = nft_get_total_supply(&collection_id)?;
+```
+
+**Cost**: 500 CU
+
+#### `tos_nft_get_mint_count`
+
+Get current mint count (including burned).
+
+```rust
+let count = nft_get_mint_count(&collection_id)?;
+```
+
+**Cost**: 500 CU
+
+---
+
+## Usage Example
+
+### Creating an NFT Collection
+
+```rust
+use tako_sdk::*;
+use tako_sdk::nft::*;
+
+#[no_mangle]
+pub extern "C" fn create_collection() {
+    let caller = get_tx_sender();
+
+    // Create collection
+    let collection = nft_create_collection(
+        "TOS Punks",
+        "PUNK",
+        "https://api.tospunks.com/metadata/",
+        500,  // 5% royalty
+        Some(10000),  // Max 10k NFTs
+    ).expect("Failed to create collection");
+
+    // Store collection ID
+    storage_write(b"collection", &collection);
+
+    log(&format!("Collection created: {:?}", collection));
+}
+
+#[no_mangle]
+pub extern "C" fn mint_nft() {
+    let caller = get_tx_sender();
+    let collection = storage_read_hash(b"collection").unwrap();
+
+    // Mint to caller
+    let token_id = nft_mint(
+        &collection,
+        &caller,
+        "ipfs://QmXxx.../1.json",
+    ).expect("Failed to mint");
+
+    log(&format!("Minted token #{}", token_id));
+}
+
+#[no_mangle]
+pub extern "C" fn batch_mint() {
+    let collection = storage_read_hash(b"collection").unwrap();
+
+    // Prepare batch
+    let recipients: Vec<(Address, &str)> = vec![
+        (addr1, "ipfs://Qm.../1.json"),
+        (addr2, "ipfs://Qm.../2.json"),
+        (addr3, "ipfs://Qm.../3.json"),
+    ];
+
+    let token_ids = nft_batch_mint(&collection, &recipients)
+        .expect("Batch mint failed");
+
+    log(&format!("Minted {} NFTs", token_ids.len()));
+}
+```
+
+---
+
+## Planned Features
+
+| Feature | Status | Description |
+|---------|:------:|-------------|
+| Token Bound Account (ERC-6551) | Planned | NFTs that can own assets |
+| Rental System | Planned | Time-limited NFT lending |
+| Marketplace Integration | Planned | Native marketplace syscalls |
+| Merkle Proof Minting | Planned | Whitelist minting with proofs |
+
+---
+
+## Related
+
+- [ERC721 NFT Example](/smart-contracts/examples/erc721-nft) - Smart contract approach
+- [Batch Transfer](/native-features/batch-transfer) - Native batch operations
+- [VRF Random](/native-features/vrf-random) - For random NFT attributes
